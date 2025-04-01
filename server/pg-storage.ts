@@ -39,6 +39,23 @@ export class PgStorage implements IStorage {
       .where(eq(users.id, userId));
   }
   
+  async updateUserProfile(userId: number, profileData: { displayName?: string; email?: string; phone?: string; title?: string }): Promise<void> {
+    // Construire un objet avec seulement les champs à mettre à jour
+    const updateData: Partial<User> = {};
+    
+    if (profileData.displayName !== undefined) updateData.displayName = profileData.displayName;
+    if (profileData.email !== undefined) updateData.email = profileData.email;
+    if (profileData.phone !== undefined) updateData.phone = profileData.phone;
+    if (profileData.title !== undefined) updateData.title = profileData.title;
+    
+    // Ne faire la mise à jour que s'il y a des données à mettre à jour
+    if (Object.keys(updateData).length > 0) {
+      await db.update(users)
+        .set(updateData)
+        .where(eq(users.id, userId));
+    }
+  }
+  
   // Conversation methods
   async getConversation(id: number): Promise<Conversation | undefined> {
     const results = await db.select().from(conversations).where(eq(conversations.id, id));

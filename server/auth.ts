@@ -68,7 +68,7 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/register", async (req, res) => {
     try {
       const { username, password, displayName } = req.body;
       
@@ -109,7 +109,7 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/auth/login", (req, res, next) => {
+  app.post("/api/login", (req, res, next) => {
     passport.authenticate("local", (err: any, user: Express.User, info: any) => {
       if (err) {
         return next(err);
@@ -134,7 +134,7 @@ export function setupAuth(app: Express) {
     })(req, res, next);
   });
 
-  app.post("/api/auth/logout", (req, res) => {
+  app.post("/api/logout", (req, res) => {
     // Mettre à jour le statut de l'utilisateur avant la déconnexion
     if (req.user) {
       storage.updateUserStatus((req.user as Express.User).id, 'offline');

@@ -79,6 +79,8 @@ app.use((req, res, next) => {
     log(`Erreur lors de l'initialisation de la base de données: ${error}`, 'database');
   }
   
+  // Définir les routes API AVANT de configurer Vite
+  // afin que les routes API ne soient pas interceptées par le middleware de Vite
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -89,9 +91,8 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // Important: Vite est configuré après les routes API
+  // pour que son middleware catch-all n'interfère pas avec les routes API
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
