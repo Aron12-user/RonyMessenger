@@ -23,9 +23,14 @@ export default function Contacts() {
   });
 
   // Fetch all users for searching
-  const { data: allUsers = [] as User[] } = useQuery<User[]>({
+  const { data: usersResponse } = useQuery({
     queryKey: [API_ENDPOINTS.USERS],
   });
+  
+  // Extract users array from the paginated response
+  const allUsers = Array.isArray(usersResponse?.data) 
+    ? usersResponse.data 
+    : (usersResponse ? [usersResponse] : []);
 
   // Add contact mutation
   const addContactMutation = useMutation({

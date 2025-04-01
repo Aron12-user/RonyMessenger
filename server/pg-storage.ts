@@ -427,11 +427,16 @@ export class PgStorage implements IStorage {
         return existingContacts[0];
       }
       
-      console.log('Creating new contact with data:', dbContactData);
+      console.log('Creating new contact with data:', contactData);
       
-      // Créer un nouveau contact avec les données adaptées
+      // Convertir les données en respectant le format attendu par Drizzle
       const results = await db.insert(contacts)
-        .values(dbContactData)
+        .values({
+          user_id: contactData.userId,
+          contact_id: contactData.contactId,
+          is_favorite: contactData.isFavorite === undefined ? false : contactData.isFavorite,
+          created_at: contactData.createdAt || new Date()
+        } as any)
         .returning();
         
       console.log('Contact created, result:', results);
