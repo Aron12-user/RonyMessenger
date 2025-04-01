@@ -2,10 +2,31 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { runMigrations, seedDatabase } from './db';
+import session from 'express-session';
+import connectPgSimple from 'connect-pg-simple';
+import { db } from './db';
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Configuration de session avec stockage PostgreSQL
+const PgSession = connectPgSimple(session);
+app.use(session({
+  store: new PgSession({
+    conObject: {
+      connectionString: process.env.DATABASE_URL,
+    },
+    createTableIfMissing: true
+  }),
+  secret: process.env.SESSION_SECRET || 'rony_session_secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production', 
+    maxAge: 24 * 60 * 60 * 1000 // 1 jour
+  }
+}));
 
 app.use((req, res, next) => {
   const start = Date.now();
