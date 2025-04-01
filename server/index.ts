@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { runMigrations, seedDatabase } from './db';
 
 const app = express();
 app.use(express.json());
@@ -37,6 +38,26 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Exécuter les migrations de base de données
+  try {
+    const migrationsOk = await runMigrations();
+    if (migrationsOk) {
+      log('Migrations de base de données réussies', 'database');
+      
+      // Initialiser les données de test si besoin
+      const seedOk = await seedDatabase();
+      if (seedOk) {
+        log('Initialisation des données réussie', 'database');
+      } else {
+        log('Échec de l\'initialisation des données', 'database');
+      }
+    } else {
+      log('Échec des migrations de base de données', 'database');
+    }
+  } catch (error) {
+    log(`Erreur lors de l'initialisation de la base de données: ${error}`, 'database');
+  }
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
