@@ -28,7 +28,6 @@ function App() {
     <AuthProvider>
       <div className="font-sans antialiased bg-background text-foreground min-h-screen">
         <Switch>
-          <Route path="/login" component={AuthPage} />
           <Route path="/auth" component={AuthPage} />
           <Route path="/">
             <ProtectedRoute>
