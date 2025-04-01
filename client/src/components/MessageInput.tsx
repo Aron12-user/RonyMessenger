@@ -43,12 +43,27 @@ export default function MessageInput({ onSendMessage }: MessageInputProps) {
       setMessage(`[Pièce jointe: ${file.name}]`);
       
       try {
+        toast({
+          title: "Préparation",
+          description: "Compression et chiffrement du fichier en cours...",
+        });
+        
         const { encryptedData, key } = await encryptFile(file);
         setSelectedFile({
           ...file,
           encryptedData,
           encryptionKey: key
         } as any);
+        
+        // Notification de fichier prêt
+        ws?.send(JSON.stringify({
+          type: 'file_ready',
+          data: {
+            fileName: file.name,
+            fileSize: file.size,
+            conversationId
+          }
+        }));
         
         toast({
           title: "Succès",

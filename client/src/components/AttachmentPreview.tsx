@@ -46,7 +46,13 @@ export default function AttachmentPreview({ fileUrl, encryptionKey, fileName, fi
   const handleDownload = async () => {
     if (previewUrl) {
       try {
-        const blob = await fetch(previewUrl).then(r => r.blob());
+        toast({
+          title: "Téléchargement",
+          description: "Début du téléchargement du fichier...",
+        });
+        
+        const response = await fetch(previewUrl);
+        const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -55,6 +61,11 @@ export default function AttachmentPreview({ fileUrl, encryptionKey, fileName, fi
         link.click();
         link.remove();
         window.URL.revokeObjectURL(url);
+        
+        toast({
+          title: "Succès",
+          description: "Fichier téléchargé et déchiffré avec succès",
+        });
       } catch (error) {
         toast({
           title: "Erreur",

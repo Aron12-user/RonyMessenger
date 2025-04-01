@@ -10,7 +10,14 @@ export async function encryptFile(file: File): Promise<{ encryptedData: string; 
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const wordArray = CryptoJS.lib.WordArray.create(e.target?.result as ArrayBuffer);
+        // Compress if file is larger than 1MB
+        let data = e.target?.result as ArrayBuffer;
+        if (file.size > 1024 * 1024) {
+          const compressedArray = await compressData(new Uint8Array(data));
+          data = compressedArray.buffer;
+        }
+        
+        const wordArray = CryptoJS.lib.WordArray.create(data);
         const encrypted = CryptoJS.AES.encrypt(wordArray, key).toString();
         resolve({ encryptedData: encrypted, key });
       } catch (error) {
@@ -20,6 +27,13 @@ export async function encryptFile(file: File): Promise<{ encryptedData: string; 
     reader.onerror = (error) => reject(error);
     reader.readAsArrayBuffer(file);
   });
+}
+
+async function compressData(data: Uint8Array): Promise<Uint8Array> {
+  const stream = new CompressionStream('gzip');
+  const compressedStream = new Blob([data]).stream().pipeThrough(stream);
+  const compressedData = await new Response(compressedStream).arrayBuffer();
+  return new Uint8Array(compressedData);
 }
 
 export function decryptFile(encryptedData: string, key: string): ArrayBuffer {
