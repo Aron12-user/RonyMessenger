@@ -24,7 +24,13 @@ export const WS_EVENTS = {
   NEW_MESSAGE: 'new_message',
   USER_STATUS: 'user_status',
   USER_TYPING: 'user_typing',
-  MESSAGE_READ: 'message_read'
+  MESSAGE_READ: 'message_read',
+  CALL_OFFER: 'call_offer',
+  CALL_ANSWER: 'call_answer',
+  CALL_REJECTED: 'call_rejected',
+  CALL_ENDED: 'call_ended',
+  JOIN_MEETING: 'join_meeting',
+  LEAVE_MEETING: 'leave_meeting'
 };
 
 // Local storage keys

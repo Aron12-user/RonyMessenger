@@ -17,8 +17,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const httpServer = createServer(app);
   
-  // Create WebSocket server
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  // Create WebSocket server on a distinct endpoint
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/ws',
+    perMessageDeflate: false // Désactiver la compression pour éviter les problèmes de compatibilité
+  });
   
   // WebSocket handling
   wss.on('connection', (ws) => {

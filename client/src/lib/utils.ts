@@ -1,8 +1,14 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { v4 as uuidv4 } from 'uuid';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+export function generateRandomMeetingId(): string {
+  // Générer un UUID et prendre les 12 premiers caractères pour un ID plus court et plus facile à partager
+  return uuidv4().substring(0, 12);
 }
 
 export function formatTimestamp(timestamp: Date | string | number): string {
