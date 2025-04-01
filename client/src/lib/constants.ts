@@ -8,9 +8,9 @@ export const USER_STATUSES = {
 
 // API endpoints
 export const API_ENDPOINTS = {
-  LOGIN: '/api/auth/login',
-  REGISTER: '/api/auth/register',
-  LOGOUT: '/api/auth/logout',
+  LOGIN: '/api/login',
+  REGISTER: '/api/register',
+  LOGOUT: '/api/logout',
   USER: '/api/user',
   USERS: '/api/users',
   CONVERSATIONS: '/api/conversations',
