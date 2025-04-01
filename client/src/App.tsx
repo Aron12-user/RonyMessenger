@@ -1,9 +1,10 @@
 import { Switch, Route } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
-import Login from "@/pages/Login";
-import Register from "@/pages/Register";
+import AuthPage from "@/pages/AuthPage";
 import Home from "@/pages/Home";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AuthProvider } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 
 function App() {
@@ -24,15 +25,21 @@ function App() {
   }, [isDarkMode]);
 
   return (
-    <div className="font-sans antialiased bg-background text-foreground min-h-screen">
-      <Switch>
-        <Route path="/login" component={Login} />
-        <Route path="/register" component={Register} />
-        <Route path="/" component={() => <Home isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />} />
-        <Route component={NotFound} />
-      </Switch>
-      <Toaster />
-    </div>
+    <AuthProvider>
+      <div className="font-sans antialiased bg-background text-foreground min-h-screen">
+        <Switch>
+          <Route path="/login" component={AuthPage} />
+          <Route path="/auth" component={AuthPage} />
+          <Route path="/">
+            <ProtectedRoute>
+              <Home isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />
+            </ProtectedRoute>
+          </Route>
+          <Route component={NotFound} />
+        </Switch>
+        <Toaster />
+      </div>
+    </AuthProvider>
   );
 }
 

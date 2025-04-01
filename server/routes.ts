@@ -1,15 +1,19 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { json } from "express";
 import { insertUserSchema, insertMessageSchema } from "@shared/schema";
 import { z } from "zod";
+import { setupAuth } from "./auth";
 
 // Map of online users
 const onlineUsers = new Map<number, WebSocket>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Set up authentication
+  const { requireAuth } = setupAuth(app);
+  
   // Create HTTP server
   const httpServer = createServer(app);
   
@@ -127,68 +131,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   
   // API Routes
-  // Auth routes
-  app.post('/api/auth/register', async (req, res) => {
-    try {
-      const userData = insertUserSchema.parse(req.body);
-      const user = await storage.createUser(userData);
-      
-      // Don't send the password back
-      const { password, ...userWithoutPassword } = user;
-      
-      res.status(201).json(userWithoutPassword);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: 'Invalid input data' });
-      }
-      res.status(500).json({ message: 'Could not create user' });
-    }
-  });
+  // User routes (handled by our auth.ts)
   
-  app.post('/api/auth/login', async (req, res) => {
-    try {
-      const { username, password } = req.body;
-      
-      if (!username || !password) {
-        return res.status(400).json({ message: 'Username and password are required' });
-      }
-      
-      const user = await storage.getUserByUsername(username);
-      
-      if (!user || user.password !== password) {
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
-      
-      // Set user session, in a real app would use JWT or sessions
-      // For this example, we'll simulate setting a session
-      res.status(200).json({ 
-        id: user.id,
-        username: user.username,
-        displayName: user.displayName,
-        status: user.status
-      });
-    } catch (error) {
-      res.status(500).json({ message: 'Login failed' });
-    }
-  });
-  
-  // User routes
-  app.get('/api/user', async (req, res) => {
-    // In a real app, get the user from session/JWT
-    // For this example, return a mock current user
-    const currentUser = await storage.getUser(1);
-    
-    if (!currentUser) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    // Don't send the password back
-    const { password, ...userWithoutPassword } = currentUser;
-    
-    res.json(userWithoutPassword);
-  });
-  
-  app.get('/api/users', async (req, res) => {
+  app.get('/api/users', requireAuth, async (req, res) => {
     const users = await storage.getAllUsers();
     
     // Don't send passwords back
@@ -201,20 +146,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Conversation routes
-  app.get('/api/conversations', async (req, res) => {
-    // In a real app, get user ID from session/JWT
-    const userId = 1; // Mock current user ID
+  app.get('/api/conversations', requireAuth, async (req, res) => {
+    // Utiliser l'ID de l'utilisateur connecté
+    const userId = (req.user as Express.User).id;
     
     const conversations = await storage.getConversationsForUser(userId);
     res.json(conversations);
   });
   
-  app.post('/api/conversations', async (req, res) => {
+  app.post('/api/conversations', requireAuth, async (req, res) => {
     try {
       const { participantId } = req.body;
       
-      // In a real app, get creatorId from session/JWT
-      const creatorId = 1; // Mock current user ID
+      // Utiliser l'ID de l'utilisateur connecté
+      const creatorId = (req.user as Express.User).id;
       
       if (!participantId) {
         return res.status(400).json({ message: 'Participant ID is required' });
@@ -249,12 +194,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put('/api/conversations/:id/read', async (req, res) => {
+  app.put('/api/conversations/:id/read', requireAuth, async (req, res) => {
     try {
       const conversationId = parseInt(req.params.id);
       
-      // In a real app, get user ID from session/JWT
-      const userId = 1; // Mock current user ID
+      // Utiliser l'ID de l'utilisateur connecté
+      const userId = (req.user as Express.User).id;
       
       await storage.markConversationAsRead(conversationId, userId);
       
@@ -265,19 +210,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Messages routes
-  app.get('/api/messages/:conversationId', async (req, res) => {
+  app.get('/api/messages/:conversationId', requireAuth, async (req, res) => {
     const conversationId = parseInt(req.params.conversationId);
     
     const messages = await storage.getMessagesForConversation(conversationId);
     res.json(messages);
   });
   
-  app.post('/api/messages/:conversationId', async (req, res) => {
+  app.post('/api/messages/:conversationId', requireAuth, async (req, res) => {
     try {
       const conversationId = parseInt(req.params.conversationId);
       
-      // In a real app, get sender ID from session/JWT
-      const senderId = 1; // Mock current user ID
+      // Utiliser l'ID de l'utilisateur connecté
+      const senderId = (req.user as Express.User).id;
       
       const messageData = insertMessageSchema.parse({
         ...req.body,
@@ -307,27 +252,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Files routes
-  app.get('/api/files', async (req, res) => {
-    // In a real app, get user ID from session/JWT
-    const userId = 1; // Mock current user ID
+  app.get('/api/files', requireAuth, async (req, res) => {
+    // Utiliser l'ID de l'utilisateur connecté
+    const userId = (req.user as Express.User).id;
     
     const files = await storage.getFilesForUser(userId);
     res.json(files);
   });
   
   // Contacts routes
-  app.get('/api/contacts', async (req, res) => {
-    // In a real app, get user ID from session/JWT
-    const userId = 1; // Mock current user ID
+  app.get('/api/contacts', requireAuth, async (req, res) => {
+    // Utiliser l'ID de l'utilisateur connecté
+    const userId = (req.user as Express.User).id;
     
     const contacts = await storage.getContactsForUser(userId);
     res.json(contacts);
   });
   
-  app.post('/api/contacts', async (req, res) => {
+  app.post('/api/contacts', requireAuth, async (req, res) => {
     try {
-      // In a real app, get user ID from session/JWT
-      const userId = 1; // Mock current user ID
+      // Utiliser l'ID de l'utilisateur connecté
+      const userId = (req.user as Express.User).id;
       const { username } = req.body;
       
       if (!username) {
