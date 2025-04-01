@@ -50,7 +50,9 @@ export default function Contacts() {
       return res.json();
     },
     onSuccess: () => {
+      // Rafraîchir à la fois les contacts et les utilisateurs
       queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.CONTACTS] });
+      queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.USERS] });
       setShowAddModal(false);
       setUsername("");
       toast({
