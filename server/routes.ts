@@ -310,5 +310,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Route pour mettre à jour le profil utilisateur
+  app.patch('/api/user/profile', requireAuth, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const userId = (req.user as Express.User).id;
+      const { displayName, email, phone, title } = req.body;
+      
+      // Créer un objet avec uniquement les données à mettre à jour
+      const updateData: { displayName?: string; email?: string; phone?: string; title?: string } = {};
+      
+      if (displayName !== undefined) updateData.displayName = displayName;
+      if (email !== undefined) updateData.email = email;
+      if (phone !== undefined) updateData.phone = phone;
+      if (title !== undefined) updateData.title = title;
+      
+      // Mettre à jour les informations utilisateur
+      await storage.updateUserProfile(userId, updateData);
+      
+      // Récupérer les informations mises à jour
+      const updatedUser = await storage.getUser(userId);
+      if (!updatedUser) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      // Retourner l'utilisateur sans le mot de passe
+      const { password, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      res.status(500).json({ message: 'Failed to update profile' });
+    }
+  });
+
   return httpServer;
 }

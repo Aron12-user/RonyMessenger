@@ -9,6 +9,7 @@ import Meetings from "@/pages/Meetings";
 import Files from "@/pages/Files";
 import CloudStorage from "@/pages/CloudStorage";
 import Contacts from "@/pages/Contacts";
+import Settings from "@/pages/Settings";
 import { API_ENDPOINTS } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 
@@ -56,6 +57,8 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
         return <CloudStorage />;
       case "contacts":
         return <Contacts />;
+      case "settings":
+        return <Settings />;
       default:
         return <Messages />;
     }

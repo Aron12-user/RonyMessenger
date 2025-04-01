@@ -36,6 +36,7 @@ export default function Sidebar({
     { name: "Files", icon: "folder", target: "files" },
     { name: "Cloud Storage", icon: "cloud", target: "cloud" },
     { name: "Contacts", icon: "people", target: "contacts" },
+    { name: "Settings", icon: "settings", target: "settings" },
   ];
 
   const mobileClass = isMobileOpen ? "translate-x-0" : "-translate-x-full";

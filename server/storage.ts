@@ -8,6 +8,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
   updateUserStatus(userId: number, status: string): Promise<void>;
+  updateUserProfile(userId: number, profileData: { displayName?: string; email?: string; phone?: string; title?: string }): Promise<void>;
   
   // Conversations
   getConversation(id: number): Promise<Conversation | undefined>;
@@ -141,6 +142,19 @@ export class MemStorage implements IStorage {
     if (user) {
       user.status = status;
       user.lastSeen = new Date();
+      this.users.set(userId, user);
+    }
+  }
+  
+  async updateUserProfile(userId: number, profileData: { displayName?: string; email?: string; phone?: string; title?: string }): Promise<void> {
+    const user = await this.getUser(userId);
+    if (user) {
+      // Mettre à jour uniquement les champs fournis
+      if (profileData.displayName !== undefined) user.displayName = profileData.displayName;
+      if (profileData.email !== undefined) user.email = profileData.email;
+      if (profileData.phone !== undefined) user.phone = profileData.phone;
+      if (profileData.title !== undefined) user.title = profileData.title;
+      
       this.users.set(userId, user);
     }
   }

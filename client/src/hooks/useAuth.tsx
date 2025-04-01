@@ -9,6 +9,10 @@ interface User {
   username: string;
   displayName: string | null;
   status: string;
+  email: string | null;
+  phone: string | null;
+  title: string | null;
+  lastSeen?: Date;
 }
 
 interface AuthContextType {
@@ -130,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user: user || null,
+        user: user as User | null,
         isLoading,
         error,
         login,
