@@ -471,6 +471,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Préparation des données pour la création du dossier
       const folderData: InsertFolder = {
         name,
+        userId: userId,
         parentId: parentId === "null" ? null : (parentId ? parseInt(parentId) : null),
         path: path || name,
         ownerId: userId,
@@ -589,9 +590,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Share file
           const sharingData: InsertFileSharing = {
             fileId,
+            ownerId: userId,
             sharedWithId: recipientUser.id,
             permission: permission || 'read',
-            sharedAt: new Date()
+            createdAt: new Date()
           };
           
           console.log('Sharing file with data:', sharingData);

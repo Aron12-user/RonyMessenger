@@ -329,8 +329,17 @@ export class PgStorage implements IStorage {
       .set({ isShared: true })
       .where(eq(files.id, sharingData.fileId));
     
+    // Créer l'entrée de partage avec les données requises
+    const data = {
+      fileId: sharingData.fileId,
+      ownerId: sharingData.ownerId,
+      sharedWithId: sharingData.sharedWithId,
+      permission: sharingData.permission,
+      createdAt: sharingData.createdAt || new Date()
+    };
+    
     // Créer l'entrée de partage
-    const results = await db.insert(fileSharing).values(sharingData).returning();
+    const results = await db.insert(fileSharing).values(data).returning();
     return results[0];
   }
   
@@ -393,6 +402,14 @@ export class PgStorage implements IStorage {
     try {
       console.log('PgStorage.addContact called with data:', contactData);
       
+      // Adapter les noms des propriétés au format snake_case pour la base de données
+      const dbContactData = {
+        user_id: contactData.userId,
+        contact_id: contactData.contactId,
+        is_favorite: contactData.isFavorite ?? false,
+        created_at: contactData.createdAt ?? new Date()
+      };
+      
       // Vérifier si le contact existe déjà
       const existingContacts = await db.select()
         .from(contacts)
@@ -410,20 +427,13 @@ export class PgStorage implements IStorage {
         return existingContacts[0];
       }
       
-      // Définir une valeur par défaut pour createdAt si non fournie
-      if (!contactData.createdAt) {
-        contactData.createdAt = new Date();
-      }
+      console.log('Creating new contact with data:', dbContactData);
       
-      // S'assurer que isFavorite a une valeur par défaut
-      if (contactData.isFavorite === undefined) {
-        contactData.isFavorite = false;
-      }
-      
-      console.log('Creating new contact with data:', contactData);
-      
-      // Créer un nouveau contact
-      const results = await db.insert(contacts).values(contactData).returning();
+      // Créer un nouveau contact avec les données adaptées
+      const results = await db.insert(contacts)
+        .values(dbContactData)
+        .returning();
+        
       console.log('Contact created, result:', results);
       
       return results[0];
