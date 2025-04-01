@@ -25,11 +25,60 @@ export default function MessageInput({ onSendMessage }: MessageInputProps) {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
+      
+      // Vérifier la taille du fichier (max 50MB)
+      if (file.size > 50 * 1024 * 1024) {
+        toast({
+          title: "Erreur",
+          description: "Le fichier est trop volumineux (max 50MB)",
+          variant: "destructive"
+        });
+        return;
+      }
+
       setSelectedFile(file);
-      setMessage(`[Attachment: ${file.name}] `);
+      setMessage(`[Pièce jointe: ${file.name}]`);
+      
+      try {
+        toast({
+          title: "Préparation",
+          description: "Compression et chiffrement du fichier en cours...",
+        });
+        
+        const { encryptedData, key } = await encryptFile(file);
+        setSelectedFile({
+          ...file,
+          encryptedData,
+          encryptionKey: key
+        } as any);
+        
+        // Notification de fichier prêt
+        ws?.send(JSON.stringify({
+          type: 'file_ready',
+          data: {
+            fileName: file.name,
+            fileSize: file.size,
+            conversationId
+          }
+        }));
+        
+        toast({
+          title: "Succès",
+          description: "Fichier chiffré et prêt à être envoyé",
+        });
+      } catch (error) {
+        console.error('Error encrypting file:', error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de chiffrer le fichier",
+          variant: "destructive"
+        });
+        setSelectedFile(null);
+        setMessage("");
+      }
     }
   };
 
