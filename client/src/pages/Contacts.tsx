@@ -1,33 +1,93 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import UserAvatar from "@/components/UserAvatar";
-import StatusIndicator from "@/components/StatusIndicator";
+import StatusIndicator, { UserStatus } from "@/components/StatusIndicator";
 import { API_ENDPOINTS } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import { User } from "@shared/schema";
 
 export default function Contacts() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [username, setUsername] = useState("");
+  const [showAddModal, setShowAddModal] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Fetch contacts
-  const { data: contacts = [] } = useQuery({
+  const { data: contacts = [] as User[] } = useQuery<User[]>({
     queryKey: [API_ENDPOINTS.CONTACTS],
   });
 
+  // Fetch all users for searching
+  const { data: allUsers = [] as User[] } = useQuery<User[]>({
+    queryKey: [API_ENDPOINTS.USERS],
+  });
+
+  // Add contact mutation
+  const addContactMutation = useMutation({
+    mutationFn: async (contactUsername: string) => {
+      const res = await apiRequest("POST", API_ENDPOINTS.CONTACTS, { username: contactUsername });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.CONTACTS] });
+      setShowAddModal(false);
+      setUsername("");
+      toast({
+        title: "Contact ajouté",
+        description: "Le contact a été ajouté avec succès à votre liste"
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erreur d'ajout",
+        description: error.message || "Impossible d'ajouter ce contact",
+        variant: "destructive"
+      });
+    }
+  });
+
   const handleAddContact = () => {
-    toast({
-      title: "Add Contact",
-      description: "Contact creation would be implemented here",
-    });
+    setShowAddModal(true);
+  };
+  
+  const submitAddContact = () => {
+    if (!username.trim()) {
+      toast({
+        title: "Nom d'utilisateur requis",
+        description: "Veuillez saisir un nom d'utilisateur",
+        variant: "destructive"
+      });
+      return;
+    }
+    addContactMutation.mutate(username);
   };
 
+  // Mutation pour créer une nouvelle conversation
+  const createConversationMutation = useMutation({
+    mutationFn: async (participantId: number) => {
+      const res = await apiRequest("POST", API_ENDPOINTS.CONVERSATIONS, { participantId });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      // Rediriger vers la page de messages avec la nouvelle conversation active
+      window.location.href = '/?conversation=' + data.id;
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de créer une conversation",
+        variant: "destructive"
+      });
+    }
+  });
+
   const handleMessage = (contact: User) => {
-    toast({
-      title: "Message",
-      description: `Messaging ${contact.displayName || contact.username} would be implemented here`,
-    });
+    createConversationMutation.mutate(contact.id);
   };
 
   const handleCall = (contact: User) => {
@@ -55,7 +115,7 @@ export default function Contacts() {
                   type="text" 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search contacts..." 
+                  placeholder="Rechercher des contacts..." 
                   className="pl-9 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
@@ -67,7 +127,7 @@ export default function Contacts() {
                 className="bg-primary hover:bg-primary-dark text-white py-2 px-4 rounded-lg flex items-center space-x-2"
               >
                 <span className="material-icons">person_add</span>
-                <span>Add Contact</span>
+                <span>Ajouter</span>
               </Button>
             </div>
           </div>
@@ -83,11 +143,11 @@ export default function Contacts() {
                         color={getColorForUser(contact.id)}
                         size="lg"
                       />
-                      <StatusIndicator status={contact.status} />
+                      <StatusIndicator status={contact.status as UserStatus} />
                     </div>
                     <div className="ml-3">
                       <h3 className="font-medium text-lg">{contact.displayName || contact.username}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{contact.title || 'User'}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{contact.title || 'Utilisateur'}</p>
                     </div>
                     <button className="ml-auto p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                       <span className="material-icons">more_vert</span>
@@ -124,7 +184,7 @@ export default function Contacts() {
                       className="flex-1 bg-secondary/10 hover:bg-secondary/20 text-secondary py-2 rounded flex items-center justify-center"
                     >
                       <span className="material-icons text-sm mr-1">videocam</span>
-                      <span>Call</span>
+                      <span>Appel</span>
                     </Button>
                   </div>
                 </div>
@@ -132,12 +192,12 @@ export default function Contacts() {
             ) : (
               <div className="col-span-3 text-center py-8 text-gray-500 dark:text-gray-400">
                 {searchQuery ? (
-                  <p>No contacts match your search. Try different keywords.</p>
+                  <p>Aucun contact ne correspond à votre recherche. Essayez d'autres mots-clés.</p>
                 ) : (
                   <div>
                     <span className="material-icons text-4xl mb-2">people</span>
-                    <p className="text-lg mb-2">Your contacts list is empty</p>
-                    <p>Add contacts to start messaging</p>
+                    <p className="text-lg mb-2">Votre liste de contacts est vide</p>
+                    <p>Ajoutez des contacts pour commencer à échanger des messages</p>
                   </div>
                 )}
               </div>
@@ -145,6 +205,68 @@ export default function Contacts() {
           </div>
         </div>
       </div>
+
+      {/* Modal d'ajout de contact */}
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ajouter un contact</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Entrez le nom d'utilisateur de la personne que vous souhaitez ajouter à vos contacts.
+            </p>
+            <Input
+              type="text"
+              placeholder="Nom d'utilisateur"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full"
+            />
+            
+            {username.length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm font-medium mb-2">Utilisateurs correspondants :</p>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {allUsers.filter((user: User) => 
+                    user.username.toLowerCase().includes(username.toLowerCase()) ||
+                    (user.displayName && user.displayName.toLowerCase().includes(username.toLowerCase()))
+                  ).map((user: User) => (
+                    <div 
+                      key={user.id}
+                      onClick={() => setUsername(user.username)}
+                      className="flex items-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                    >
+                      <UserAvatar 
+                        initials={`${user.username.charAt(0)}${user.username.charAt(Math.min(1, user.username.length - 1))}`.toUpperCase()} 
+                        color={getColorForUser(user.id)}
+                        size="sm"
+                      />
+                      <div className="ml-3">
+                        <p className="font-medium">{user.displayName || user.username}</p>
+                        {user.displayName && <p className="text-xs text-gray-500">@{user.username}</p>}
+                      </div>
+                      <StatusIndicator status={user.status as UserStatus} size="sm" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex space-x-2 justify-end">
+            <Button variant="outline" onClick={() => setShowAddModal(false)}>
+              Annuler
+            </Button>
+            <Button 
+              onClick={submitAddContact}
+              disabled={addContactMutation.isPending}
+              className="bg-primary text-white"
+            >
+              {addContactMutation.isPending ? "Ajout en cours..." : "Ajouter"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
