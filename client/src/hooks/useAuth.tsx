@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext } from 'react';
+import { createContext, ReactNode, useContext, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { API_ENDPOINTS } from '@/lib/constants';
 import { getQueryFn, apiRequest, queryClient } from '@/lib/queryClient';
@@ -43,19 +43,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } = useQuery({
     queryKey: [API_ENDPOINTS.USER],
     queryFn: getQueryFn({ on401: 'returnNull' }),
-    retry: false
+    retry: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
+  
+  // Log pour le débogage de l'état d'authentification
+  useEffect(() => {
+    console.log('AuthProvider state:', { user, isLoading, error });
+  }, [user, isLoading, error]);
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: { username: string; password: string }) => {
+      console.log('Login attempt for:', credentials.username);
       const res = await apiRequest('POST', API_ENDPOINTS.LOGIN, credentials);
       if (!res.ok) {
         const errData = await res.json();
+        console.error('Login error response:', errData);
         throw new Error(errData.message || 'Échec de la connexion');
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (userData) => {
+      console.log('Login successful:', userData);
       refetch();
       toast({
         title: 'Connexion réussie',
@@ -63,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
     onError: (error: Error) => {
+      console.error('Login error:', error);
       toast({
         title: 'Échec de la connexion',
         description: error.message,
@@ -73,12 +83,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
+      console.log('Logout attempt');
       const res = await apiRequest('POST', API_ENDPOINTS.LOGOUT);
       if (!res.ok) {
         throw new Error('Échec de la déconnexion');
       }
     },
     onSuccess: () => {
+      console.log('Logout successful');
       queryClient.setQueryData([API_ENDPOINTS.USER], null);
       toast({
         title: 'Déconnexion réussie',
@@ -86,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
     onError: (error: Error) => {
+      console.error('Logout error:', error);
       toast({
         title: 'Échec de la déconnexion',
         description: error.message,
@@ -96,14 +109,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerMutation = useMutation({
     mutationFn: async (userData: RegisterData) => {
+      console.log('Registration attempt for:', userData.username);
       const res = await apiRequest('POST', API_ENDPOINTS.REGISTER, userData);
       if (!res.ok) {
         const errData = await res.json();
+        console.error('Registration error response:', errData);
         throw new Error(errData.message || 'Échec de l\'inscription');
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (userData) => {
+      console.log('Registration successful:', userData);
       refetch();
       toast({
         title: 'Inscription réussie',
@@ -111,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
     onError: (error: Error) => {
+      console.error('Registration error:', error);
       toast({
         title: 'Échec de l\'inscription',
         description: error.message,
