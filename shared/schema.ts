@@ -78,6 +78,7 @@ export const messages = pgTable("messages", {
 export const folders = pgTable("folders", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  userId: integer("user_id").notNull().references(() => users.id),
   parentId: integer("parent_id"),
   ownerId: integer("owner_id").notNull().references(() => users.id),
   path: text("path").notNull(),
@@ -139,10 +140,10 @@ export const files = pgTable("files", {
 export const fileSharing = pgTable("file_sharing", {
   id: serial("id").primaryKey(),
   fileId: integer("file_id").references(() => files.id).notNull(),
+  ownerId: integer("owner_id").references(() => users.id).notNull(),
   sharedWithId: integer("shared_with_id").references(() => users.id).notNull(),
   permission: text("permission").notNull(), // 'read', 'write', etc.
-  sharedAt: timestamp("shared_at").defaultNow().notNull(),
-  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => {
   return {
     fileIdIdx: index("sharing_file_id_idx").on(table.fileId),

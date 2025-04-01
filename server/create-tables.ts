@@ -11,11 +11,16 @@ export async function createTables() {
       CREATE TABLE IF NOT EXISTS "folders" (
         "id" SERIAL PRIMARY KEY,
         "name" TEXT NOT NULL,
-        "userId" INTEGER NOT NULL,
-        "parentId" INTEGER,
-        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "folders_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE,
-        CONSTRAINT "folders_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "folders"("id") ON DELETE CASCADE
+        "user_id" INTEGER NOT NULL,
+        "parent_id" INTEGER,
+        "path" TEXT NOT NULL DEFAULT '',
+        "owner_id" INTEGER NOT NULL,
+        "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "is_shared" BOOLEAN DEFAULT FALSE,
+        CONSTRAINT "folders_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE,
+        CONSTRAINT "folders_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "folders"("id") ON DELETE CASCADE,
+        CONSTRAINT "folders_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE CASCADE
       );
     `);
     console.log('Table folders créée ou existante');
@@ -28,12 +33,15 @@ export async function createTables() {
         "path" TEXT NOT NULL,
         "size" INTEGER NOT NULL,
         "type" TEXT NOT NULL,
-        "userId" INTEGER NOT NULL,
-        "folderId" INTEGER,
-        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "files_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE,
-        CONSTRAINT "files_folderId_fkey" FOREIGN KEY ("folderId") REFERENCES "folders"("id") ON DELETE SET NULL
+        "user_id" INTEGER NOT NULL,
+        "folder_id" INTEGER,
+        "uploader_id" INTEGER NOT NULL,
+        "is_shared" BOOLEAN DEFAULT FALSE,
+        "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "files_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE,
+        CONSTRAINT "files_folder_id_fkey" FOREIGN KEY ("folder_id") REFERENCES "folders"("id") ON DELETE SET NULL,
+        CONSTRAINT "files_uploader_id_fkey" FOREIGN KEY ("uploader_id") REFERENCES "users"("id") ON DELETE CASCADE
       );
     `);
     console.log('Table files créée ou existante');
@@ -42,14 +50,15 @@ export async function createTables() {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS "file_sharing" (
         "id" SERIAL PRIMARY KEY,
-        "fileId" INTEGER NOT NULL,
-        "ownerId" INTEGER NOT NULL,
-        "sharedWithId" INTEGER NOT NULL,
+        "file_id" INTEGER NOT NULL,
+        "owner_id" INTEGER NOT NULL,
+        "shared_with_id" INTEGER NOT NULL,
         "permission" TEXT NOT NULL,
-        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "file_sharing_fileId_fkey" FOREIGN KEY ("fileId") REFERENCES "files"("id") ON DELETE CASCADE,
-        CONSTRAINT "file_sharing_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "users"("id") ON DELETE CASCADE,
-        CONSTRAINT "file_sharing_sharedWithId_fkey" FOREIGN KEY ("sharedWithId") REFERENCES "users"("id") ON DELETE CASCADE
+        "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "file_sharing_file_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files"("id") ON DELETE CASCADE,
+        CONSTRAINT "file_sharing_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE CASCADE,
+        CONSTRAINT "file_sharing_shared_with_id_fkey" FOREIGN KEY ("shared_with_id") REFERENCES "users"("id") ON DELETE CASCADE,
+        CONSTRAINT "file_sharing_unique_idx" UNIQUE ("file_id", "shared_with_id")
       );
     `);
     console.log('Table file_sharing créée ou existante');
@@ -58,12 +67,12 @@ export async function createTables() {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS "contacts" (
         "id" SERIAL PRIMARY KEY,
-        "userId" INTEGER NOT NULL,
-        "contactId" INTEGER NOT NULL,
-        "isFavorite" BOOLEAN DEFAULT false,
-        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "contacts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE,
-        CONSTRAINT "contacts_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "users"("id") ON DELETE CASCADE
+        "user_id" INTEGER NOT NULL,
+        "contact_id" INTEGER NOT NULL,
+        "is_favorite" BOOLEAN DEFAULT false,
+        "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "contacts_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE,
+        CONSTRAINT "contacts_contact_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "users"("id") ON DELETE CASCADE
       );
     `);
     console.log('Table contacts créée ou existante');
