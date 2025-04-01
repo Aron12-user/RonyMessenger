@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import UserAvatar from "@/components/UserAvatar";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
@@ -9,6 +11,14 @@ import VideoCall from "@/components/VideoCall";
 import { generateRandomMeetingId } from "@/lib/utils";
 import useWebSocket from "@/hooks/useWebSocket";
 import { WS_EVENTS } from "@/lib/constants";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface Meeting {
   id: string;
@@ -49,6 +59,9 @@ export default function Meetings() {
   const [meetingId, setMeetingId] = useState<string>(generateRandomMeetingId());
   const [activeMeeting, setActiveMeeting] = useState<string | null>(null);
   const [meetings] = useState<Meeting[]>(MOCK_MEETINGS);
+  const [joinDialogOpen, setJoinDialogOpen] = useState<boolean>(false);
+  const [joinCode, setJoinCode] = useState<string>('');
+  const joinInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { sendMessage } = useWebSocket();
 
@@ -99,6 +112,53 @@ export default function Meetings() {
     toast({
       title: "Réunion démarrée",
       description: "Votre réunion a été créée avec succès",
+    });
+  };
+
+  // Ouvrir la boîte de dialogue pour rejoindre une réunion
+  const openJoinDialog = () => {
+    setJoinCode('');
+    setJoinDialogOpen(true);
+    // Focus après le rendu du dialogue
+    setTimeout(() => {
+      if (joinInputRef.current) {
+        joinInputRef.current.focus();
+      }
+    }, 100);
+  };
+
+  // Fermer la boîte de dialogue pour rejoindre une réunion
+  const closeJoinDialog = () => {
+    setJoinDialogOpen(false);
+  };
+
+  // Rejoindre une réunion avec un code
+  const handleJoinWithCode = () => {
+    if (!joinCode.trim()) {
+      toast({
+        title: "Code manquant",
+        description: "Veuillez entrer un code de réunion valide",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Vérifiez si le code de réunion existe (en réalité, ce serait vérifié côté serveur)
+    // Pour démonstration, tout code est considéré comme valide
+    setActiveMeeting(joinCode.trim());
+    
+    // Notifier les autres utilisateurs
+    if (currentUser) {
+      sendMessage(WS_EVENTS.JOIN_MEETING, {
+        meetingId: joinCode.trim(),
+        user: currentUser
+      });
+    }
+    
+    closeJoinDialog();
+    toast({
+      title: "Réunion rejointe",
+      description: "Vous avez rejoint la réunion avec succès"
     });
   };
 
@@ -167,13 +227,23 @@ export default function Meetings() {
           <div className="max-w-4xl mx-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">Réunions virtuelles</h2>
-              <Button 
-                onClick={handleStartMeeting}
-                className="bg-primary hover:bg-primary/90 text-white py-2 px-4 rounded-lg flex items-center space-x-2"
-              >
-                <span className="material-icons">add</span>
-                <span>Nouvelle réunion</span>
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={openJoinDialog}
+                  variant="outline"
+                  className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white py-2 px-4 rounded-lg flex items-center space-x-2"
+                >
+                  <span className="material-icons">login</span>
+                  <span>Rejoindre avec code</span>
+                </Button>
+                <Button 
+                  onClick={handleStartMeeting}
+                  className="bg-primary hover:bg-primary/90 text-white py-2 px-4 rounded-lg flex items-center space-x-2"
+                >
+                  <span className="material-icons">add</span>
+                  <span>Nouvelle réunion</span>
+                </Button>
+              </div>
             </div>
             
             <div className="grid md:grid-cols-2 gap-6">
@@ -290,6 +360,44 @@ export default function Meetings() {
           onClose={handleEndMeeting}
         />
       )}
+
+      {/* Dialogue de saisie du code de réunion */}
+      <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rejoindre une réunion</DialogTitle>
+            <DialogDescription>
+              Entrez le code de réunion qui vous a été partagé pour rejoindre une salle existante.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center space-x-2 py-4">
+            <div className="grid flex-1 gap-2">
+              <Label htmlFor="meeting-code" className="sr-only">Code de réunion</Label>
+              <Input
+                id="meeting-code"
+                ref={joinInputRef}
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value)}
+                placeholder="Entrez le code de réunion"
+                className="w-full"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleJoinWithCode();
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-between">
+            <Button variant="ghost" onClick={closeJoinDialog}>
+              Annuler
+            </Button>
+            <Button type="submit" onClick={handleJoinWithCode}>
+              Rejoindre la réunion
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

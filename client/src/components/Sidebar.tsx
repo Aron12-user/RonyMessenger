@@ -2,6 +2,11 @@ import { useState } from "react";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import { useLocation } from "wouter";
 import StatusIndicator from "./StatusIndicator";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { generateInitials } from "@/lib/utils";
+import { USER_STATUSES } from "@/lib/constants";
+import { useToast } from "@/hooks/use-toast";
 
 interface SidebarProps {
   isDarkMode: boolean;
@@ -21,11 +26,31 @@ export default function Sidebar({
   setCurrentSection 
 }: SidebarProps) {
   const [location, setLocation] = useLocation();
+  const { user, logout } = useAuth();
+  const { toast } = useToast();
 
   const handleNavClick = (section: string) => {
     setCurrentSection(section);
     if (window.innerWidth < 768) {
       setIsMobileOpen(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setLocation('/auth');
+      toast({
+        title: "Déconnecté",
+        description: "Vous avez été déconnecté avec succès"
+      });
+    } catch (error) {
+      console.error("Erreur lors de la déconnexion:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de vous déconnecter",
+        variant: "destructive"
+      });
     }
   };
 
@@ -56,24 +81,53 @@ export default function Sidebar({
         
         {/* User Profile Section */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center">
-            <div className="relative">
-              <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-sm font-medium">
-                JD
+          {user ? (
+            <div className="flex flex-col space-y-3">
+              <div className="flex items-center">
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-sm font-medium">
+                    {generateInitials(user.displayName || user.username)}
+                  </div>
+                  <StatusIndicator status={user.status as any} />
+                </div>
+                <div className="ml-3 flex-1 min-w-0">
+                  <div className="font-medium truncate">{user.displayName || user.username}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                    <span className={`w-2 h-2 rounded-full bg-status-${user.status} inline-block mr-1`}></span>
+                    {user.status === USER_STATUSES.ONLINE ? 'En ligne' : 
+                     user.status === USER_STATUSES.AWAY ? 'Absent' : 
+                     user.status === USER_STATUSES.BUSY ? 'Occupé' : 'Hors ligne'}
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setCurrentSection('settings')}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <span className="material-icons text-xl">settings</span>
+                </button>
               </div>
-              <StatusIndicator status="online" />
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex items-center justify-center" 
+                onClick={handleLogout}
+              >
+                <span className="material-icons text-sm mr-2">logout</span>
+                Déconnexion
+              </Button>
             </div>
-            <div className="ml-3">
-              <div className="font-medium">John Doe</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
-                <span className="w-2 h-2 rounded-full bg-status-online inline-block mr-1"></span>
-                Online
-              </div>
+          ) : (
+            <div className="flex justify-center">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full"
+                onClick={() => setLocation('/auth')}
+              >
+                Connexion
+              </Button>
             </div>
-            <button className="ml-auto text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-              <span className="material-icons text-xl">settings</span>
-            </button>
-          </div>
+          )}
         </div>
         
         {/* Navigation Menu */}

@@ -1,4 +1,4 @@
-import { eq, and, or, desc, sql } from 'drizzle-orm';
+import { eq, and, or, desc, sql, asc, count } from 'drizzle-orm';
 import { db } from './db';
 import { 
   users, User, InsertUser, 
@@ -8,6 +8,24 @@ import {
   contacts, Contact, InsertContact
 } from '@shared/schema';
 import { IStorage } from './storage';
+
+// Interface de pagination
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
+// Options de pagination
+export interface PaginationOptions {
+  page: number;
+  pageSize: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
 
 export class PgStorage implements IStorage {
   // User methods
@@ -28,6 +46,45 @@ export class PgStorage implements IStorage {
   
   async getAllUsers(): Promise<User[]> {
     return await db.select().from(users);
+  }
+  
+  async getPaginatedUsers(options: PaginationOptions): Promise<PaginatedResult<User>> {
+    const { page = 1, pageSize = 50, sortBy = 'id', sortOrder = 'asc' } = options;
+    const offset = (page - 1) * pageSize;
+    
+    // Construction de l'ordre de tri dynamique
+    let orderField: any = users.id; // par défaut
+    
+    // Vérifier si le champ existe dans la table users
+    if (sortBy in users) {
+      orderField = users[sortBy as keyof typeof users];
+    }
+    
+    const orderDirection = sortOrder === 'asc' ? asc(orderField) : desc(orderField);
+    
+    // Requête pour récupérer le total de users
+    const [{ value: total }] = await db
+      .select({ value: count() })
+      .from(users);
+    
+    // Requête paginée pour récupérer les données
+    const data = await db
+      .select()
+      .from(users)
+      .orderBy(orderDirection)
+      .limit(pageSize)
+      .offset(offset);
+    
+    const totalPages = Math.ceil(total / pageSize);
+    
+    return {
+      data,
+      total,
+      page,
+      pageSize,
+      totalPages,
+      hasMore: page < totalPages
+    };
   }
   
   async updateUserStatus(userId: number, status: string): Promise<void> {
