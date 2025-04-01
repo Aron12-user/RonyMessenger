@@ -78,7 +78,7 @@ export const messages = pgTable("messages", {
 export const folders = pgTable("folders", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  parentId: integer("parent_id").references(() => folders.id),
+  parentId: integer("parent_id"),
   ownerId: integer("owner_id").notNull().references(() => users.id),
   path: text("path").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

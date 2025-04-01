@@ -3,7 +3,15 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { json, static as expressStatic } from "express";
-import { insertUserSchema, insertMessageSchema, insertFileSchema, insertFolderSchema, insertFileSharingSchema } from "@shared/schema";
+import { 
+  insertUserSchema, 
+  insertMessageSchema, 
+  insertFileSchema, 
+  insertFolderSchema, 
+  insertFileSharingSchema,
+  InsertFolder,
+  InsertFileSharing 
+} from "@shared/schema";
 import { z } from "zod";
 import { setupAuth } from "./auth";
 import multer from "multer";
@@ -459,14 +467,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Folder name is required' });
       }
       
-      const folder = await storage.createFolder({
+      // Préparation des données pour la création du dossier
+      const folderData: InsertFolder = {
         name,
-        parentId: parentId === "null" ? null : parentId || null,
+        parentId: parentId === "null" ? null : (parentId ? parseInt(parentId) : null),
         path: path || name,
+        ownerId: userId,
         createdAt: new Date(),
         updatedAt: new Date(),
-        ownerId: userId
-      });
+        isShared: false
+      };
+      
+      console.log('Creating folder with data:', folderData);
+      const folder = await storage.createFolder(folderData);
       
       res.status(201).json(folder);
     } catch (error) {
@@ -573,13 +586,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Share file
-          const sharing = await storage.shareFile({
+          const sharingData: InsertFileSharing = {
             fileId,
-            sharedById: userId,
             sharedWithId: recipientUser.id,
             permission: permission || 'read',
-            createdAt: new Date()
-          });
+            sharedAt: new Date()
+          };
+          
+          console.log('Sharing file with data:', sharingData);
+          const sharing = await storage.shareFile(sharingData);
           
           // Update file to mark as shared
           await storage.updateFile(fileId, { isShared: true, sharedWithId: recipientUser.id });
@@ -631,30 +646,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req.user as Express.User).id;
       const { username } = req.body;
       
+      console.log('POST /api/contacts - Attempting to add contact with username:', username);
+      console.log('Current user ID:', userId);
+      
       if (!username) {
+        console.log('Username not provided');
         return res.status(400).json({ message: 'Username is required' });
       }
       
       // Find the user by username
       const user = await storage.getUserByUsername(username);
+      console.log('Found user:', user);
       
       if (!user) {
+        console.log('User not found for username:', username);
         return res.status(404).json({ message: 'User not found' });
       }
       
       // Check if trying to add self
       if (user.id === userId) {
+        console.log('User tried to add themselves as contact');
         return res.status(400).json({ message: 'Cannot add yourself as a contact' });
       }
       
-      // Add the contact
-      await storage.addContact({
+      // Check if contact already exists
+      const contacts = await storage.getContactsForUser(userId);
+      const contactExists = contacts.some(contact => contact.id === user.id);
+      
+      if (contactExists) {
+        console.log('Contact already exists');
+        return res.status(400).json({ message: 'Contact already exists in your list' });
+      }
+      
+      console.log('Adding contact with data:', {
         userId,
         contactId: user.id,
         isFavorite: false,
         createdAt: new Date()
       });
       
+      // Add the contact
+      const result = await storage.addContact({
+        userId,
+        contactId: user.id,
+        isFavorite: false,
+        createdAt: new Date()
+      });
+      
+      console.log('Contact added successfully, result:', result);
       res.status(201).json(user);
     } catch (error) {
       console.error('Error adding contact:', error);

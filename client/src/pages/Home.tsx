@@ -30,10 +30,11 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
     retry: false,
   });
 
-  // Redirect to login if not authenticated
+  // Redirect to auth if not authenticated
   useEffect(() => {
     if (error) {
-      navigate("/login");
+      console.log("Authentication error, redirecting to auth page");
+      navigate("/auth");
     }
   }, [error, navigate]);
 
