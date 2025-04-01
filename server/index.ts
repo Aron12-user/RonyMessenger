@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { runMigrations, seedDatabase } from './db';
+import { createTables } from './create-tables';
 import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
 import { db } from './db';
@@ -64,6 +65,14 @@ app.use((req, res, next) => {
     const migrationsOk = await runMigrations();
     if (migrationsOk) {
       log('Migrations de base de données réussies', 'database');
+      
+      // Créer les tables manquantes
+      const tablesOk = await createTables();
+      if (tablesOk) {
+        log('Création des tables réussie', 'database');
+      } else {
+        log('Échec de la création des tables', 'database');
+      }
       
       // Initialiser les données de test si besoin
       const seedOk = await seedDatabase();

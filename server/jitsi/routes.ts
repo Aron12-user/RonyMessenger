@@ -115,11 +115,22 @@ export function registerJitsiRoutes(app: Express, requireAuth: any) {
   // Obtenir toutes les salles de réunion actives
   app.get('/api/meetings/active', requireAuth, (req, res) => {
     try {
-      const activeRooms = getAllActiveRooms();
+      const userId = (req.user as Express.User).id;
+      const allRooms = getAllActiveRooms();
+      
+      // Transforme les données pour inclure le nombre de participants
+      const processedRooms = allRooms.map(room => ({
+        friendlyCode: room.friendlyCode,
+        roomName: room.roomName,
+        createdAt: room.createdAt,
+        expiresAt: room.expiresAt,
+        createdBy: room.createdBy,
+        participantsCount: room.participants.length
+      }));
       
       res.json({
         success: true,
-        rooms: activeRooms
+        rooms: processedRooms
       });
     } catch (error) {
       console.error('Error fetching active meeting rooms:', error);
