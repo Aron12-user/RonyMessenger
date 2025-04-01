@@ -71,12 +71,15 @@ export default function Meetings() {
   });
 
   // Fetch all users
-  const { data: users = [] as User[] } = useQuery<User[]>({
+  const { data } = useQuery({
     queryKey: [API_ENDPOINTS.USERS],
   });
-
+  
+  // S'assurer que data.data est un tableau avant d'utiliser reduce
+  const users = (data?.data || []) as User[];
+  
   // Convertir les utilisateurs en une map pour un accès facile
-  const usersMap = users.reduce((acc, user) => {
+  const usersMap = users.reduce((acc: Record<number, User>, user: User) => {
     acc[user.id] = user;
     return acc;
   }, {} as Record<number, User>);

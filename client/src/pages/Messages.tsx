@@ -31,9 +31,12 @@ export default function Messages() {
   });
 
   // Fetch all users
-  const { data: usersData = [] as User[] } = useQuery<User[]>({
+  const { data: usersResponse } = useQuery({
     queryKey: [API_ENDPOINTS.USERS],
   });
+  
+  // Extraire les données des utilisateurs de la réponse paginée
+  const usersData = usersResponse?.data || [];
 
   // Fetch current user
   const { data: currentUser = {} as User } = useQuery<User>({
