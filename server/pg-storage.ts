@@ -429,14 +429,19 @@ export class PgStorage implements IStorage {
       
       console.log('Creating new contact with data:', contactData);
       
-      // Convertir les données en respectant le format attendu par Drizzle
+      // Créer un objet pour l'insertion qui respecte la structure attendue
+      // Plutôt que de convertir les noms de champs, utilisons les bonnes propriétés directement
+      const contactToInsert = {
+        userId: contactData.userId,
+        contactId: contactData.contactId,
+        isFavorite: contactData.isFavorite === undefined ? false : contactData.isFavorite,
+        createdAt: contactData.createdAt || new Date()
+      };
+      
+      console.log('Prepared contact for insertion:', contactToInsert);
+      
       const results = await db.insert(contacts)
-        .values({
-          user_id: contactData.userId,
-          contact_id: contactData.contactId,
-          is_favorite: contactData.isFavorite === undefined ? false : contactData.isFavorite,
-          created_at: contactData.createdAt || new Date()
-        } as any)
+        .values(contactToInsert)
         .returning();
         
       console.log('Contact created, result:', results);
