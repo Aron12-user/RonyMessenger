@@ -1,4 +1,4 @@
-import { User, InsertUser, Conversation, InsertConversation, Message, InsertMessage, File, InsertFile, Contact, InsertContact } from "@shared/schema";
+import { User, InsertUser, Conversation, InsertConversation, Message, InsertMessage, File, InsertFile, Contact, InsertContact, Folder, InsertFolder, FileSharing, InsertFileSharing } from "@shared/schema";
 import { PaginatedResult, PaginationOptions } from "./pg-storage";
 
 // Define the storage interface
@@ -23,9 +23,28 @@ export interface IStorage {
   getMessagesForConversation(conversationId: number): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
   
+  // Folders
+  getFoldersForUser(userId: number): Promise<Folder[]>;
+  getFolderById(folderId: number): Promise<Folder | undefined>;
+  getFoldersByParent(parentId: number | null, userId: number): Promise<Folder[]>;
+  createFolder(folder: InsertFolder): Promise<Folder>;
+  updateFolder(folderId: number, name: string): Promise<Folder>;
+  deleteFolder(folderId: number): Promise<void>;
+  
   // Files
   getFilesForUser(userId: number): Promise<File[]>;
+  getFilesByFolder(folderId: number | null): Promise<File[]>;
+  getFileById(fileId: number): Promise<File | undefined>;
   createFile(file: InsertFile): Promise<File>;
+  updateFile(fileId: number, data: Partial<InsertFile>): Promise<File>;
+  deleteFile(fileId: number): Promise<void>;
+  getSharedFiles(userId: number): Promise<File[]>;
+  
+  // File Sharing
+  shareFile(sharing: InsertFileSharing): Promise<FileSharing>;
+  getFileSharingById(id: number): Promise<FileSharing | undefined>;
+  getFileSharingsForFile(fileId: number): Promise<FileSharing[]>;
+  revokeFileSharing(id: number): Promise<void>;
   
   // Contacts
   getContactsForUser(userId: number): Promise<User[]>;

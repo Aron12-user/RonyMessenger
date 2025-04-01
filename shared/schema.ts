@@ -74,6 +74,31 @@ export const messages = pgTable("messages", {
   }
 });
 
+// Folders Table
+export const folders = pgTable("folders", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  parentId: integer("parent_id").references(() => folders.id),
+  ownerId: integer("owner_id").notNull().references(() => users.id),
+  path: text("path").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  isShared: boolean("is_shared").default(false),
+}, (table) => {
+  return {
+    // Index pour accélérer la recherche des dossiers par utilisateur
+    ownerIdIdx: index("folder_owner_id_idx").on(table.ownerId),
+    // Index pour la recherche de dossiers par parent
+    parentIdIdx: index("parent_id_idx").on(table.parentId),
+    // Index pour la recherche rapide par chemin
+    pathIdx: index("path_idx").on(table.path),
+    // Index pour le tri chronologique des dossiers
+    createdAtIdx: index("folder_created_at_idx").on(table.createdAt),
+    // Index pour rechercher les dossiers partagés
+    isSharedIdx: index("folder_is_shared_idx").on(table.isShared),
+  }
+});
+
 // Files Table
 export const files = pgTable("files", {
   id: serial("id").primaryKey(),
@@ -82,8 +107,15 @@ export const files = pgTable("files", {
   size: integer("size").notNull(),
   url: text("url").notNull(),
   uploaderId: integer("uploader_id").notNull().references(() => users.id),
+  folderId: integer("folder_id").references(() => folders.id),
   uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
   expiresAt: timestamp("expires_at"),
+  isShared: boolean("is_shared").default(false),
+  sharedWithId: integer("shared_with_id").references(() => users.id),
+  shareLink: text("share_link"),
+  shareLinkExpiry: timestamp("share_link_expiry"),
+  isPublic: boolean("is_public").default(false),
 }, (table) => {
   return {
     // Index pour accélérer la recherche des fichiers par utilisateur
@@ -94,6 +126,29 @@ export const files = pgTable("files", {
     uploadedAtIdx: index("uploaded_at_idx").on(table.uploadedAt),
     // Index pour la gestion des expirations
     expiresAtIdx: index("expires_at_idx").on(table.expiresAt),
+    // Index pour recherche par dossier
+    folderIdIdx: index("folder_id_idx").on(table.folderId),
+    // Index pour rechercher les fichiers partagés
+    isSharedIdx: index("file_is_shared_idx").on(table.isShared),
+    // Index pour rechercher les fichiers partagés avec un utilisateur spécifique
+    sharedWithIdIdx: index("shared_with_id_idx").on(table.sharedWithId),
+  }
+});
+
+// Shared Access Table (pour garder trace des droits d'accès)
+export const fileSharing = pgTable("file_sharing", {
+  id: serial("id").primaryKey(),
+  fileId: integer("file_id").references(() => files.id).notNull(),
+  sharedWithId: integer("shared_with_id").references(() => users.id).notNull(),
+  permission: text("permission").notNull(), // 'read', 'write', etc.
+  sharedAt: timestamp("shared_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+}, (table) => {
+  return {
+    fileIdIdx: index("sharing_file_id_idx").on(table.fileId),
+    sharedWithIdIdx: index("sharing_with_id_idx").on(table.sharedWithId),
+    // Index composite pour rechercher efficacement les partages
+    fileUserIdx: uniqueIndex("file_user_idx").on(table.fileId, table.sharedWithId),
   }
 });
 
@@ -122,6 +177,8 @@ export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true });
 export const insertFileSchema = createInsertSchema(files).omit({ id: true });
+export const insertFolderSchema = createInsertSchema(folders).omit({ id: true });
+export const insertFileSharingSchema = createInsertSchema(fileSharing).omit({ id: true });
 export const insertContactSchema = createInsertSchema(contacts).omit({ id: true });
 
 // Types
@@ -136,6 +193,12 @@ export type InsertMessage = z.infer<typeof insertMessageSchema>;
 
 export type File = typeof files.$inferSelect;
 export type InsertFile = z.infer<typeof insertFileSchema>;
+
+export type Folder = typeof folders.$inferSelect;
+export type InsertFolder = z.infer<typeof insertFolderSchema>;
+
+export type FileSharing = typeof fileSharing.$inferSelect;
+export type InsertFileSharing = z.infer<typeof insertFileSharingSchema>;
 
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
