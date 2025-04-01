@@ -11,22 +11,32 @@ import { fileToDataUrl } from "@/lib/utils";
 import { User, Message } from "@shared/schema";
 
 export default function Messages() {
-  const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
+  // Obtenir l'ID de conversation depuis les paramètres d'URL s'il existe
+  const getConversationParam = () => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const conversationId = urlParams.get('conversation');
+      return conversationId ? parseInt(conversationId, 10) : null;
+    }
+    return null;
+  };
+
+  const [activeConversationId, setActiveConversationId] = useState<number | null>(getConversationParam());
   const queryClient = useQueryClient();
   const { status: wsStatus, sendMessage, addMessageHandler } = useWebSocket();
 
   // Fetch conversations
-  const { data: conversations = [] } = useQuery({
+  const { data: conversations = [] as any[] } = useQuery<any[]>({
     queryKey: [API_ENDPOINTS.CONVERSATIONS],
   });
 
   // Fetch all users
-  const { data: usersData = [] } = useQuery({
+  const { data: usersData = [] as User[] } = useQuery<User[]>({
     queryKey: [API_ENDPOINTS.USERS],
   });
 
   // Fetch current user
-  const { data: currentUser } = useQuery({
+  const { data: currentUser = {} as User } = useQuery<User>({
     queryKey: [API_ENDPOINTS.USER],
   });
 
@@ -37,7 +47,7 @@ export default function Messages() {
   }, {});
 
   // Fetch messages for active conversation
-  const { data: messages = [] } = useQuery({
+  const { data: messages = [] as any[] } = useQuery<any[]>({
     queryKey: [API_ENDPOINTS.MESSAGES, activeConversationId],
     enabled: !!activeConversationId,
   });
@@ -133,7 +143,7 @@ export default function Messages() {
         {activeConversationId ? (
           <>
             <MessageList 
-              messages={messages}
+              messages={messages as any}
               currentUserId={currentUser?.id || 0}
               users={users}
             />
@@ -145,8 +155,8 @@ export default function Messages() {
           <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400 p-6">
             <div className="text-center">
               <span className="material-icons text-6xl mb-4">chat</span>
-              <h3 className="text-xl font-medium mb-2">Select a conversation</h3>
-              <p>Choose a contact from the list to start messaging</p>
+              <h3 className="text-xl font-medium mb-2">Sélectionnez une conversation</h3>
+              <p>Choisissez un contact dans la liste pour commencer à échanger</p>
             </div>
           </div>
         )}

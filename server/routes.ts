@@ -26,8 +26,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         switch (data.type) {
           case 'authenticate':
-            userId = data.data.userId;
-            onlineUsers.set(userId, ws);
+            const newUserId = data.data.userId as number; 
+            if (typeof newUserId === 'number') {
+              userId = newUserId;
+              onlineUsers.set(userId, ws);
+            }
             
             // Update user status to online
             if (userId) {
@@ -217,6 +220,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Participant ID is required' });
       }
       
+      // Check if a conversation already exists between these users
+      const userConversations = await storage.getConversationsForUser(creatorId);
+      const existingConversation = userConversations.find(conv => 
+        (conv.participantId === participantId && conv.creatorId === creatorId) || 
+        (conv.participantId === creatorId && conv.creatorId === participantId)
+      );
+      
+      if (existingConversation) {
+        // Return the existing conversation instead of creating a new one
+        return res.json(existingConversation);
+      }
+      
+      // Create a new conversation if none exists
       const conversation = await storage.createConversation({
         creatorId,
         participantId,
@@ -228,6 +244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(201).json(conversation);
     } catch (error) {
+      console.error('Error creating conversation:', error);
       res.status(500).json({ message: 'Could not create conversation' });
     }
   });
@@ -305,6 +322,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     const contacts = await storage.getContactsForUser(userId);
     res.json(contacts);
+  });
+  
+  app.post('/api/contacts', async (req, res) => {
+    try {
+      // In a real app, get user ID from session/JWT
+      const userId = 1; // Mock current user ID
+      const { username } = req.body;
+      
+      if (!username) {
+        return res.status(400).json({ message: 'Username is required' });
+      }
+      
+      // Find the user by username
+      const user = await storage.getUserByUsername(username);
+      
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      // Check if trying to add self
+      if (user.id === userId) {
+        return res.status(400).json({ message: 'Cannot add yourself as a contact' });
+      }
+      
+      // Add the contact
+      await storage.addContact({
+        userId,
+        contactId: user.id,
+        isFavorite: false,
+        createdAt: new Date()
+      });
+      
+      res.status(201).json(user);
+    } catch (error) {
+      console.error('Error adding contact:', error);
+      res.status(500).json({ message: 'Failed to add contact' });
+    }
   });
 
   return httpServer;
