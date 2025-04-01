@@ -390,22 +390,46 @@ export class PgStorage implements IStorage {
   }
   
   async addContact(contactData: InsertContact): Promise<Contact> {
-    // Vérifier si le contact existe déjà
-    const existingContacts = await db.select()
-      .from(contacts)
-      .where(
-        and(
-          eq(contacts.userId, contactData.userId),
-          eq(contacts.contactId, contactData.contactId)
-        )
-      );
-    
-    if (existingContacts.length > 0) {
-      return existingContacts[0];
+    try {
+      console.log('PgStorage.addContact called with data:', contactData);
+      
+      // Vérifier si le contact existe déjà
+      const existingContacts = await db.select()
+        .from(contacts)
+        .where(
+          and(
+            eq(contacts.userId, contactData.userId),
+            eq(contacts.contactId, contactData.contactId)
+          )
+        );
+      
+      console.log('Existing contacts check result:', existingContacts);
+      
+      if (existingContacts.length > 0) {
+        console.log('Contact already exists, returning:', existingContacts[0]);
+        return existingContacts[0];
+      }
+      
+      // Définir une valeur par défaut pour createdAt si non fournie
+      if (!contactData.createdAt) {
+        contactData.createdAt = new Date();
+      }
+      
+      // S'assurer que isFavorite a une valeur par défaut
+      if (contactData.isFavorite === undefined) {
+        contactData.isFavorite = false;
+      }
+      
+      console.log('Creating new contact with data:', contactData);
+      
+      // Créer un nouveau contact
+      const results = await db.insert(contacts).values(contactData).returning();
+      console.log('Contact created, result:', results);
+      
+      return results[0];
+    } catch (error) {
+      console.error('Error in PgStorage.addContact:', error);
+      throw error;
     }
-    
-    // Créer un nouveau contact
-    const results = await db.insert(contacts).values(contactData).returning();
-    return results[0];
   }
 }
