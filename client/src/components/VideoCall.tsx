@@ -1,8 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { JitsiMeeting } from '@jitsi/react-sdk';
+// Temporairement désactiver Jitsi pendant que nous corrigeons les problèmes
+// import { JitsiMeeting } from '@jitsi/react-sdk';
 import { Button } from '@/components/ui/button';
 import { generateRandomMeetingId } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+
+// Stub pour JitsiMeeting
+const JitsiMeeting = (props: any) => {
+  return <div className="w-full h-full bg-gray-900 flex items-center justify-center text-white">
+    Réunion vidéo actuellement désactivée. Configuration en cours...
+  </div>;
+};
 
 interface VideoCallProps {
   roomName?: string;

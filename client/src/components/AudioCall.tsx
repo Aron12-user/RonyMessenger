@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import Peer from 'simple-peer';
+// Temporairement désactiver simple-peer pendant que nous corrigeons les polyfills
+// import Peer from 'simple-peer';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import UserAvatar from './UserAvatar';
@@ -7,6 +8,16 @@ import useWebSocket from '@/hooks/useWebSocket';
 import { WS_EVENTS } from '@/lib/constants';
 import { User } from '@shared/schema';
 import { ensureBufferLoaded } from '@/lib/globalPolyfill';
+
+// Définition temporaire de Peer pour éviter les erreurs de compilation
+const Peer = function(config: any) {
+  return {
+    on: (event: string, callback: any) => {},
+    signal: (data: any) => {},
+    destroy: () => {}
+  };
+}
+Peer.Instance = {} as any;
 
 interface AudioCallProps {
   user: User;
