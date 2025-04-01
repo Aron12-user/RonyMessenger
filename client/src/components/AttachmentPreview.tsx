@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { decryptFile } from '../lib/encryption';
 import { Button } from './ui/button';
-import { toast } from './ui/use-toast';
+import { toast } from "@/hooks/use-toast";
 
 interface AttachmentPreviewProps {
   fileUrl: string;
