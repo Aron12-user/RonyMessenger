@@ -24,6 +24,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     perMessageDeflate: false // Désactiver la compression pour éviter les problèmes de compatibilité
   });
   
+  // User routes with pagination (protected)
+  app.get('/api/users', requireAuth, async (req, res) => {
+    try {
+      // Extraction des paramètres de pagination depuis la requête
+      const page = parseInt(req.query.page as string) || 1;
+      const pageSize = parseInt(req.query.pageSize as string) || 50;
+      const sortBy = (req.query.sortBy as string) || 'id';
+      const sortOrder = (req.query.sortOrder as string) === 'desc' ? 'desc' : 'asc';
+      
+      // Vérification de la validité des paramètres
+      if (page < 1 || pageSize < 1 || pageSize > 100) {
+        return res.status(400).json({ 
+          error: 'Invalid pagination parameters. Page and pageSize must be positive, and pageSize cannot exceed 100.' 
+        });
+      }
+      
+      // Récupération des utilisateurs avec pagination
+      const result = await storage.getPaginatedUsers({ page, pageSize, sortBy, sortOrder });
+      res.json(result);
+    } catch (error) {
+      console.error('Error fetching paginated users:', error);
+      res.status(500).json({ error: 'Failed to fetch users. Please try again later.' });
+    }
+  });
+  
   // WebSocket handling
   wss.on('connection', (ws) => {
     let userId: number | null = null;
@@ -137,17 +162,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes
   // User routes (handled by our auth.ts)
   
-  app.get('/api/users', requireAuth, async (req, res) => {
-    const users = await storage.getAllUsers();
-    
-    // Don't send passwords back
-    const usersWithoutPasswords = users.map(user => {
-      const { password, ...userWithoutPassword } = user;
-      return userWithoutPassword;
-    });
-    
-    res.json(usersWithoutPasswords);
+  // Version publique pour tests de pagination (sans authentification)
+  app.get('/api/test/users', async (req, res) => {
+    try {
+      // Extraction des paramètres de pagination depuis la requête
+      const page = parseInt(req.query.page as string) || 1;
+      const pageSize = parseInt(req.query.pageSize as string) || 50;
+      const sortBy = (req.query.sortBy as string) || 'id';
+      const sortOrder = (req.query.sortOrder as string) === 'desc' ? 'desc' : 'asc';
+      
+      // Vérification de la validité des paramètres
+      if (page < 1 || pageSize < 1 || pageSize > 100) {
+        return res.status(400).json({ 
+          error: 'Invalid pagination parameters. Page and pageSize must be positive, and pageSize cannot exceed 100.' 
+        });
+      }
+      
+      // Récupération des utilisateurs avec pagination
+      const result = await storage.getPaginatedUsers({ page, pageSize, sortBy, sortOrder });
+      
+      // Suppression des mots de passe avant d'envoyer les données
+      const sanitizedResult = {
+        ...result,
+        data: result.data.map(user => {
+          const { password, ...userWithoutPassword } = user;
+          return userWithoutPassword;
+        })
+      };
+      
+      res.json(sanitizedResult);
+    } catch (error) {
+      console.error('Error fetching paginated users:', error);
+      res.status(500).json({ error: 'Failed to fetch users. Please try again later.' });
+    }
   });
+  
+  // Route obsolète remplacée par la version paginée ci-dessus
+  // app.get('/api/users', requireAuth, async (req, res) => {
+  //   const users = await storage.getAllUsers();
+  //   
+  //   // Don't send passwords back
+  //   const usersWithoutPasswords = users.map(user => {
+  //     const { password, ...userWithoutPassword } = user;
+  //     return userWithoutPassword;
+  //   });
+  //   
+  //   res.json(usersWithoutPasswords);
+  // });
   
   // Conversation routes
   app.get('/api/conversations', requireAuth, async (req, res) => {

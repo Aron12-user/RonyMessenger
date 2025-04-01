@@ -1,4 +1,5 @@
 import { User, InsertUser, Conversation, InsertConversation, Message, InsertMessage, File, InsertFile, Contact, InsertContact } from "@shared/schema";
+import { PaginatedResult, PaginationOptions } from "./pg-storage";
 
 // Define the storage interface
 export interface IStorage {
@@ -7,6 +8,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
+  getPaginatedUsers(options: PaginationOptions): Promise<PaginatedResult<User>>;
   updateUserStatus(userId: number, status: string): Promise<void>;
   updateUserProfile(userId: number, profileData: { displayName?: string; email?: string; phone?: string; title?: string }): Promise<void>;
   
@@ -135,6 +137,56 @@ export class MemStorage implements IStorage {
   
   async getAllUsers(): Promise<User[]> {
     return Array.from(this.users.values());
+  }
+  
+  async getPaginatedUsers(options: PaginationOptions): Promise<PaginatedResult<User>> {
+    const { page = 1, pageSize = 50, sortBy = 'id', sortOrder = 'asc' } = options;
+    
+    // Récupérer tous les utilisateurs
+    const allUsers = Array.from(this.users.values());
+    
+    // Appliquer le tri
+    const sortedUsers = [...allUsers].sort((a, b) => {
+      const aValue = a[sortBy as keyof User];
+      const bValue = b[sortBy as keyof User];
+      
+      if (aValue === null || aValue === undefined) return sortOrder === 'asc' ? -1 : 1;
+      if (bValue === null || bValue === undefined) return sortOrder === 'asc' ? 1 : -1;
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortOrder === 'asc' 
+          ? aValue.localeCompare(bValue) 
+          : bValue.localeCompare(aValue);
+      }
+      
+      if (aValue instanceof Date && bValue instanceof Date) {
+        return sortOrder === 'asc' 
+          ? aValue.getTime() - bValue.getTime() 
+          : bValue.getTime() - aValue.getTime();
+      }
+      
+      // Comparer comme des nombres
+      return sortOrder === 'asc' 
+        ? Number(aValue) - Number(bValue) 
+        : Number(bValue) - Number(aValue);
+    });
+    
+    // Appliquer la pagination
+    const total = sortedUsers.length;
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedUsers = sortedUsers.slice(startIndex, endIndex);
+    
+    const totalPages = Math.ceil(total / pageSize);
+    
+    return {
+      data: paginatedUsers,
+      total,
+      page,
+      pageSize,
+      totalPages,
+      hasMore: page < totalPages
+    };
   }
   
   async updateUserStatus(userId: number, status: string): Promise<void> {

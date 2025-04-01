@@ -7,12 +7,21 @@ import * as schema from '../shared/schema';
 const connectionString = process.env.DATABASE_URL || '';
 
 // Client pour les migrations
-const migrationClient = postgres(connectionString, { max: 1 });
+const migrationClient = postgres(connectionString, { 
+  max: 1,
+  ssl: { rejectUnauthorized: false } // Nécessaire pour les DBs Postgres de Replit
+});
 
-// Client pour les requêtes normales
-const queryClient = postgres(connectionString);
+// Client pour les requêtes normales - optimisé pour de grandes charges
+const queryClient = postgres(connectionString, { 
+  max: 20, // Augmenter le nombre max de connexions pour une meilleure concurrence
+  idle_timeout: 30, // Réduire le timeout d'inactivité pour libérer plus rapidement les connexions
+  connect_timeout: 10, // Timeout de connexion plus court
+  ssl: { rejectUnauthorized: false }, // Nécessaire pour les DBs Postgres de Replit
+  prepare: true, // Active la mise en cache des requêtes préparées 
+});
 
-// Initialisation de drizzle avec notre schéma
+// Initialisation de drizzle avec notre schéma et des optimisations
 export const db = drizzle(queryClient, { schema });
 
 // Fonction pour exécuter les migrations
