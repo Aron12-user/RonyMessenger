@@ -31,6 +31,10 @@ export default function Contacts() {
   const addContactMutation = useMutation({
     mutationFn: async (contactUsername: string) => {
       const res = await apiRequest("POST", API_ENDPOINTS.CONTACTS, { username: contactUsername });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Erreur lors de l'ajout du contact");
+      }
       return res.json();
     },
     onSuccess: () => {

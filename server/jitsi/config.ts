@@ -56,9 +56,8 @@ export function generateFriendlyRoomCode(): string {
 
 // Fonction utilitaire pour contourner les problèmes de typage avec jsonwebtoken
 function signJWT(payload: any, secret: string, options: any): string {
-  // Utiliser require pour éviter les erreurs de typescript
-  const jwtModule = require('jsonwebtoken');
-  return jwtModule.sign(payload, secret, options);
+  // Utiliser l'import direct plutôt que require
+  return jwt.sign(payload, secret, options);
 }
 
 // Générer un token JWT pour une salle spécifique
