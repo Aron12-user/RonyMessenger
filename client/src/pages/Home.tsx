@@ -5,7 +5,7 @@ import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 import Messages from "@/pages/Messages";
 import Calls from "@/pages/Calls";
-import Meetings from "@/pages/Meetings";
+import MeetingsNew from "@/pages/MeetingsNew";
 import Files from "@/pages/Files";
 import CloudStorage from "@/pages/CloudStorage";
 import Contacts from "@/pages/Contacts";
@@ -51,7 +51,7 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
       case "calls":
         return <Calls />;
       case "meetings":
-        return <Meetings />;
+        return <MeetingsNew />;
       case "files":
         return <Files />;
       case "cloud":
