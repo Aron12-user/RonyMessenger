@@ -67,18 +67,22 @@ export default function MessageList({ messages, currentUserId, users }: MessageL
                     } rounded-lg px-4 py-2 break-words`}
                   >
                     {message.content}
-
-                    {message.fileUrl && message.encryptionKey && (
-                      <div className="mt-2">
-                        <AttachmentPreview 
-                          fileUrl={message.fileUrl}
-                          encryptionKey={message.encryptionKey}
-                          fileName={message.fileName}
-                          fileType={message.fileType}
-                        />
-                      </div>
-                    )}
                   </div>
+
+                  {message.fileUrl && message.encryptionKey && (
+                    <div className="mt-2 max-w-[300px]">
+                      <AttachmentPreview 
+                        fileUrl={message.fileUrl}
+                        encryptionKey={message.encryptionKey}
+                        fileName={message.fileName || 'Fichier'}
+                        fileType={message.fileType || 'application/octet-stream'}
+                        timestamp={message.timestamp}
+                        senderId={message.senderId}
+                        currentUserId={currentUserId}
+                      />
+                    </div>
+                  )}
+
                   <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {formatMessageTime(message.timestamp)}
                   </span>

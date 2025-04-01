@@ -1,107 +1,113 @@
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { decryptFile } from '../lib/encryption';
 import { Button } from './ui/button';
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
+import { formatFileSize } from '@/lib/utils';
 
 interface AttachmentPreviewProps {
   fileUrl: string;
   encryptionKey: string;
   fileName: string;
   fileType: string;
+  timestamp: Date;
+  senderId: number;
+  currentUserId: number;
 }
 
-export default function AttachmentPreview({ fileUrl, encryptionKey, fileName, fileType }: AttachmentPreviewProps) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const loadFile = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(fileUrl);
-        const encryptedData = await response.text();
-        const decryptedData = decryptFile(encryptedData, encryptionKey);
-        
-        const blob = new Blob([decryptedData], { type: fileType });
-        const url = URL.createObjectURL(blob);
-        setPreviewUrl(url);
-        setIsLoading(false);
-        
-        return () => URL.revokeObjectURL(url);
-      } catch (error) {
-        console.error('Error decrypting file:', error);
-        setIsLoading(false);
-        toast({
-          title: "Erreur",
-          description: "Impossible de décrypter le fichier",
-          variant: "destructive"
-        });
-      }
-    };
-    
-    loadFile();
-  }, [fileUrl, encryptionKey, fileType]);
-
+export default function AttachmentPreview({ 
+  fileUrl, 
+  encryptionKey, 
+  fileName, 
+  fileType,
+  timestamp,
+  senderId,
+  currentUserId
+}: AttachmentPreviewProps) {
+  const [isDownloading, setIsDownloading] = useState(false);
+  const { toast } = useToast();
+  const isImage = fileType.startsWith('image/');
+  const isVideo = fileType.startsWith('video/');
+  const isPdf = fileType === 'application/pdf';
+  
   const handleDownload = async () => {
-    if (previewUrl) {
-      try {
-        toast({
-          title: "Téléchargement",
-          description: "Début du téléchargement du fichier...",
-        });
-        
-        const response = await fetch(previewUrl);
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-        
-        toast({
-          title: "Succès",
-          description: "Fichier téléchargé et déchiffré avec succès",
-        });
-      } catch (error) {
-        toast({
-          title: "Erreur",
-          description: "Impossible de télécharger le fichier",
-          variant: "destructive"
-        });
-      }
+    try {
+      setIsDownloading(true);
+      
+      toast({
+        title: "Téléchargement",
+        description: "Récupération et déchiffrement du fichier..."
+      });
+
+      // Télécharger le fichier chiffré
+      const response = await fetch(fileUrl);
+      if (!response.ok) throw new Error('Erreur lors du téléchargement');
+      
+      const encryptedData = await response.arrayBuffer();
+      
+      // Déchiffrer le fichier
+      const decryptedData = await decryptFile(encryptedData, encryptionKey);
+      
+      // Créer un blob et le télécharger
+      const blob = new Blob([decryptedData], { type: fileType });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Succès",
+        description: "Fichier téléchargé avec succès"
+      });
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de télécharger le fichier",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDownloading(false);
     }
   };
 
-  if (isLoading) return <div className="flex items-center justify-center p-4">Chargement...</div>;
-
-  if (!previewUrl) return null;
-
   return (
-    <div className="relative group animate-in fade-in duration-200">
-      {fileType.startsWith('image/') ? (
-        <div className="relative cursor-pointer" onClick={handleDownload}>
-          <img 
-            src={previewUrl} 
-            alt={fileName}
-            className="max-w-[200px] rounded-lg hover:opacity-90 transition-opacity"
-          />
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 rounded-lg">
-            <span className="material-icons text-white">download</span>
+    <div className="attachment-preview rounded-lg overflow-hidden border dark:border-gray-700">
+      <div 
+        className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+        onClick={handleDownload}
+      >
+        <div className="flex-shrink-0">
+          <span className="material-icons text-2xl text-gray-500 dark:text-gray-400">
+            {isImage ? 'image' : isVideo ? 'videocam' : isPdf ? 'picture_as_pdf' : 'insert_drive_file'}
+          </span>
+        </div>
+        
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium truncate dark:text-gray-200">
+            {fileName}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+            <span>{formatFileSize(parseInt(fileUrl.split('size=')[1] || '0'))}</span>
+            <span>•</span>
+            <span>{isDownloading ? 'Téléchargement...' : 'Cliquez pour télécharger'}</span>
           </div>
         </div>
-      ) : (
-        <div className="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-          <span className="material-icons">attachment</span>
-          <span className="flex-1 truncate">{fileName}</span>
-          <Button variant="ghost" size="sm" onClick={handleDownload}>
-            <span className="material-icons">download</span>
-          </Button>
-        </div>
-      )}
+        
+        <Button 
+          variant="ghost" 
+          size="icon"
+          className="flex-shrink-0"
+          disabled={isDownloading}
+        >
+          <span className="material-icons">
+            {isDownloading ? 'hourglass_empty' : 'download'}
+          </span>
+        </Button>
+      </div>
     </div>
   );
 }

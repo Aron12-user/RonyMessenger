@@ -39,45 +39,49 @@ export default function MessageInput({ onSendMessage }: MessageInputProps) {
         return;
       }
 
-      setSelectedFile(file);
-      setMessage(`[Pièce jointe: ${file.name}]`);
-      
       try {
         toast({
           title: "Préparation",
           description: "Compression et chiffrement du fichier en cours...",
         });
         
-        const { encryptedData, key } = await encryptFile(file);
-        setSelectedFile({
-          ...file,
-          encryptedData,
-          encryptionKey: key
-        } as any);
+        // Compression du fichier si c'est une image
+        let processedFile = file;
+        if (file.type.startsWith('image/')) {
+          // Logique de compression d'image ici si nécessaire
+          processedFile = file; // Pour l'instant on garde l'original
+        }
         
-        // Notification de fichier prêt
-        ws?.send(JSON.stringify({
-          type: 'file_ready',
-          data: {
-            fileName: file.name,
-            fileSize: file.size,
-            conversationId
-          }
-        }));
+        // Chiffrement du fichier
+        const { encryptedData, key } = await encryptFile(processedFile);
+        
+        // Créer un nouveau File object avec les données chiffrées
+        const encryptedFile = new File(
+          [encryptedData],
+          file.name,
+          { type: file.type }
+        );
+        
+        setSelectedFile({
+          file: encryptedFile,
+          originalName: file.name,
+          type: file.type,
+          size: file.size,
+          encryptionKey: key
+        });
         
         toast({
           title: "Succès",
-          description: "Fichier chiffré et prêt à être envoyé",
+          description: "Fichier prêt à être envoyé",
         });
       } catch (error) {
-        console.error('Error encrypting file:', error);
+        console.error('Error processing file:', error);
         toast({
           title: "Erreur",
-          description: "Impossible de chiffrer le fichier",
+          description: "Impossible de préparer le fichier",
           variant: "destructive"
         });
         setSelectedFile(null);
-        setMessage("");
       }
     }
   };
