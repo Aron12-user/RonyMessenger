@@ -3,36 +3,50 @@ import jwt from 'jsonwebtoken';
 
 // Configuration du serveur Jitsi
 export const JITSI_CONFIG = {
-  // Domaine du serveur (si c'est auto-hébergé, ce sera l'adresse de notre serveur)
-  // Pour le développement, nous utilisons un domaine temporaire
-  DOMAIN: process.env.JITSI_DOMAIN || 'meet.jit.si',
+  // Domaine du serveur auto-hébergé (VPS)
+  // Pour l'auto-hébergement, il faut configurer un domaine avec DNS et SSL
+  DOMAIN: process.env.JITSI_DOMAIN || 'jitsi.rony.app',
   
-  // Clé secrète pour la génération des JWT (à changer en production)
-  JWT_SECRET: process.env.JITSI_JWT_SECRET || 'rony_jitsi_jwt_secret',
+  // Clé secrète pour la génération des JWT 
+  // Cette clé DOIT être la même que celle configurée dans prosody et jicofo
+  JWT_SECRET: process.env.JITSI_JWT_SECRET || 'rony_secure_jitsi_jwt_secret',
   
-  // Durée de validité du token (1 heure par défaut)
-  JWT_EXPIRY: '1h',
+  // Durée de validité du token (24 heures pour éviter les déconnexions)
+  JWT_EXPIRY: '24h',
   
   // Préfixe pour les noms de salles
   ROOM_PREFIX: 'rony-meet-',
   
-  // Configuration Jicofo
+  // Configuration Jicofo (Jitsi Conference Focus - composant qui gère les salles)
   JICOFO: {
+    // L'utilisateur focus de Prosody qui se connecte à XMPP
     FOCUS_USER: process.env.JICOFO_FOCUS_USER || 'focus',
-    COMPONENT_SECRET: process.env.JICOFO_COMPONENT_SECRET || 'component_secret',
-    // Temps maximal d'inactivité avant de fermer une salle (en secondes)
-    MAX_IDLE_TIME: 300, // 5 minutes
+    // Le secret pour l'authentification du composant
+    COMPONENT_SECRET: process.env.JICOFO_COMPONENT_SECRET || 'jicofo_component_secret',
+    // Temps maximal d'inactivité avant de fermer une salle (en secondes) - désactivé (0)
+    MAX_IDLE_TIME: 0, // Désactivé pour permettre des réunions de durée illimitée
+    // Désactiver la restriction des 5 minutes pour les réunions publiques
+    ENABLE_AUTO_OWNER: true, // Tous les utilisateurs sont automatiquement propriétaires
+    DISABLE_MEETING_LIMITS: true // Désactive toutes les limitations de durée
   },
   
-  // Durée des réunions (en minutes)
-  DEFAULT_MEETING_DURATION: 60, // 1 heure
-  EXTENDED_MEETING_DURATION: 180, // 3 heures
+  // Durée des réunions (en minutes) - valeurs très élevées pour désactiver en pratique
+  DEFAULT_MEETING_DURATION: 10080, // 7 jours
+  EXTENDED_MEETING_DURATION: 40320, // 28 jours
   
-  // Configuration du serveur TURN/STUN pour les connexions WebRTC
+  // Configuration des serveurs TURN/STUN pour les connexions WebRTC
   ICE_SERVERS: [
+    // Serveurs STUN publics (pour la découverte NAT)
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    // En production, ajoutez vos propres serveurs TURN ici
+    
+    // Serveur TURN auto-hébergé (pour contourner les firewalls restrictifs)
+    // Nécessite l'installation de coturn sur le VPS
+    { 
+      urls: process.env.TURN_SERVER_URL || 'turn:turn.rony.app:443',
+      username: process.env.TURN_USERNAME || 'ronyuser',
+      credential: process.env.TURN_CREDENTIAL || 'ronypassword'
+    }
   ]
 };
 

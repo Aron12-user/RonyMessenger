@@ -22,15 +22,22 @@ export default function Contacts() {
     queryKey: [API_ENDPOINTS.CONTACTS],
   });
 
-  // Fetch all users for searching
-  const { data: usersResponse } = useQuery({
+  // Fetch all users for searching - ensure proper typing with Typescript interface for paginated response
+  type PaginatedUsers = {
+    data: User[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+  
+  const { data: usersResponse } = useQuery<PaginatedUsers>({
     queryKey: [API_ENDPOINTS.USERS],
   });
   
-  // Extract users array from the paginated response
-  const allUsers = Array.isArray(usersResponse?.data) 
-    ? usersResponse.data 
-    : (usersResponse ? [usersResponse] : []);
+  // Extract users array from the paginated response safely
+  const allUsers = (usersResponse?.data || []) as User[];
 
   // Add contact mutation
   const addContactMutation = useMutation({
