@@ -6,7 +6,7 @@ import ChatHeader from "@/components/ChatHeader";
 import MessageInput from "@/components/MessageInput";
 import useWebSocket from "@/hooks/useWebSocket";
 import { API_ENDPOINTS, WS_EVENTS } from "@/lib/constants";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { fileToDataUrl } from "@/lib/utils";
 import { User, Message } from "@shared/schema";
 
@@ -49,6 +49,15 @@ export default function Messages() {
   // Fetch messages for active conversation
   const { data: messages = [] as any[] } = useQuery<any[]>({
     queryKey: [API_ENDPOINTS.MESSAGES, activeConversationId],
+    queryFn: async () => {
+      if (!activeConversationId) return [];
+      const res = await fetch(`${API_ENDPOINTS.MESSAGES}/${activeConversationId}`);
+      if (!res.ok) {
+        if (res.status === 401) throw new Error('Non authentifié');
+        throw new Error('Erreur lors de la récupération des messages');
+      }
+      return res.json();
+    },
     enabled: !!activeConversationId,
   });
 

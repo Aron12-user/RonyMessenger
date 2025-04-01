@@ -11,42 +11,51 @@ export default function useWebSocket() {
   // Initialize WebSocket connection
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const port = window.location.port || (protocol === "wss:" ? "443" : "80");
+    const wsUrl = `${protocol}//${window.location.hostname}:${port}/ws`;
     
-    const socket = new WebSocket(wsUrl);
-    socketRef.current = socket;
+    console.log("Trying to connect to WebSocket at:", wsUrl);
     
-    socket.onopen = () => {
-      setStatus('open');
-      console.log("WebSocket connection established");
-    };
+    try {
+      const socket = new WebSocket(wsUrl);
+      socketRef.current = socket;
     
-    socket.onclose = () => {
-      setStatus('closed');
-      console.log("WebSocket connection closed");
-    };
-    
-    socket.onerror = (error) => {
-      setStatus('error');
-      console.error("WebSocket error:", error);
-    };
-    
-    socket.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        
-        if (message && message.type && messageHandlersRef.current[message.type]) {
-          messageHandlersRef.current[message.type](message.data);
+      socket.onopen = () => {
+        setStatus('open');
+        console.log("WebSocket connection established");
+      };
+      
+      socket.onclose = () => {
+        setStatus('closed');
+        console.log("WebSocket connection closed");
+      };
+      
+      socket.onerror = (error) => {
+        setStatus('error');
+        console.error("WebSocket error:", error);
+      };
+      
+      socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          
+          if (message && message.type && messageHandlersRef.current[message.type]) {
+            messageHandlersRef.current[message.type](message.data);
+          }
+        } catch (err) {
+          console.error("Error parsing WebSocket message:", err);
         }
-      } catch (err) {
-        console.error("Error parsing WebSocket message:", err);
-      }
-    };
-    
-    // Clean up function
-    return () => {
-      socket.close();
-    };
+      };
+      
+      // Clean up function
+      return () => {
+        socket.close();
+      };
+    } catch (error) {
+      console.error("Failed to create WebSocket:", error);
+      setStatus('error');
+      return () => {};
+    }
   }, []);
 
   // Register message handler

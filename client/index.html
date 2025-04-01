@@ -6,6 +6,41 @@
     <title>Rony - Modern Communication Platform</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- Polyfills pour les bibliothèques qui utilisent Node.js APIs comme simple-peer -->
+    <script>
+      // Définitions applicables avant toute importation de module
+      window.global = window;
+      window.process = { env: {}, nextTick: function(fn) { setTimeout(fn, 0); } };
+      
+      // Cette fonction sera utilisée pour charger le polyfill Buffer si nécessaire
+      window.__loadBufferPolyfill = function() {
+        return new Promise((resolve, reject) => {
+          if (window.Buffer) {
+            console.log('Buffer already defined');
+            resolve(window.Buffer);
+            return;
+          }
+          
+          // Créer une balise script et charger npm buffer depuis unpkg
+          const script = document.createElement('script');
+          script.src = 'https://unpkg.com/buffer@6.0.3/index.js';
+          script.onload = function() {
+            if (window.buffer && window.buffer.Buffer) {
+              window.Buffer = window.buffer.Buffer;
+              console.log('Buffer polyfill loaded from unpkg');
+              resolve(window.Buffer);
+            } else {
+              reject(new Error('Failed to load Buffer from unpkg'));
+            }
+          };
+          script.onerror = function(err) {
+            reject(new Error('Failed to load Buffer script: ' + err));
+          };
+          document.head.appendChild(script);
+        });
+      };
+    </script>
   </head>
   <body>
     <div id="root"></div>
