@@ -38,8 +38,10 @@ export default function Sidebar({
 
   const handleLogout = async () => {
     try {
+      console.log("Déconnexion en cours...");
       await logout();
-      setLocation('/auth');
+      // Force un rafraîchissement de la page pour réinitialiser l'état de l'application
+      window.location.href = '/auth';
       toast({
         title: "Déconnecté",
         description: "Vous avez été déconnecté avec succès"

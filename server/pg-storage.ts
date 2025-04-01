@@ -1,10 +1,12 @@
-import { eq, and, or, desc, sql, asc, count } from 'drizzle-orm';
+import { eq, and, or, desc, sql, asc, count, isNull } from 'drizzle-orm';
 import { db } from './db';
 import { 
   users, User, InsertUser, 
   conversations, Conversation, InsertConversation,
   messages, Message, InsertMessage,
   files, File, InsertFile,
+  folders, Folder, InsertFolder,
+  fileSharing, FileSharing, InsertFileSharing,
   contacts, Contact, InsertContact
 } from '@shared/schema';
 import { IStorage } from './storage';
@@ -192,7 +194,71 @@ export class PgStorage implements IStorage {
     return results[0];
   }
   
-  // File methods
+  // Méthodes de dossiers (Folders)
+  async getFoldersForUser(userId: number): Promise<Folder[]> {
+    return await db.select()
+      .from(folders)
+      .where(eq(folders.ownerId, userId))
+      .orderBy(folders.name);
+  }
+
+  async getFolderById(folderId: number): Promise<Folder | undefined> {
+    const results = await db.select().from(folders).where(eq(folders.id, folderId));
+    return results.length > 0 ? results[0] : undefined;
+  }
+
+  async getFoldersByParent(parentId: number | null, userId: number): Promise<Folder[]> {
+    if (parentId === null) {
+      return await db.select()
+        .from(folders)
+        .where(
+          and(
+            eq(folders.ownerId, userId),
+            isNull(folders.parentId)
+          )
+        )
+        .orderBy(folders.name);
+    } else {
+      return await db.select()
+        .from(folders)
+        .where(
+          and(
+            eq(folders.ownerId, userId),
+            eq(folders.parentId, parentId)
+          )
+        )
+        .orderBy(folders.name);
+    }
+  }
+
+  async createFolder(folderData: InsertFolder): Promise<Folder> {
+    const results = await db.insert(folders).values(folderData).returning();
+    return results[0];
+  }
+
+  async updateFolder(folderId: number, name: string): Promise<Folder> {
+    const results = await db.update(folders)
+      .set({ name, updatedAt: new Date() })
+      .where(eq(folders.id, folderId))
+      .returning();
+    return results[0];
+  }
+
+  async deleteFolder(folderId: number): Promise<void> {
+    // Supprimer les fichiers dans ce dossier
+    await db.delete(files).where(eq(files.folderId, folderId));
+    
+    // Supprimer les sous-dossiers récursivement
+    const subFolders = await db.select().from(folders).where(eq(folders.parentId, folderId));
+    for (const subFolder of subFolders) {
+      await this.deleteFolder(subFolder.id);
+    }
+    
+    // Supprimer le dossier lui-même
+    await db.delete(folders).where(eq(folders.id, folderId));
+  }
+  
+  // Méthodes de fichiers (Files)
   async getFilesForUser(userId: number): Promise<File[]> {
     return await db.select()
       .from(files)
@@ -200,9 +266,102 @@ export class PgStorage implements IStorage {
       .orderBy(desc(files.uploadedAt));
   }
   
+  async getFilesByFolder(folderId: number | null): Promise<File[]> {
+    if (folderId === null) {
+      return await db.select()
+        .from(files)
+        .where(isNull(files.folderId))
+        .orderBy(files.name);
+    } else {
+      return await db.select()
+        .from(files)
+        .where(eq(files.folderId, folderId))
+        .orderBy(files.name);
+    }
+  }
+  
+  async getFileById(fileId: number): Promise<File | undefined> {
+    const results = await db.select().from(files).where(eq(files.id, fileId));
+    return results.length > 0 ? results[0] : undefined;
+  }
+  
   async createFile(fileData: InsertFile): Promise<File> {
     const results = await db.insert(files).values(fileData).returning();
     return results[0];
+  }
+  
+  async updateFile(fileId: number, data: Partial<InsertFile>): Promise<File> {
+    const updateData: Partial<File> = { ...data, updatedAt: new Date() };
+    const results = await db.update(files)
+      .set(updateData)
+      .where(eq(files.id, fileId))
+      .returning();
+    return results[0];
+  }
+  
+  async deleteFile(fileId: number): Promise<void> {
+    await db.delete(files).where(eq(files.id, fileId));
+  }
+  
+  async getSharedFiles(userId: number): Promise<File[]> {
+    // Récupérer les fichiers partagés avec cet utilisateur
+    const sharedWithUser = await db
+      .select({
+        file: files
+      })
+      .from(files)
+      .innerJoin(
+        fileSharing,
+        and(
+          eq(files.id, fileSharing.fileId),
+          eq(fileSharing.sharedWithId, userId)
+        )
+      )
+      .orderBy(desc(files.updatedAt));
+    
+    return sharedWithUser.map(row => row.file);
+  }
+  
+  // Méthodes de partage de fichiers
+  async shareFile(sharingData: InsertFileSharing): Promise<FileSharing> {
+    // Marquer le fichier comme partagé
+    await db.update(files)
+      .set({ isShared: true })
+      .where(eq(files.id, sharingData.fileId));
+    
+    // Créer l'entrée de partage
+    const results = await db.insert(fileSharing).values(sharingData).returning();
+    return results[0];
+  }
+  
+  async getFileSharingById(id: number): Promise<FileSharing | undefined> {
+    const results = await db.select().from(fileSharing).where(eq(fileSharing.id, id));
+    return results.length > 0 ? results[0] : undefined;
+  }
+  
+  async getFileSharingsForFile(fileId: number): Promise<FileSharing[]> {
+    return await db.select()
+      .from(fileSharing)
+      .where(eq(fileSharing.fileId, fileId));
+  }
+  
+  async revokeFileSharing(id: number): Promise<void> {
+    // Récupérer l'entrée de partage
+    const sharing = await this.getFileSharingById(id);
+    if (!sharing) return;
+    
+    // Supprimer l'entrée de partage
+    await db.delete(fileSharing).where(eq(fileSharing.id, id));
+    
+    // Vérifier s'il reste des partages pour ce fichier
+    const remainingShares = await this.getFileSharingsForFile(sharing.fileId);
+    
+    // Si plus de partages, marquer le fichier comme non partagé
+    if (remainingShares.length === 0) {
+      await db.update(files)
+        .set({ isShared: false })
+        .where(eq(files.id, sharing.fileId));
+    }
   }
   
   // Contact methods

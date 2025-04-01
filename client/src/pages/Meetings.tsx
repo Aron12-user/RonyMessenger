@@ -71,7 +71,7 @@ export default function Meetings() {
   });
 
   // Fetch all users
-  const { data } = useQuery({
+  const { data } = useQuery<{ data: User[] }>({
     queryKey: [API_ENDPOINTS.USERS],
   });
   
