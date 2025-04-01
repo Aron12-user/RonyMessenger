@@ -25,11 +25,27 @@ export default function MessageInput({ onSendMessage }: MessageInputProps) {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       setSelectedFile(file);
       setMessage(`[Attachment: ${file.name}] `);
+      
+      try {
+        const { encryptedData, key } = await encryptFile(file);
+        setSelectedFile({
+          ...file,
+          encryptedData,
+          encryptionKey: key
+        } as any);
+      } catch (error) {
+        console.error('Error encrypting file:', error);
+        toast({
+          title: "Error",
+          description: "Failed to encrypt file",
+          variant: "destructive"
+        });
+      }
     }
   };
 

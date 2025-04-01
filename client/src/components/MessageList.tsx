@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import UserAvatar from "./UserAvatar";
 import { Message, User } from "@shared/schema";
+import AttachmentPreview from './AttachmentPreview'; // Assuming this component exists
 
 interface MessageListProps {
   messages: Message[];
@@ -17,7 +18,7 @@ export default function MessageList({ messages, currentUserId, users }: MessageL
 
   // Group messages by date for separators
   const messagesByDate: { [date: string]: Message[] } = {};
-  
+
   messages.forEach(message => {
     const date = new Date(message.timestamp).toDateString();
     if (!messagesByDate[date]) {
@@ -42,9 +43,9 @@ export default function MessageList({ messages, currentUserId, users }: MessageL
           {dateMessages.map(message => {
             const isCurrentUser = message.senderId === currentUserId;
             const user = users[message.senderId];
-            
+
             if (!user) return null;
-            
+
             return (
               <div 
                 key={message.id}
@@ -57,7 +58,7 @@ export default function MessageList({ messages, currentUserId, users }: MessageL
                     color={getColorForUser(user.id)}
                   />
                 )}
-                
+
                 <div className={`flex flex-col ${isCurrentUser ? 'items-end' : ''}`}>
                   <div className={`${
                     isCurrentUser 
@@ -66,13 +67,14 @@ export default function MessageList({ messages, currentUserId, users }: MessageL
                     } rounded-lg px-4 py-2 break-words`}
                   >
                     {message.content}
-                    
-                    {message.fileUrl && (
+
+                    {message.fileUrl && message.encryptionKey && (
                       <div className="mt-2">
-                        <img 
-                          src={message.fileUrl} 
-                          alt="Attached file" 
-                          className="w-64 h-auto object-cover rounded"
+                        <AttachmentPreview 
+                          fileUrl={message.fileUrl}
+                          encryptionKey={message.encryptionKey}
+                          fileName={message.fileName}
+                          fileType={message.fileType}
                         />
                       </div>
                     )}
@@ -81,7 +83,7 @@ export default function MessageList({ messages, currentUserId, users }: MessageL
                     {formatMessageTime(message.timestamp)}
                   </span>
                 </div>
-                
+
                 {isCurrentUser && (
                   <UserAvatar 
                     size="sm"
@@ -94,7 +96,7 @@ export default function MessageList({ messages, currentUserId, users }: MessageL
           })}
         </div>
       ))}
-      
+
       {messages.length === 0 && (
         <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400">
           <span className="material-icons text-4xl mb-2">chat</span>
@@ -102,7 +104,7 @@ export default function MessageList({ messages, currentUserId, users }: MessageL
           <p className="text-sm">Start a conversation</p>
         </div>
       )}
-      
+
       <div ref={messagesEndRef} />
     </div>
   );
@@ -121,23 +123,23 @@ function formatMessageTime(timestamp: Date): string {
 function formatMessageDate(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();
-  
+
   if (date.toDateString() === now.toDateString()) {
     return 'Today';
   }
-  
+
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
   if (date.toDateString() === yesterday.toDateString()) {
     return 'Yesterday';
   }
-  
+
   // If within the last 7 days, show the day name
   const daysDiff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
   if (daysDiff < 7) {
     return date.toLocaleDateString([], { weekday: 'long' });
   }
-  
+
   // Otherwise show the full date
   return date.toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' });
 }
