@@ -40,7 +40,11 @@ export default function MessageInput({ onSendMessage }: MessageInputProps) {
       }
 
       setSelectedFile(file);
-      setMessage(`[Pièce jointe: ${file.name}]`);
+      // Ne pas changer le message, garder l'interface de saisie libre
+      toast({
+        title: "Préparation du fichier",
+        description: "Compression et chiffrement en cours..."
+      });
       
       try {
         toast({

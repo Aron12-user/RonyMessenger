@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { decryptFile } from '../lib/encryption';
 import { Button } from './ui/button';
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 interface AttachmentPreviewProps {
   fileUrl: string;
@@ -13,12 +13,56 @@ interface AttachmentPreviewProps {
 
 export default function AttachmentPreview({ fileUrl, encryptionKey, fileName, fileType }: AttachmentPreviewProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const { toast } = useToast();
 
+  const handleDownload = async () => {
+    try {
+      setIsDownloading(true);
+      
+      toast({
+        title: "Téléchargement",
+        description: "Récupération et déchiffrement du fichier..."
+      });
+
+      const response = await fetch(fileUrl);
+      const encryptedData = await response.text();
+      const decryptedData = decryptFile(encryptedData, encryptionKey);
+      
+      // Créer un blob et le télécharger
+      const blob = new Blob([decryptedData], { type: fileType });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      
+      // Nettoyage
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Succès",
+        description: "Fichier téléchargé avec succès"
+      });
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de télécharger le fichier",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Générer l'aperçu pour les images seulement
   useEffect(() => {
-    const loadFile = async () => {
+    if (!fileType.startsWith('image/')) return;
+
+    const loadPreview = async () => {
       try {
-        setIsLoading(true);
         const response = await fetch(fileUrl);
         const encryptedData = await response.text();
         const decryptedData = decryptFile(encryptedData, encryptionKey);
@@ -26,80 +70,49 @@ export default function AttachmentPreview({ fileUrl, encryptionKey, fileName, fi
         const blob = new Blob([decryptedData], { type: fileType });
         const url = URL.createObjectURL(blob);
         setPreviewUrl(url);
-        setIsLoading(false);
         
         return () => URL.revokeObjectURL(url);
       } catch (error) {
-        console.error('Error decrypting file:', error);
-        setIsLoading(false);
-        toast({
-          title: "Erreur",
-          description: "Impossible de décrypter le fichier",
-          variant: "destructive"
-        });
+        console.error('Error generating preview:', error);
       }
     };
     
-    loadFile();
+    loadPreview();
   }, [fileUrl, encryptionKey, fileType]);
 
-  const handleDownload = async () => {
-    if (previewUrl) {
-      try {
-        toast({
-          title: "Téléchargement",
-          description: "Début du téléchargement du fichier...",
-        });
-        
-        const response = await fetch(previewUrl);
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-        
-        toast({
-          title: "Succès",
-          description: "Fichier téléchargé et déchiffré avec succès",
-        });
-      } catch (error) {
-        toast({
-          title: "Erreur",
-          description: "Impossible de télécharger le fichier",
-          variant: "destructive"
-        });
-      }
-    }
-  };
-
-  if (isLoading) return <div className="flex items-center justify-center p-4">Chargement...</div>;
-
-  if (!previewUrl) return null;
-
   return (
-    <div className="relative group animate-in fade-in duration-200">
+    <div className="attachment-preview">
       {fileType.startsWith('image/') ? (
-        <div className="relative cursor-pointer" onClick={handleDownload}>
-          <img 
-            src={previewUrl} 
-            alt={fileName}
-            className="max-w-[200px] rounded-lg hover:opacity-90 transition-opacity"
-          />
+        <div className="relative group cursor-pointer" onClick={handleDownload}>
+          {previewUrl && (
+            <img 
+              src={previewUrl} 
+              alt={fileName}
+              className="w-full rounded-lg hover:opacity-90 transition-opacity"
+            />
+          )}
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 rounded-lg">
-            <span className="material-icons text-white">download</span>
+            <span className="material-icons text-white text-2xl">download</span>
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-          <span className="material-icons">attachment</span>
-          <span className="flex-1 truncate">{fileName}</span>
-          <Button variant="ghost" size="sm" onClick={handleDownload}>
-            <span className="material-icons">download</span>
-          </Button>
+        <div 
+          onClick={handleDownload}
+          className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+        >
+          <span className="material-icons text-2xl">
+            {fileType.includes('pdf') ? 'picture_as_pdf' : 
+             fileType.includes('video') ? 'movie' :
+             fileType.includes('audio') ? 'audiotrack' : 
+             'insert_drive_file'}
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate">{fileName}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              Cliquez pour télécharger
+            </div>
+          </div>
+          <span className="material-icons">download</span>
         </div>
       )}
     </div>
