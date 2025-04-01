@@ -18,6 +18,7 @@ import multer from "multer";
 import * as path from "path";
 import * as fs from "fs";
 import { v4 as uuidv4 } from "uuid";
+import { registerJitsiRoutes } from "./jitsi/routes";
 
 // Map of online users
 const onlineUsers = new Map<number, WebSocket>();
@@ -736,6 +737,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to update profile' });
     }
   });
+  
+  // Enregistrer les routes pour les réunions vidéo Jitsi
+  registerJitsiRoutes(app, requireAuth);
 
   return httpServer;
 }
