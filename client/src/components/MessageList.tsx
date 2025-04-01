@@ -79,7 +79,7 @@ export default function MessageList({ messages, currentUserId, users }: MessageL
                       />
                     </div>
                   )}
-                  </div>
+                  
                   <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {formatMessageTime(message.timestamp)}
                   </span>
