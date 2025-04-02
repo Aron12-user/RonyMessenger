@@ -198,7 +198,7 @@ export class PgStorage implements IStorage {
   async getFoldersForUser(userId: number): Promise<Folder[]> {
     return await db.select()
       .from(folders)
-      .where(eq(folders.user_id, userId))
+      .where(eq(folders.userId, userId))
       .orderBy(folders.name);
   }
 
@@ -270,12 +270,12 @@ export class PgStorage implements IStorage {
     if (folderId === null) {
       return await db.select()
         .from(files)
-        .where(isNull(files.folderId))
+        .where(isNull(files.folder_id))
         .orderBy(files.name);
     } else {
       return await db.select()
         .from(files)
-        .where(eq(files.folderId, folderId))
+        .where(eq(files.folder_id, folderId))
         .orderBy(files.name);
     }
   }
