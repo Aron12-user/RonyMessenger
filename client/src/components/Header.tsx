@@ -6,7 +6,7 @@ interface HeaderProps {
 }
 
 export default function Header({ setIsMobileOpen }: HeaderProps) {
-  const { user: currentUser } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   const handleToggleSidebar = () => {
@@ -56,9 +56,9 @@ export default function Header({ setIsMobileOpen }: HeaderProps) {
 
         <button className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
           <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-sm font-medium">
-            {currentUser?.displayName?.charAt(0) || currentUser?.username?.charAt(0) || ""}
+            {user?.displayName?.charAt(0) || user?.username?.charAt(0) || ""}
           </div>
-          <span className="hidden md:inline-block font-medium">{currentUser?.displayName || currentUser?.username || "User"}</span>
+          <span className="hidden md:inline-block font-medium">{user?.displayName || user?.username || "User"}</span>
           <span className="material-icons text-sm">arrow_drop_down</span>
         </button>
       </div>
