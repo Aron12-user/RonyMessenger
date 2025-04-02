@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 import Messages from "@/pages/Messages";
-import Calls from "@/pages/Calls";
 import MeetingsNew from "@/pages/MeetingsNew";
 import Files from "@/pages/Files";
 import CloudStorage from "@/pages/CloudStorage";
