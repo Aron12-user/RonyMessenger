@@ -42,7 +42,7 @@ export default function MessageInput({ onSendMessage }: MessageInputProps) {
       try {
         toast({
           title: "Préparation",
-          description: "Compression et chiffrement du fichier en cours...",
+          description: "Traitement du fichier en cours...",
         });
         
         // Compression du fichier si c'est une image
@@ -103,14 +103,30 @@ export default function MessageInput({ onSendMessage }: MessageInputProps) {
           className="hidden" 
         />
         
-        <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-lg px-4 py-2">
-          <input 
-            type="text" 
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Type a message..." 
-            className="w-full bg-transparent border-none focus:outline-none dark:text-white" 
-          />
+        <div className="flex items-center gap-2">
+          <button 
+            type="button"
+            onClick={() => onStartCall("audio")}
+            className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+          >
+            <span className="material-icons">call</span>
+          </button>
+          <button 
+            type="button"
+            onClick={() => onStartCall("video")} 
+            className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+          >
+            <span className="material-icons">videocam</span>
+          </button>
+          <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-lg px-4 py-2">
+            <input 
+              type="text" 
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Type a message..." 
+              className="w-full bg-transparent border-none focus:outline-none dark:text-white" 
+            />
+          </div>
         </div>
         
         <button 

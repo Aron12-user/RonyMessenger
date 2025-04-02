@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-// Temporairement désactiver simple-peer pendant que nous corrigeons les polyfills
-// import Peer from 'simple-peer';
+import Peer from 'simple-peer';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import UserAvatar from './UserAvatar';
@@ -9,30 +8,19 @@ import { WS_EVENTS } from '@/lib/constants';
 import { User } from '@shared/schema';
 import { ensureBufferLoaded } from '@/lib/globalPolyfill';
 
-// Définition temporaire de Peer pour éviter les erreurs de compilation
-const Peer = function(config: any) {
-  return {
-    on: (event: string, callback: any) => {},
-    signal: (data: any) => {},
-    destroy: () => {}
-  };
-}
-Peer.Instance = {} as any;
-
 interface AudioCallProps {
   user: User;
   isInitiator?: boolean;
   onClose: () => void;
-  signalData?: any;
 }
 
-export default function AudioCall({ user, isInitiator = false, onClose, signalData }: AudioCallProps) {
+export default function AudioCall({ user, isInitiator = false, onClose }: AudioCallProps) {
   const [connected, setConnected] = useState(false);
   const [callStatus, setCallStatus] = useState<'calling' | 'connected' | 'ended'>('calling');
   const [callDuration, setCallDuration] = useState(0);
   const [muted, setMuted] = useState(false);
-  
-  const peerRef = useRef<Peer.Instance | null>(null);
+
+  const peerRef = useRef<any>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -40,7 +28,6 @@ export default function AudioCall({ user, isInitiator = false, onClose, signalDa
   const { toast } = useToast();
   const { sendMessage, addMessageHandler } = useWebSocket();
 
-  // Format la durée de l'appel en minutes:secondes
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -48,163 +35,88 @@ export default function AudioCall({ user, isInitiator = false, onClose, signalDa
   };
 
   useEffect(() => {
-    // Configuration initiale de l'appel
     const startCall = async () => {
       try {
-        // S'assurer que les polyfills sont chargés (notamment pour Buffer)
-        // Utiliser la fonction importée de globalPolyfill.ts
         await ensureBufferLoaded();
-        
-        // Obtenir l'accès au microphone
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         localStreamRef.current = stream;
-        
-        // Créer une instance de peer
+
         const peer = new Peer({
           initiator: isInitiator,
           trickle: false,
           stream
         });
 
-        // Configurer les gestionnaires d'événements
         peer.on('signal', data => {
-          if (isInitiator) {
-            // Envoyer le signal d'offre au serveur
-            sendMessage(WS_EVENTS.CALL_OFFER, {
-              target: user.id,
-              signal: data
-            });
-          } else if (signalData) {
-            // Envoyer le signal de réponse au serveur
-            sendMessage(WS_EVENTS.CALL_ANSWER, {
-              target: user.id,
-              signal: data
-            });
-          }
+          sendMessage(WS_EVENTS.CALL_SIGNAL, {
+            target: user.id,
+            signal: data
+          });
         });
 
         peer.on('connect', () => {
           setConnected(true);
           setCallStatus('connected');
-          
-          // Démarrer le timer pour la durée de l'appel
           timerRef.current = setInterval(() => {
             setCallDuration(prev => prev + 1);
           }, 1000);
-          
-          toast({
-            title: "Appel connecté",
-            description: `Vous êtes maintenant en communication avec ${user.displayName || user.username}`,
-          });
         });
 
-        peer.on('stream', (remoteStream) => {
+        peer.on('stream', (remoteStream: MediaStream) => {
           if (remoteAudioRef.current) {
             remoteAudioRef.current.srcObject = remoteStream;
-            remoteAudioRef.current.play().catch(err => console.error('Error playing audio:', err));
+            remoteAudioRef.current.play().catch(console.error);
           }
         });
 
-        peer.on('error', (err) => {
+        peer.on('error', (err: Error) => {
           console.error('Peer error:', err);
-          toast({
-            title: "Erreur d'appel",
-            description: "Un problème est survenu avec la connexion audio",
-            variant: "destructive"
-          });
           handleEndCall();
         });
-
-        // Si on est le récepteur avec des données de signal
-        if (!isInitiator && signalData) {
-          peer.signal(signalData);
-        }
 
         peerRef.current = peer;
       } catch (err) {
         console.error('Failed to start call:', err);
         toast({
           title: "Erreur de microphone",
-          description: "Impossible d'accéder au microphone. Vérifiez les permissions.",
+          description: "Impossible d'accéder au microphone",
           variant: "destructive"
         });
         onClose();
       }
     };
 
-    startCall();
-
-    // Écouteurs pour les réponses et les rejets d'appel
-    const handleCallAnswer = addMessageHandler(WS_EVENTS.CALL_ANSWER, (data) => {
-      if (peerRef.current && isInitiator && data.signal) {
+    const handleCallSignal = addMessageHandler(WS_EVENTS.CALL_SIGNAL, (data) => {
+      if (peerRef.current) {
         peerRef.current.signal(data.signal);
       }
     });
 
-    const handleCallRejected = addMessageHandler(WS_EVENTS.CALL_REJECTED, (data) => {
-      if (data.from === user.id) {
-        toast({
-          title: "Appel rejeté",
-          description: `${user.displayName || user.username} a rejeté votre appel`,
-        });
-        handleEndCall();
-      }
-    });
+    startCall();
 
-    const handleCallEnded = addMessageHandler(WS_EVENTS.CALL_ENDED, (data) => {
-      if (data.from === user.id) {
-        toast({
-          title: "Appel terminé",
-          description: `${user.displayName || user.username} a raccroché`,
-        });
-        handleEndCall();
-      }
-    });
-
-    // Nettoyage
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
-      
-      // Arrêter tous les tracks du stream local
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(track => track.stop());
       }
-      
-      // Fermer la connexion peer
       if (peerRef.current) {
         peerRef.current.destroy();
       }
-      
-      // Supprimer les écouteurs d'événements
-      handleCallAnswer();
-      handleCallRejected();
-      handleCallEnded();
+      handleCallSignal();
     };
-  }, [isInitiator, user.id]);
+  }, []);
 
-  // Gérer la fin de l'appel
   const handleEndCall = () => {
-    setCallStatus('ended');
-    
-    // Informer l'autre partie que l'appel est terminé
     sendMessage(WS_EVENTS.CALL_ENDED, {
       target: user.id
     });
-    
-    // Arrêter le timer
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    
     onClose();
   };
 
-  // Gérer le bouton muet
   const handleToggleMute = () => {
     if (localStreamRef.current) {
-      const audioTracks = localStreamRef.current.getAudioTracks();
-      audioTracks.forEach(track => {
-        track.enabled = muted; // Inverser l'état actuel
+      localStreamRef.current.getAudioTracks().forEach(track => {
+        track.enabled = !track.enabled;
       });
       setMuted(!muted);
     }
@@ -212,45 +124,45 @@ export default function AudioCall({ user, isInitiator = false, onClose, signalDa
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-md p-6 flex flex-col items-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-md p-6">
         <audio ref={remoteAudioRef} autoPlay />
-        
-        <UserAvatar 
-          initials={user.displayName?.charAt(0) || user.username.charAt(0)} 
-          color={user.id.toString()}
-          size="lg"
-        />
-        
-        <h3 className="text-xl font-bold mt-4">{user.displayName || user.username}</h3>
-        
-        <div className="text-gray-500 dark:text-gray-400 mt-2">
-          {callStatus === 'calling' ? (
-            isInitiator ? 'Appel en cours...' : 'Appel entrant...'
-          ) : callStatus === 'connected' ? (
-            `En appel • ${formatDuration(callDuration)}`
-          ) : (
-            'Appel terminé'
-          )}
-        </div>
-        
-        <div className="flex space-x-4 mt-8">
-          <Button 
-            onClick={handleToggleMute}
-            variant={muted ? "default" : "outline"}
-            className="rounded-full w-12 h-12 p-0"
-          >
-            <span className="material-icons">
-              {muted ? 'mic_off' : 'mic'}
-            </span>
-          </Button>
-          
-          <Button 
-            onClick={handleEndCall}
-            variant="destructive"
-            className="rounded-full w-12 h-12 p-0"
-          >
-            <span className="material-icons">call_end</span>
-          </Button>
+
+        <div className="flex flex-col items-center">
+          <UserAvatar 
+            initials={user.displayName?.charAt(0) || user.username.charAt(0)} 
+            color={user.id.toString()}
+            size="lg"
+          />
+
+          <h3 className="text-xl font-bold mt-4">
+            {user.displayName || user.username}
+          </h3>
+
+          <p className="text-gray-500 dark:text-gray-400 mt-2">
+            {callStatus === 'calling' ? 'Appel en cours...' : 
+             callStatus === 'connected' ? `En appel • ${formatDuration(callDuration)}` :
+             'Appel terminé'}
+          </p>
+
+          <div className="flex space-x-4 mt-8">
+            <Button 
+              onClick={handleToggleMute}
+              variant={muted ? "default" : "outline"}
+              className="rounded-full w-12 h-12 p-0"
+            >
+              <span className="material-icons">
+                {muted ? 'mic_off' : 'mic'}
+              </span>
+            </Button>
+
+            <Button 
+              onClick={handleEndCall}
+              variant="destructive"
+              className="rounded-full w-12 h-12 p-0"
+            >
+              <span className="material-icons">call_end</span>
+            </Button>
+          </div>
         </div>
       </div>
     </div>

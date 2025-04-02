@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { decryptFile } from '../lib/encryption';
 import { Button } from './ui/button';
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +12,8 @@ interface AttachmentPreviewProps {
   timestamp: Date;
   senderId: number;
   currentUserId: number;
+  file: File | null; // Added file prop for image preview
+  onRemove: () => void; // Added onRemove prop
 }
 
 export default function AttachmentPreview({ 
@@ -22,42 +23,69 @@ export default function AttachmentPreview({
   fileType,
   timestamp,
   senderId,
-  currentUserId
+  currentUserId,
+  file,
+  onRemove
 }: AttachmentPreviewProps) {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [preview, setPreview] = useState<string>(''); //Added preview state for image preview
   const { toast } = useToast();
   const isImage = fileType.startsWith('image/');
   const isVideo = fileType.startsWith('video/');
   const isPdf = fileType === 'application/pdf';
-  
+
+  useEffect(() => {
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }, [file]);
+
   const handleDownload = async () => {
     try {
       setIsDownloading(true);
-      
+
       toast({
         title: "Téléchargement",
-        description: "Récupération et déchiffrement du fichier..."
+        description: "Récupération du fichier en cours..."
       });
 
-      // Télécharger le fichier chiffré
+      // Télécharger le fichier
       const response = await fetch(fileUrl);
-      if (!response.ok) throw new Error('Erreur lors du téléchargement');
-      
-      const encryptedData = await response.arrayBuffer();
-      
-      // Déchiffrer le fichier
-      const decryptedData = await decryptFile(encryptedData, encryptionKey);
-      
-      // Créer un blob et le télécharger
-      const blob = new Blob([decryptedData], { type: fileType });
-      const url = window.URL.createObjectURL(blob);
+      if (!response.ok) {
+        throw new Error('Erreur lors du téléchargement');
+      }
+
+      const data = await response.blob();
+      const url = window.URL.createObjectURL(data);
       const link = document.createElement('a');
       link.href = url;
       link.download = fileName;
+      document.body.appendChild(link);
       link.click();
-      
+      document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
+
+      toast({
+        title: "Succès",
+        description: "Fichier téléchargé avec succès"
+      });
+
+      // Déchiffrer le fichier
+      const decryptedData = await decryptFile(encryptedData, encryptionKey);
+
+      // Créer un blob et le télécharger
+      const blob = new Blob([decryptedData], { type: fileType });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = downloadUrl;
+      downloadLink.download = fileName;
+      downloadLink.click();
+      window.URL.revokeObjectURL(downloadUrl);
+
       toast({
         title: "Succès",
         description: "Fichier téléchargé avec succès"
@@ -81,11 +109,15 @@ export default function AttachmentPreview({
         onClick={handleDownload}
       >
         <div className="flex-shrink-0">
-          <span className="material-icons text-2xl text-gray-500 dark:text-gray-400">
-            {isImage ? 'image' : isVideo ? 'videocam' : isPdf ? 'picture_as_pdf' : 'insert_drive_file'}
-          </span>
+          {isImage && preview ? (
+            <img src={preview} alt={fileName} className="h-12 w-12 object-cover" />
+          ) : (
+            <span className="material-icons text-2xl text-gray-500 dark:text-gray-400">
+              {isImage ? 'image' : isVideo ? 'videocam' : isPdf ? 'picture_as_pdf' : 'insert_drive_file'}
+            </span>
+          )}
         </div>
-        
+
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium truncate dark:text-gray-200">
             {fileName}
@@ -96,7 +128,7 @@ export default function AttachmentPreview({
             <span>{isDownloading ? 'Téléchargement...' : 'Cliquez pour télécharger'}</span>
           </div>
         </div>
-        
+
         <Button 
           variant="ghost" 
           size="icon"
