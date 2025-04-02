@@ -2,9 +2,10 @@ import { useToast } from "@/hooks/use-toast";
 
 interface HeaderProps {
   setIsMobileOpen: (isOpen: boolean) => void;
+  currentUser: any; // Added currentUser prop with a generic type.  Adjust as needed based on the actual currentUser type.
 }
 
-export default function Header({ setIsMobileOpen }: HeaderProps) {
+export default function Header({ setIsMobileOpen, currentUser }: HeaderProps) {
   const { toast } = useToast();
 
   const handleToggleSidebar = () => {
@@ -26,7 +27,7 @@ export default function Header({ setIsMobileOpen }: HeaderProps) {
         className="md:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mr-2">
         <span className="material-icons">menu</span>
       </button>
-      
+
       {/* Search Bar */}
       <div className="relative flex-1 max-w-xl">
         <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 dark:text-gray-400">
@@ -38,7 +39,7 @@ export default function Header({ setIsMobileOpen }: HeaderProps) {
           className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
         />
       </div>
-      
+
       {/* Header Actions */}
       <div className="flex items-center ml-4 space-x-3">
         <button 
@@ -47,11 +48,11 @@ export default function Header({ setIsMobileOpen }: HeaderProps) {
           <span className="material-icons">notifications</span>
           <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
         </button>
-        
+
         <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
           <span className="material-icons">help_outline</span>
         </button>
-        
+
         <button className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
           <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-sm font-medium">
             {currentUser?.displayName?.charAt(0) || currentUser?.username?.charAt(0)}
