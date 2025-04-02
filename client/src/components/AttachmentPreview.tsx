@@ -79,10 +79,11 @@ export default function AttachmentPreview({
 
       // Créer un blob et le télécharger
       const blob = new Blob([decryptedData], { type: fileType });
-      const url = window.URL.createObjectURL(blob);
+      const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
+      link.href = downloadUrl;
       link.download = fileName;
+      window.URL.revokeObjectURL(downloadUrl);
       link.click();
 
       window.URL.revokeObjectURL(url);
