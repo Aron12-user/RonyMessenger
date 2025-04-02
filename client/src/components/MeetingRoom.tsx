@@ -116,7 +116,7 @@ export default function MeetingRoom({ roomCode, userName, userId, onClose, showC
         // Mettre à jour le token dans Jitsi
         jitsiApiRef.current.executeCommand('token', data.token);
         console.log('Token JWT rafraîchi avec succès');
-        
+
         // Planifier le prochain rafraîchissement
         if (room?.roomName) {
           scheduleTokenRefresh(room.roomName);
@@ -141,18 +141,18 @@ export default function MeetingRoom({ roomCode, userName, userId, onClose, showC
     if (tokenExpiryTimerRef.current) {
       clearTimeout(tokenExpiryTimerRef.current);
     }
-    
+
     // Vérifier si nous utilisons un serveur auto-hébergé avec une durée de token prolongée
     const isCustomServer = import.meta.env.VITE_JITSI_DOMAIN && 
                            import.meta.env.VITE_JITSI_DOMAIN !== 'meet.jit.si';
-    
+
     // Délai de rafraîchissement: 23 heures pour serveur auto-hébergé, 50 minutes sinon
     const refreshDelay = isCustomServer 
       ? 23 * 60 * 60 * 1000  // 23 heures pour serveur auto-hébergé (token valide 24h)
       : 50 * 60 * 1000;      // 50 minutes pour meet.jit.si (token valide 1h)
-      
+
     console.log(`Programmation du rafraîchissement du token dans ${refreshDelay/60/1000} minutes`);
-    
+
     tokenExpiryTimerRef.current = setTimeout(() => {
       refreshTokenMutation.mutate(roomName);
     }, refreshDelay);
@@ -275,7 +275,7 @@ export default function MeetingRoom({ roomCode, userName, userId, onClose, showC
             </div>
           </div>
         </div>
-        
+
         {showControls && (
           <div className="hidden md:flex items-center space-x-2">
             <TooltipProvider>
@@ -306,12 +306,20 @@ export default function MeetingRoom({ roomCode, userName, userId, onClose, showC
           </div>
         )}
       </div>
-      
+
       <div className="flex-1 bg-gray-800 overflow-hidden">
         <JitsiMeeting
           domain={import.meta.env.VITE_JITSI_DOMAIN || "meet.jit.si"}
           roomName={room.roomName}
           jwt={room.token}
+          onVideoConferenceJoinError={(error) => {
+            console.error('Erreur de connexion:', error);
+            toast({
+              title: "Erreur de connexion",
+              description: "Une erreur est survenue lors de la connexion à la réunion. Veuillez réessayer.",
+              variant: "destructive"
+            });
+          }}
           configOverwrite={{
             startWithAudioMuted: false,
             startWithVideoMuted: false,
@@ -339,13 +347,13 @@ export default function MeetingRoom({ roomCode, userName, userId, onClose, showC
           }}
           onApiReady={(externalApi) => {
             jitsiApiRef.current = externalApi;
-            
+
             // Écouter les événements spécifiques
             externalApi.addListener('videoConferenceLeft', () => {
               console.log('Utilisateur a quitté la conférence');
               handleCloseRoom();
             });
-            
+
             externalApi.addListener('participantJoined', (participant: any) => {
               console.log('Participant a rejoint:', participant);
               toast({
@@ -354,11 +362,11 @@ export default function MeetingRoom({ roomCode, userName, userId, onClose, showC
                 variant: "default"
               });
             });
-            
+
             externalApi.addListener('participantLeft', (participant: any) => {
               console.log('Participant a quitté:', participant);
             });
-            
+
             externalApi.addListener('passwordRequired', () => {
               console.log('Authentification requise');
               // Tentative de rafraîchir le token
