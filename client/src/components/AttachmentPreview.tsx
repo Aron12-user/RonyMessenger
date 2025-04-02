@@ -80,13 +80,11 @@ export default function AttachmentPreview({
       // Créer un blob et le télécharger
       const blob = new Blob([decryptedData], { type: fileType });
       const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = fileName;
+      const downloadLink = document.createElement('a');
+      downloadLink.href = downloadUrl;
+      downloadLink.download = fileName;
+      downloadLink.click();
       window.URL.revokeObjectURL(downloadUrl);
-      link.click();
-
-      window.URL.revokeObjectURL(url);
 
       toast({
         title: "Succès",
