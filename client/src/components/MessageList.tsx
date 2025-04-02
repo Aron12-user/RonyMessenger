@@ -82,6 +82,48 @@ export default function MessageList({ messages, currentUserId, users }: MessageL
                       />
                     </div>
                   )}
+                  {message.file && (
+                    <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                      {message.file.type.startsWith('image/') ? (
+                        <div className="relative">
+                          <img 
+                            src={message.file.url} 
+                            alt={message.file.name}
+                            className="max-w-xs rounded-lg"
+                          />
+                          <a 
+                            href={message.file.url} 
+                            download={message.file.name}
+                            className="absolute bottom-2 right-2 bg-black/50 text-white p-2 rounded-full"
+                          >
+                            <span className="material-icons text-sm">download</span>
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="material-icons text-4xl text-gray-500">
+                            {message.file.type.includes('pdf') ? 'picture_as_pdf' :
+                             message.file.type.includes('word') ? 'description' :
+                             message.file.type.includes('sheet') ? 'table_chart' :
+                             'insert_drive_file'}
+                          </span>
+                          <div className="flex-1">
+                            <p className="font-medium">{message.file.name}</p>
+                            <p className="text-sm text-gray-500">
+                              {(message.file.size / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
+                          <a 
+                            href={message.file.url} 
+                            download={message.file.name}
+                            className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full"
+                          >
+                            <span className="material-icons">download</span>
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {formatMessageTime(message.timestamp)}
