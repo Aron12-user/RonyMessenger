@@ -100,14 +100,59 @@ export default function Messages() {
   });
 
   // Handle sending a new message
-  const handleSendMessage = (text: string, file: File | null = null) => {
-    if (!activeConversationId || !text.trim()) return;
-    
-    sendMessageMutation.mutate({
-      text,
-      file,
-      conversationId: activeConversationId,
+  const [onlineUsers, setOnlineUsers] = useState<number[]>([]);
+  const [typingUsers, setTypingUsers] = useState<{[key: number]: boolean}>({});
+
+  useEffect(() => {
+    addMessageHandler(WS_EVENTS.USER_STATUS, ({userId, status}) => {
+      setOnlineUsers(prev => 
+        status === 'online' 
+          ? [...prev, userId]
+          : prev.filter(id => id !== userId)
+      );
     });
+
+    addMessageHandler(WS_EVENTS.USER_TYPING, ({userId, isTyping}) => {
+      setTypingUsers(prev => ({...prev, [userId]: isTyping}));
+    });
+  }, []);
+
+  const handleSendMessage = async (text: string, file: File | null = null) => {
+    if (!activeConversationId) return;
+    
+    try {
+      let fileData = null;
+      if (file) {
+        const encryptedFile = await encryptFile(file);
+        fileData = {
+          data: encryptedFile,
+          name: file.name,
+          type: file.type
+        };
+      }
+
+      sendMessageMutation.mutate({
+        text,
+        file: fileData,
+        conversationId: activeConversationId,
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'envoyer le message",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleMessageRead = async (messageId: number) => {
+    try {
+      await apiRequest("PUT", `${API_ENDPOINTS.MESSAGES}/${messageId}/read`, {});
+      queryClient.invalidateQueries([API_ENDPOINTS.CONVERSATIONS]);
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+    }
   };
 
   // WebSocket handler for new messages

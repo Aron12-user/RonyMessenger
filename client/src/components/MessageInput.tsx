@@ -9,14 +9,33 @@ export default function MessageInput({ onSendMessage }: MessageInputProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     if (message.trim() || selectedFile) {
-      onSendMessage(message, selectedFile);
+      // Encrypt message before sending
+      const encryptedMessage = message.trim() ? await encryptText(message) : "";
+      
+      onSendMessage(encryptedMessage, selectedFile);
       setMessage("");
       setSelectedFile(null);
+      
+      // Clear typing indicator
+      sendMessage(WS_EVENTS.USER_TYPING, { isTyping: false });
     }
+  };
+
+  const handleMessageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMessage(e.target.value);
+    
+    // Send typing indicator
+    sendMessage(WS_EVENTS.USER_TYPING, { isTyping: true });
+    
+    // Clear typing indicator after delay
+    clearTimeout(typingTimeout.current);
+    typingTimeout.current = setTimeout(() => {
+      sendMessage(WS_EVENTS.USER_TYPING, { isTyping: false });
+    }, 2000);
   };
 
   const handleFileButtonClick = () => {

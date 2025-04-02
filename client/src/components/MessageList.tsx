@@ -7,6 +7,8 @@ interface MessageListProps {
   messages: Message[];
   currentUserId: number;
   users: Record<number, User>;
+  onMessageRead: (messageId: number) => void;
+  onlineUsers: number[];
 }
 
 export default function MessageList({ messages, currentUserId, users }: MessageListProps) {
@@ -26,6 +28,21 @@ export default function MessageList({ messages, currentUserId, users }: MessageL
     }
     messagesByDate[date].push(message);
   });
+
+  useEffect(() => {
+    // Mark visible messages as read
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const messageId = Number(entry.target.getAttribute('data-message-id'));
+          if (messageId) onMessageRead(messageId);
+        }
+      });
+    });
+
+    document.querySelectorAll('.message-item').forEach(msg => observer.observe(msg));
+    return () => observer.disconnect();
+  }, [messages]);
 
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
