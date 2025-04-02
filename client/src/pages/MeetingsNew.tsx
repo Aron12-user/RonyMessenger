@@ -349,7 +349,7 @@ export default function MeetingsNew() {
                       Planifiez une réunion et invitez des participants
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="max-h-[60vh] overflow-y-auto">
                     <form className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="title">Titre de la réunion</Label>
