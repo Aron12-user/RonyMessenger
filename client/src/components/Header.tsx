@@ -1,5 +1,5 @@
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth"; // Added import for useAuth hook
+import { useAuth } from "@/hooks/useAuth"; // Added import for useAuth hook
 
 interface HeaderProps {
   setIsMobileOpen: (isOpen: boolean) => void;
