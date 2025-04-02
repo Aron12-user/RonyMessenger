@@ -4,10 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { EmptyState } from "@/components/EmptyState";
 import UserAvatar from "@/components/UserAvatar";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { API_ENDPOINTS } from "@/lib/constants";
 import { User } from "@shared/schema";
 import MeetingRoom from "@/components/MeetingRoom";
@@ -349,8 +349,9 @@ export default function MeetingsNew() {
                       Planifiez une réunion et invitez des participants
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="max-h-[60vh] overflow-y-auto">
-                    <form className="space-y-4">
+                  <CardContent>
+                    <ScrollArea className="h-[60vh] pr-4">
+                      <form className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="title">Titre de la réunion</Label>
                         <Input id="title" name="title" placeholder="Réunion hebdomadaire" />
@@ -395,6 +396,7 @@ export default function MeetingsNew() {
                         <Label htmlFor="recurring">Réunion récurrente</Label>
                       </div>
                     </form>
+                    </ScrollArea>
                   </CardContent>
                   <CardFooter>
                     <Button 
