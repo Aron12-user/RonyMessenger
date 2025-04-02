@@ -18,6 +18,7 @@ interface HomeProps {
 }
 
 export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
+  const { user } = useAuth();
   const [, navigate] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [currentSection, setCurrentSection] = useState("messages");

@@ -2,6 +2,44 @@ import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { v4 as uuidv4 } from 'uuid';
 
+export async function compressImage(file: File): Promise<File | null> {
+  try {
+    if (!file.type.startsWith('image/')) return file;
+    
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    img.src = URL.createObjectURL(file);
+    await new Promise(resolve => img.onload = resolve);
+    
+    const maxWidth = 1920;
+    const maxHeight = 1080;
+    let width = img.width;
+    let height = img.height;
+    
+    if (width > maxWidth || height > maxHeight) {
+      const ratio = Math.min(maxWidth / width, maxHeight / height);
+      width *= ratio;
+      height *= ratio;
+    }
+    
+    canvas.width = width;
+    canvas.height = height;
+    ctx?.drawImage(img, 0, 0, width, height);
+    
+    const blob = await new Promise<Blob | null>(resolve => {
+      canvas.toBlob(resolve, file.type, 0.8);
+    });
+    
+    if (!blob) return file;
+    return new File([blob], file.name, { type: file.type });
+  } catch (error) {
+    console.error('Error compressing image:', error);
+    return file;
+  }
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }

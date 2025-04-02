@@ -1,11 +1,12 @@
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth"; // Added import for useAuth hook
 
 interface HeaderProps {
   setIsMobileOpen: (isOpen: boolean) => void;
-  currentUser: any; // Added currentUser prop with a generic type.  Adjust as needed based on the actual currentUser type.
 }
 
-export default function Header({ setIsMobileOpen, currentUser }: HeaderProps) {
+export default function Header({ setIsMobileOpen }: HeaderProps) {
+  const { user: currentUser } = useAuth(); // Get currentUser from useAuth hook
   const { toast } = useToast();
 
   const handleToggleSidebar = () => {
@@ -55,9 +56,9 @@ export default function Header({ setIsMobileOpen, currentUser }: HeaderProps) {
 
         <button className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
           <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-sm font-medium">
-            {currentUser?.displayName?.charAt(0) || currentUser?.username?.charAt(0)}
+            {currentUser?.displayName?.charAt(0) || currentUser?.username?.charAt(0) || ""} {/* Added fallback for undefined values */}
           </div>
-          <span className="hidden md:inline-block font-medium">{currentUser?.displayName || currentUser?.username}</span>
+          <span className="hidden md:inline-block font-medium">{currentUser?.displayName || currentUser?.username || "User"}</span> {/* Added fallback for undefined values */}
           <span className="material-icons text-sm">arrow_drop_down</span>
         </button>
       </div>
