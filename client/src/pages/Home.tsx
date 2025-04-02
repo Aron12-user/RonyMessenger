@@ -92,7 +92,7 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
         {/* Main Content Area */}
         <main className="flex-1 flex flex-col overflow-hidden bg-gray-100 dark:bg-gray-900 transition-all duration-200">
           {/* App Header */}
-          <Header setIsMobileOpen={setIsMobileOpen} />
+          <Header setIsMobileOpen={setIsMobileOpen} currentUser={user} />
           
           {/* Content Sections */}
           {renderSection()}
