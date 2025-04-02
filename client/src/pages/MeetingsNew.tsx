@@ -23,9 +23,9 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import {
   Tabs,
@@ -99,17 +99,17 @@ export default function MeetingsNew() {
       setValidationError('Veuillez entrer un code de réunion');
       return false;
     }
-    
+
     try {
       setIsValidatingCode(true);
       const response = await apiRequest('GET', `/api/meetings/validate/${code.trim()}`);
       const data = await response.json();
-      
+
       if (!data.valid) {
         setValidationError(data.message || 'Code de réunion invalide ou expiré');
         return false;
       }
-      
+
       return true;
     } catch (error) {
       setValidationError('Erreur lors de la validation du code');
@@ -122,7 +122,7 @@ export default function MeetingsNew() {
   // Rejoindre une réunion avec un code
   const handleJoinWithCode = async () => {
     const isValid = await validateMeetingCode(joinCode.trim());
-    
+
     if (isValid) {
       setActiveCode(joinCode.trim());
       closeJoinDialog();
@@ -144,7 +144,7 @@ export default function MeetingsNew() {
     setActiveCode(null);
     // Rafraîchir la liste des réunions actives
     queryClient.invalidateQueries({ queryKey: ['/api/meetings/active'] });
-    
+
     toast({
       title: "Réunion terminée",
       description: "Vous avez quitté la réunion"
@@ -181,7 +181,7 @@ export default function MeetingsNew() {
       </div>
     );
   }
-  
+
   // Afficher la réunion si active
   if (activeCode !== null) {
     return (
@@ -218,7 +218,7 @@ export default function MeetingsNew() {
               </Button>
             </div>
           </div>
-          
+
           <Tabs defaultValue="active" className="w-full">
             <TabsList className="mb-6">
               <TabsTrigger value="active" className="flex items-center">
@@ -230,7 +230,7 @@ export default function MeetingsNew() {
                 <span>Réunions programmées</span>
               </TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="active" className="space-y-6">
               {isLoadingMeetings ? (
                 <div className="flex justify-center py-8">
@@ -301,7 +301,7 @@ export default function MeetingsNew() {
                   ))}
                 </div>
               )}
-              
+
               <div className="mt-8 bg-gray-50 dark:bg-gray-700 rounded-lg p-6 border border-gray-200 dark:border-gray-600">
                 <h3 className="font-bold text-lg mb-4">Réunion Instantanée</h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-6">
@@ -339,7 +339,7 @@ export default function MeetingsNew() {
                 </div>
               </div>
             </TabsContent>
-            
+
             <TabsContent value="scheduled">
               <div className="space-y-6">
                 <Card>
@@ -353,19 +353,20 @@ export default function MeetingsNew() {
                     <form className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="title">Titre de la réunion</Label>
-                        <Input id="title" placeholder="Réunion hebdomadaire" />
+                        <Input id="title" name="title" placeholder="Réunion hebdomadaire" />
                       </div>
-                      
+
                       <div className="space-y-2">
                         <Label htmlFor="description">Description</Label>
-                        <Textarea id="description" placeholder="Ordre du jour..." />
+                        <Textarea id="description" name="description" placeholder="Ordre du jour..." />
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Date et heure de début</Label>
                           <input
                             type="datetime-local"
+                            name="startTime"
                             className="w-full rounded-md border border-gray-200 p-2"
                           />
                         </div>
@@ -373,11 +374,12 @@ export default function MeetingsNew() {
                           <Label>Date et heure de fin</Label>
                           <input
                             type="datetime-local"
+                            name="endTime"
                             className="w-full rounded-md border border-gray-200 p-2"
                           />
                         </div>
                       </div>
-                      
+
                       <div className="space-y-2">
                         <Label>Participants</Label>
                         <div className="flex flex-wrap gap-2">
@@ -387,15 +389,47 @@ export default function MeetingsNew() {
                           </Button>
                         </div>
                       </div>
-                      
+
                       <div className="flex space-x-2">
-                        <Switch id="recurring" />
+                        <Switch id="recurring" name="recurring"/>
                         <Label htmlFor="recurring">Réunion récurrente</Label>
                       </div>
                     </form>
                   </CardContent>
                   <CardFooter>
-                    <Button className="w-full">
+                    <Button 
+                      onClick={async () => {
+                        try {
+                          const formData = new FormData(document.querySelector('form')!);
+                          const response = await apiRequest('POST', '/api/meetings/schedule', {
+                            title: formData.get('title'),
+                            description: formData.get('description'),
+                            startTime: formData.get('startTime'),
+                            endTime: formData.get('endTime'),
+                            isRecurring: formData.get('recurring') === 'on'
+                          });
+
+                          const data = await response.json();
+                          if (data.success) {
+                            toast({
+                              title: "Réunion programmée",
+                              description: "La réunion a été programmée avec succès"
+                            });
+                            // Rafraîchir la liste des réunions
+                            queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
+                          } else {
+                            throw new Error(data.message);
+                          }
+                        } catch (error) {
+                          toast({
+                            title: "Erreur",
+                            description: "Impossible de programmer la réunion",
+                            variant: "destructive"
+                          });
+                        }
+                      }}
+                      className="w-full"
+                    >
                       <Calendar className="h-4 w-4 mr-2" />
                       Programmer la réunion
                     </Button>
@@ -421,7 +455,7 @@ export default function MeetingsNew() {
           </Tabs>
         </div>
       </div>
-      
+
       {/* Dialogue pour rejoindre une réunion avec un code */}
       <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
         <DialogContent className="sm:max-w-md">
