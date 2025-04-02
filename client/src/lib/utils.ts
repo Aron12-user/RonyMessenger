@@ -2,7 +2,7 @@ import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { v4 as uuidv4 } from 'uuid';
 
-export async function compressImage(file: File): Promise<File | null> {
+export const compressImage = async (file: File): Promise<File | null> => {
   try {
     if (!file.type.startsWith('image/')) return file;
 

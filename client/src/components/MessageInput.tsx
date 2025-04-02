@@ -75,11 +75,6 @@ export default function MessageInput({ onSendMessage, onStartCall }: MessageInpu
     }
   };
 
-  const onStartCall = (type: 'audio' | 'video') => {
-    console.log(`Starting ${type} call`);
-    // Implement call logic here
-  };
-
   return (
     <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
       <form onSubmit={handleSubmit} className="flex items-end gap-2">
