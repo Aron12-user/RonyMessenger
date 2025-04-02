@@ -233,19 +233,16 @@ export class PgStorage implements IStorage {
 
   async createFolder(folderData: InsertFolder): Promise<Folder> {
     try {
-      // Convertir les noms de colonnes au format snake_case pour la base de données
-      const dbFolderData = {
+      const results = await db.insert(folders).values({
         name: folderData.name,
-        user_id: folderData.userId,
-        parent_id: folderData.parentId,
+        userId: folderData.userId,
+        parentId: folderData.parentId,
         path: folderData.path,
-        owner_id: folderData.ownerId,
-        created_at: folderData.createdAt || new Date(),
-        updated_at: folderData.updatedAt || new Date(),
-        is_shared: folderData.isShared || false
-      };
-
-      const results = await db.insert(folders).values(dbFolderData).returning();
+        ownerId: folderData.ownerId,
+        createdAt: folderData.createdAt || new Date(),
+        updatedAt: folderData.updatedAt || new Date(),
+        isShared: folderData.isShared || false
+      }).returning();
       return results[0];
     } catch (error) {
       console.error('Error in createFolder:', error);
