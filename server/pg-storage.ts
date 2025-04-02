@@ -198,7 +198,7 @@ export class PgStorage implements IStorage {
   async getFoldersForUser(userId: number): Promise<Folder[]> {
     return await db.select()
       .from(folders)
-      .where(eq(folders.userId, userId))
+      .where(eq(folders.user_id, userId))
       .orderBy(folders.name);
   }
 
@@ -232,8 +232,25 @@ export class PgStorage implements IStorage {
   }
 
   async createFolder(folderData: InsertFolder): Promise<Folder> {
-    const results = await db.insert(folders).values(folderData).returning();
-    return results[0];
+    try {
+      // Convertir les noms de colonnes au format snake_case pour la base de données
+      const dbFolderData = {
+        name: folderData.name,
+        user_id: folderData.userId,
+        parent_id: folderData.parentId,
+        path: folderData.path,
+        owner_id: folderData.ownerId,
+        created_at: folderData.createdAt || new Date(),
+        updated_at: folderData.updatedAt || new Date(),
+        is_shared: folderData.isShared || false
+      };
+
+      const results = await db.insert(folders).values(dbFolderData).returning();
+      return results[0];
+    } catch (error) {
+      console.error('Error in createFolder:', error);
+      throw error;
+    }
   }
 
   async updateFolder(folderId: number, name: string): Promise<Folder> {
@@ -267,16 +284,21 @@ export class PgStorage implements IStorage {
   }
 
   async getFilesByFolder(folderId: number | null): Promise<File[]> {
-    if (folderId === null) {
-      return await db.select()
-        .from(files)
-        .where(isNull(files.folderId))
-        .orderBy(files.name);
-    } else {
-      return await db.select()
-        .from(files)
-        .where(eq(files.folderId, folderId))
-        .orderBy(files.name);
+    try {
+      if (folderId === null) {
+        return await db.select()
+          .from(files)
+          .where(isNull(files.folder_id))
+          .orderBy(files.name);
+      } else {
+        return await db.select()
+          .from(files)
+          .where(eq(files.folder_id, folderId))
+          .orderBy(files.name);
+      }
+    } catch (error) {
+      console.error('Error in getFilesByFolder:', error);
+      throw error;
     }
   }
 

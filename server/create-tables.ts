@@ -9,10 +9,10 @@ export async function createTables() {
       CREATE TABLE IF NOT EXISTS "folders" (
         "id" SERIAL PRIMARY KEY,
         "name" TEXT NOT NULL,
-        "userId" INTEGER NOT NULL,
-        "parentId" INTEGER,
+        "user_id" INTEGER NOT NULL,
+        "parent_id" INTEGER,
         "path" TEXT NOT NULL DEFAULT '',
-        "ownerId" INTEGER NOT NULL,
+        "owner_id" INTEGER NOT NULL,
         "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         "is_shared" BOOLEAN DEFAULT FALSE,
