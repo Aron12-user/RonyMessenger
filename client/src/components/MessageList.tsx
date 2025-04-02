@@ -69,16 +69,17 @@ export default function MessageList({ messages, currentUserId, users }: MessageL
                     {message.content}
                   </div>
 
-                  {message.fileUrl && message.encryptionKey && (
+                  {message.fileUrl && (
                     <div className="mt-2 max-w-[300px]">
                       <AttachmentPreview 
                         fileUrl={message.fileUrl}
-                        encryptionKey={message.encryptionKey}
                         fileName={message.fileName || 'Fichier'}
                         fileType={message.fileType || 'application/octet-stream'}
                         timestamp={message.timestamp}
                         senderId={message.senderId}
                         currentUserId={currentUserId}
+                        onRemove={() => {}}
+                        file={null}
                       />
                     </div>
                   )}

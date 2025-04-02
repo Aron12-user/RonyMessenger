@@ -42,7 +42,7 @@ export default function MessageInput({ onSendMessage }: MessageInputProps) {
       try {
         toast({
           title: "Préparation",
-          description: "Compression et chiffrement du fichier en cours...",
+          description: "Traitement du fichier en cours...",
         });
         
         // Compression du fichier si c'est une image

@@ -50,14 +50,29 @@ export default function AttachmentPreview({
 
       toast({
         title: "Téléchargement",
-        description: "Récupération et déchiffrement du fichier..."
+        description: "Récupération du fichier en cours..."
       });
 
-      // Télécharger le fichier chiffré
+      // Télécharger le fichier
       const response = await fetch(fileUrl);
-      if (!response.ok) throw new Error('Erreur lors du téléchargement');
+      if (!response.ok) {
+        throw new Error('Erreur lors du téléchargement');
+      }
 
-      const encryptedData = await response.arrayBuffer();
+      const data = await response.blob();
+      const url = window.URL.createObjectURL(data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Succès",
+        description: "Fichier téléchargé avec succès"
+      });
 
       // Déchiffrer le fichier
       const decryptedData = await decryptFile(encryptedData, encryptionKey);
