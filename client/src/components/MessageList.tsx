@@ -126,9 +126,23 @@ export default function MessageList({ messages, currentUserId, users }: MessageL
                     </div>
                   )}
 
-                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {formatMessageTime(message.timestamp)}
-                  </span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {formatMessageTime(message.timestamp)}
+                    </span>
+                    {isCurrentUser && message.seen && (
+                      <span className="text-xs text-blue-500">
+                        <span className="material-icons text-sm">done_all</span>
+                      </span>
+                    )}
+                  </div>
+                  {message.isTyping && (
+                    <div className="flex gap-1 mt-2">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200"></div>
+                    </div>
+                  )}
                 </div>
 
                 {isCurrentUser && (

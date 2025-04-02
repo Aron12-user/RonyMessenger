@@ -11,7 +11,7 @@ export default function MessageInput({ onSendMessage }: MessageInputProps) {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    
+
     if (message.trim() || selectedFile) {
       onSendMessage(message, selectedFile);
       setMessage("");
@@ -28,7 +28,7 @@ export default function MessageInput({ onSendMessage }: MessageInputProps) {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      
+
       // Vérifier la taille du fichier (max 50MB)
       if (file.size > 50 * 1024 * 1024) {
         toast({
@@ -40,28 +40,40 @@ export default function MessageInput({ onSendMessage }: MessageInputProps) {
       }
 
       try {
+        // Vérifier le type de fichier
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'application/msword'];
+        if (!allowedTypes.includes(file.type)) {
+          toast({
+            title: "Erreur",
+            description: "Type de fichier non supporté",
+            variant: "destructive"
+          });
+          return;
+        }
+
         toast({
           title: "Préparation",
           description: "Traitement du fichier en cours...",
         });
-        
-        // Compression du fichier si c'est une image
-        let processedFile = file;
+
+        // Compression d'image si nécessaire
         if (file.type.startsWith('image/')) {
-          // Logique de compression d'image ici si nécessaire
-          processedFile = file; // Pour l'instant on garde l'original
+          const compressedFile = await compressImage(file);
+          if (compressedFile) {
+            file = compressedFile;
+          }
         }
-        
+
         // Chiffrement du fichier
         const { encryptedData, key } = await encryptFile(processedFile);
-        
+
         // Créer un nouveau File object avec les données chiffrées
         const encryptedFile = new File(
           [encryptedData],
           file.name,
           { type: file.type }
         );
-        
+
         setSelectedFile({
           file: encryptedFile,
           originalName: file.name,
@@ -69,7 +81,7 @@ export default function MessageInput({ onSendMessage }: MessageInputProps) {
           size: file.size,
           encryptionKey: key
         });
-        
+
         toast({
           title: "Succès",
           description: "Fichier prêt à être envoyé",
@@ -102,7 +114,7 @@ export default function MessageInput({ onSendMessage }: MessageInputProps) {
           onChange={handleFileChange}
           className="hidden" 
         />
-        
+
         <div className="flex items-center gap-2">
           <button 
             type="button"
@@ -128,7 +140,7 @@ export default function MessageInput({ onSendMessage }: MessageInputProps) {
             />
           </div>
         </div>
-        
+
         <button 
           type="submit" 
           className="p-2 bg-primary hover:bg-primary-dark text-white rounded-full flex items-center justify-center"
