@@ -1,12 +1,10 @@
 import { db } from './db';
 import { sql } from 'drizzle-orm';
 
-// Fonction pour créer les tables manquantes
 export async function createTables() {
   try {
     console.log('Création des tables manquantes...');
 
-    // Vérifier si la table folders existe, sinon la créer
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS "folders" (
         "id" SERIAL PRIMARY KEY,
@@ -18,14 +16,13 @@ export async function createTables() {
         "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         "is_shared" BOOLEAN DEFAULT FALSE,
-        CONSTRAINT "folders_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE,
-        CONSTRAINT "folders_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "folders"("id") ON DELETE CASCADE,
-        CONSTRAINT "folders_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE CASCADE
+        CONSTRAINT "folders_userId_users_id_fk" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE,
+        CONSTRAINT "folders_parentId_folders_id_fk" FOREIGN KEY ("parentId") REFERENCES "folders"("id") ON DELETE CASCADE,
+        CONSTRAINT "folders_ownerId_users_id_fk" FOREIGN KEY ("ownerId") REFERENCES "users"("id") ON DELETE CASCADE
       );
     `);
     console.log('Table folders créée ou existante');
 
-    // Vérifier si la table files existe, sinon la créer
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS "files" (
         "id" SERIAL PRIMARY KEY,
@@ -36,46 +33,28 @@ export async function createTables() {
         "uploaderId" INTEGER NOT NULL,
         "folderId" INTEGER,
         "uploadedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         "is_shared" BOOLEAN DEFAULT FALSE,
-        "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "files_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE,
-        CONSTRAINT "files_folder_id_fkey" FOREIGN KEY ("folder_id") REFERENCES "folders"("id") ON DELETE SET NULL,
-        CONSTRAINT "files_uploader_id_fkey" FOREIGN KEY ("uploader_id") REFERENCES "users"("id") ON DELETE CASCADE
+        CONSTRAINT "files_uploaderId_users_id_fk" FOREIGN KEY ("uploaderId") REFERENCES "users"("id") ON DELETE CASCADE,
+        CONSTRAINT "files_folderId_folders_id_fk" FOREIGN KEY ("folderId") REFERENCES "folders"("id") ON DELETE SET NULL
       );
     `);
     console.log('Table files créée ou existante');
 
-    // Vérifier si la table file_sharing existe, sinon la créer
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS "file_sharing" (
         "id" SERIAL PRIMARY KEY,
-        "file_id" INTEGER NOT NULL,
-        "owner_id" INTEGER NOT NULL,
-        "shared_with_id" INTEGER NOT NULL,
+        "fileId" INTEGER NOT NULL,
+        "ownerId" INTEGER NOT NULL,
+        "sharedWithId" INTEGER NOT NULL,
         "permission" TEXT NOT NULL,
         "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "file_sharing_file_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files"("id") ON DELETE CASCADE,
-        CONSTRAINT "file_sharing_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE CASCADE,
-        CONSTRAINT "file_sharing_shared_with_id_fkey" FOREIGN KEY ("shared_with_id") REFERENCES "users"("id") ON DELETE CASCADE,
-        CONSTRAINT "file_sharing_unique_idx" UNIQUE ("file_id", "shared_with_id")
+        CONSTRAINT "file_sharing_fileId_files_id_fk" FOREIGN KEY ("fileId") REFERENCES "files"("id") ON DELETE CASCADE,
+        CONSTRAINT "file_sharing_ownerId_users_id_fk" FOREIGN KEY ("ownerId") REFERENCES "users"("id") ON DELETE CASCADE,
+        CONSTRAINT "file_sharing_sharedWithId_users_id_fk" FOREIGN KEY ("sharedWithId") REFERENCES "users"("id") ON DELETE CASCADE
       );
     `);
     console.log('Table file_sharing créée ou existante');
-
-    // Vérifier si la table contacts existe, sinon la créer
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS "contacts" (
-        "id" SERIAL PRIMARY KEY,
-        "user_id" INTEGER NOT NULL,
-        "contact_id" INTEGER NOT NULL,
-        "is_favorite" BOOLEAN DEFAULT false,
-        "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "contacts_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE,
-        CONSTRAINT "contacts_contact_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "users"("id") ON DELETE CASCADE
-      );
-    `);
-    console.log('Table contacts créée ou existante');
 
     return true;
   } catch (error) {
