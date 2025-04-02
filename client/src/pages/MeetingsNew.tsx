@@ -338,13 +338,81 @@ export default function MeetingsNew() {
             </TabsContent>
             
             <TabsContent value="scheduled">
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-8 text-center border border-gray-200 dark:border-gray-600">
-                <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Planification de réunions</h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md mx-auto">
-                  Cette fonctionnalité sera bientôt disponible. Elle vous permettra de programmer des réunions à l'avance et d'envoyer des invitations à vos contacts.
-                </p>
-                <Button variant="outline">En cours de développement</Button>
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Programmer une nouvelle réunion</CardTitle>
+                    <CardDescription>
+                      Planifiez une réunion et invitez des participants
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="title">Titre de la réunion</Label>
+                        <Input id="title" placeholder="Réunion hebdomadaire" />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea id="description" placeholder="Ordre du jour..." />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Date et heure de début</Label>
+                          <input
+                            type="datetime-local"
+                            className="w-full rounded-md border border-gray-200 p-2"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Date et heure de fin</Label>
+                          <input
+                            type="datetime-local"
+                            className="w-full rounded-md border border-gray-200 p-2"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Participants</Label>
+                        <div className="flex flex-wrap gap-2">
+                          <Button variant="outline" className="h-8">
+                            <Users className="h-4 w-4 mr-2" />
+                            Ajouter des participants
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="flex space-x-2">
+                        <Switch id="recurring" />
+                        <Label htmlFor="recurring">Réunion récurrente</Label>
+                      </div>
+                    </form>
+                  </CardContent>
+                  <CardFooter>
+                    <Button className="w-full">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Programmer la réunion
+                    </Button>
+                  </CardFooter>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Réunions programmées</CardTitle>
+                    <CardDescription>
+                      Vos prochaines réunions planifiées
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {/* Liste des réunions programmées */}
+                      <EmptyState />
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </TabsContent>
           </Tabs>
