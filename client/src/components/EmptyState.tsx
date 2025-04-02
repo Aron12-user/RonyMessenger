@@ -12,7 +12,7 @@ interface EmptyStateProps {
   };
 }
 
-export function EmptyState({ 
+export default function EmptyState({ 
   title = "Aucune réunion programmée",
   description = "Vous n'avez pas encore de réunions programmées.",
   action 
