@@ -20,7 +20,7 @@ export default function AuthPage() {
   const [tab, setTab] = useState('login');
   const [, navigate] = useLocation();
   
-  const { user, isLoading, login, register } = useAuth();
+  const { user, isLoading, loginMutation, registerMutation } = useAuth();
   
   // Rediriger vers la page d'accueil si l'utilisateur est déjà connecté
   useEffect(() => {
@@ -32,11 +32,10 @@ export default function AuthPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    try {
-      await login(loginUsername, loginPassword);
-    } catch (error) {
-      console.error('Erreur de connexion:', error);
-    }
+    loginMutation.mutate({
+      username: loginUsername,
+      password: loginPassword
+    });
   };
   
   const handleRegister = async (e: React.FormEvent) => {
