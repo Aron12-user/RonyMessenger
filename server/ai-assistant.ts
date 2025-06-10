@@ -197,13 +197,16 @@ Réponds toujours en français et sois conversationnel comme un humain.`;
 
     // Appel à OpenAI avec function calling
     const completion = await openai.chat.completions.create({
-      model: "gpt-4", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: message }
       ],
-      functions: functions,
-      function_call: "auto",
+      tools: functions.map(func => ({
+        type: "function" as const,
+        function: func
+      })),
+      tool_choice: "auto",
       temperature: 0.7,
       max_tokens: 1000
     });
@@ -212,9 +215,10 @@ Réponds toujours en français et sois conversationnel comme un humain.`;
     let functionResult = null;
 
     // Si OpenAI veut appeler une fonction
-    if (response.function_call) {
-      const functionName = response.function_call.name;
-      const functionArgs = JSON.parse(response.function_call.arguments);
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      const toolCall = response.tool_calls[0];
+      const functionName = toolCall.function.name;
+      const functionArgs = JSON.parse(toolCall.function.arguments);
       
       const aiFunction = AI_FUNCTIONS.find(f => f.name === functionName);
       if (aiFunction) {
@@ -223,12 +227,12 @@ Réponds toujours en français et sois conversationnel comme un humain.`;
 
       // Faire un deuxième appel pour obtenir la réponse finale
       const finalCompletion = await openai.chat.completions.create({
-        model: "gpt-4", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+        model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message },
-          { role: "assistant", content: response.content, function_call: response.function_call },
-          { role: "function", name: functionName, content: JSON.stringify(functionResult) }
+          { role: "assistant", content: response.content, tool_calls: response.tool_calls },
+          { role: "tool", tool_call_id: toolCall.id, content: JSON.stringify(functionResult) }
         ],
         temperature: 0.7,
         max_tokens: 1000

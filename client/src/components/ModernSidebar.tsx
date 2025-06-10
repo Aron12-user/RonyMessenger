@@ -37,7 +37,7 @@ export default function ModernSidebar({
   isMobileOpen, 
   setIsMobileOpen 
 }: ModernSidebarProps) {
-  const { user, logout } = useAuth();
+  const { user, logoutMutation } = useAuth();
   const { themes, getCurrentTheme, applyTheme } = useTheme();
   const [showThemeSelector, setShowThemeSelector] = useState(false);
   
@@ -241,7 +241,7 @@ export default function ModernSidebar({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator style={{ background: 'var(--color-border)' }} />
                 <DropdownMenuItem
-                  onClick={logout}
+                  onClick={() => logoutMutation.mutate()}
                   className="cursor-pointer hover:bg-red-500/20 text-red-400"
                 >
                   <LogOut className="w-4 h-4 mr-2" />
