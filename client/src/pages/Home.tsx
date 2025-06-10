@@ -10,7 +10,7 @@ import MeetingsNew from "@/pages/MeetingsNew";
 import Files from "@/pages/Files";
 import CloudStorage from "@/pages/CloudStorage";
 import Contacts from "@/pages/Contacts";
-import Settings from "@/pages/Settings";
+import SettingsPage from "@/pages/SettingsPage";
 import { useToast } from "@/hooks/use-toast";
 
 interface HomeProps {
@@ -59,7 +59,7 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
       case "contacts":
         return <Contacts />;
       case "settings":
-        return <Settings />;
+        return <SettingsPage />;
       default:
         return <WelcomeContent onNewConversation={() => toast({ title: "Nouvelle conversation" })} />;
     }

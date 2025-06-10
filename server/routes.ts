@@ -250,6 +250,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user profile
+  app.patch('/api/user/profile', requireAuth, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { displayName, email, phone, title } = req.body;
+
+      await storage.updateUserProfile(userId, { displayName, email, phone, title });
+
+      res.json({ message: 'Profil mis à jour avec succès' });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      res.status(500).json({ error: 'Erreur lors de la mise à jour du profil' });
+    }
+  });
+
   // Update user theme
   app.patch('/api/user/theme', requireAuth, async (req, res) => {
     try {
