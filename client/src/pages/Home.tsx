@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import Header from "@/components/Header";
-import Sidebar from "@/components/Sidebar";
+import { useTheme } from "@/lib/themes";
+import ModernSidebar from "@/components/ModernSidebar";
+import ModernHeader from "@/components/ModernHeader";
+import MainContent from "@/components/MainContent";
+import WelcomeContent from "@/components/WelcomeContent";
 import Messages from "@/pages/Messages";
 import MeetingsNew from "@/pages/MeetingsNew";
 import Files from "@/pages/Files";
@@ -17,20 +20,36 @@ interface HomeProps {
 
 export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
   const { user } = useAuth();
+  const { getCurrentTheme, applyTheme } = useTheme();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [currentSection, setCurrentSection] = useState("messages");
   const { toast } = useToast();
 
-  // Handle sidebar overlay clicks
-  const handleOverlayClick = () => {
-    setIsMobileOpen(false);
-  };
+  // Apply theme on component mount and when user theme changes
+  useEffect(() => {
+    const theme = getCurrentTheme();
+    applyTheme(theme);
+  }, [user?.theme]);
 
   // Render appropriate content section
   const renderSection = () => {
     switch (currentSection) {
       case "messages":
-        return <Messages />;
+        return currentSection === "messages" ? <WelcomeContent onNewConversation={() => toast({ title: "Nouvelle conversation" })} /> : <Messages />;
+      case "assistant":
+        return <div className="flex-1 flex items-center justify-center p-8">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-text)' }}>Assistant IA</h2>
+            <p style={{ color: 'var(--color-textMuted)' }}>Fonctionnalité en cours de développement</p>
+          </div>
+        </div>;
+      case "calls":
+        return <div className="flex-1 flex items-center justify-center p-8">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-text)' }}>Appels</h2>
+            <p style={{ color: 'var(--color-textMuted)' }}>Fonctionnalité en cours de développement</p>
+          </div>
+        </div>;
       case "meetings":
         return <MeetingsNew />;
       case "files":
@@ -42,39 +61,36 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
       case "settings":
         return <Settings />;
       default:
-        return <Messages />;
+        return <WelcomeContent onNewConversation={() => toast({ title: "Nouvelle conversation" })} />;
     }
   };
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="flex h-full">
-        {/* Sidebar Overlay (Mobile) */}
-        {isMobileOpen && (
-          <div 
-            onClick={handleOverlayClick}
-            className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-20"
-          ></div>
-        )}
-        
-        {/* Sidebar */}
-        <Sidebar 
-          isDarkMode={isDarkMode} 
-          setIsDarkMode={setIsDarkMode}
-          isMobileOpen={isMobileOpen}
+    <div 
+      className="h-screen flex overflow-hidden"
+      style={{ 
+        background: 'var(--color-background)',
+        minHeight: '100vh',
+      }}
+    >
+      {/* Modern Sidebar */}
+      <ModernSidebar
+        currentSection={currentSection}
+        setCurrentSection={setCurrentSection}
+        isMobileOpen={isMobileOpen}
+        setIsMobileOpen={setIsMobileOpen}
+      />
+      
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col">
+        <ModernHeader 
           setIsMobileOpen={setIsMobileOpen}
           currentSection={currentSection}
-          setCurrentSection={setCurrentSection}
         />
         
-        {/* Main Content Area */}
-        <main className="flex-1 flex flex-col overflow-hidden bg-gray-100 dark:bg-gray-900 transition-all duration-200">
-          {/* App Header */}
-          <Header setIsMobileOpen={setIsMobileOpen} />
-          
-          {/* Content Sections */}
+        <MainContent>
           {renderSection()}
-        </main>
+        </MainContent>
       </div>
     </div>
   );

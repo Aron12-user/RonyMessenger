@@ -20,6 +20,36 @@ import * as fs from "fs";
 import { v4 as uuidv4 } from "uuid";
 import { registerJitsiRoutes } from "./jitsi/routes";
 
+// Configure multer for avatar uploads
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadsDir = path.join(process.cwd(), 'uploads/avatars');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const userId = req.body.userId || req.user?.id;
+    const extension = path.extname(file.originalname);
+    cb(null, `avatar-${userId}-${Date.now()}${extension}`);
+  }
+});
+
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Seuls les fichiers image sont autorisés'));
+    }
+  }
+});
+
 // Map of online users
 const onlineUsers = new Map<number, WebSocket>();
 
@@ -197,6 +227,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
   
+  // Avatar upload route
+  app.post('/api/upload-avatar', requireAuth, avatarUpload.single('avatar'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Aucun fichier fourni' });
+      }
+
+      const userId = req.user!.id;
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+
+      // Update user avatar in database
+      await storage.updateUserProfile(userId, { avatar: avatarUrl });
+
+      res.json({ 
+        message: 'Avatar mis à jour avec succès',
+        avatarUrl 
+      });
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      res.status(500).json({ error: 'Erreur lors du téléchargement de l\'avatar' });
+    }
+  });
+
+  // Update user theme
+  app.patch('/api/user/theme', requireAuth, async (req, res) => {
+    try {
+      const { theme } = req.body;
+      const userId = req.user!.id;
+
+      if (!theme || typeof theme !== 'string') {
+        return res.status(400).json({ error: 'Thème invalide' });
+      }
+
+      await storage.updateUserProfile(userId, { theme });
+
+      res.json({ message: 'Thème mis à jour avec succès' });
+    } catch (error) {
+      console.error('Error updating theme:', error);
+      res.status(500).json({ error: 'Erreur lors de la mise à jour du thème' });
+    }
+  });
+
+  // Serve uploaded avatars
+  app.use('/uploads/avatars', expressStatic(path.join(process.cwd(), 'uploads/avatars')));
+
   // API Routes
   // User routes (handled by our auth.ts)
   

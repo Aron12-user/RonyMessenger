@@ -189,35 +189,35 @@ export const themes: Theme[] = [
   },
 ];
 
+export const getStoredTheme = (): string => {
+  return localStorage.getItem('rony-theme') || 'ocean';
+};
+
+export const setStoredTheme = (themeId: string) => {
+  localStorage.setItem('rony-theme', themeId);
+};
+
+export const getCurrentTheme = (): Theme => {
+  const themeId = getStoredTheme();
+  return themes.find(t => t.id === themeId) || themes[0];
+};
+
+export const applyTheme = (theme: Theme) => {
+  const root = document.documentElement;
+  
+  // Apply CSS custom properties
+  Object.entries(theme.colors).forEach(([key, value]) => {
+    root.style.setProperty(`--color-${key}`, value);
+  });
+  
+  // Apply background gradient to body
+  document.body.style.background = theme.gradient;
+  document.body.style.backgroundAttachment = 'fixed';
+  
+  setStoredTheme(theme.id);
+};
+
 export const useTheme = () => {
-  const getStoredTheme = (): string => {
-    return localStorage.getItem('rony-theme') || 'ocean';
-  };
-
-  const setStoredTheme = (themeId: string) => {
-    localStorage.setItem('rony-theme', themeId);
-  };
-
-  const getCurrentTheme = (): Theme => {
-    const themeId = getStoredTheme();
-    return themes.find(t => t.id === themeId) || themes[0];
-  };
-
-  const applyTheme = (theme: Theme) => {
-    const root = document.documentElement;
-    
-    // Apply CSS custom properties
-    Object.entries(theme.colors).forEach(([key, value]) => {
-      root.style.setProperty(`--color-${key}`, value);
-    });
-    
-    // Apply background gradient to body
-    document.body.style.background = theme.gradient;
-    document.body.style.backgroundAttachment = 'fixed';
-    
-    setStoredTheme(theme.id);
-  };
-
   return {
     themes,
     getCurrentTheme,
