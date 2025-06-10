@@ -92,8 +92,8 @@ export default function Contacts() {
         description: "Le contact a été ajouté et une conversation a été créée automatiquement"
       });
       
-      // Rediriger vers Messages avec la conversation active
-      setLocation(`/messages?conversation=${data.conversation.id}`);
+      // Rediriger vers la page d'accueil avec la conversation active
+      setLocation(`/?conversation=${data.conversation.id}`);
     },
     onError: (error: Error) => {
       toast({
@@ -147,8 +147,8 @@ export default function Contacts() {
       // Rafraîchir les conversations
       queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.CONVERSATIONS] });
       
-      // Rediriger vers Messages avec la conversation active en utilisant la navigation React
-      setLocation(`/messages?conversation=${data.id}`);
+      // Rediriger vers la page d'accueil avec la conversation active en utilisant la navigation React
+      setLocation(`/?conversation=${data.id}`);
     },
     onError: (error: Error) => {
       toast({

@@ -31,7 +31,7 @@ export default function Messages() {
         setActiveConversationId(newConversationId);
         // Nettoyer l'URL après avoir activé la conversation (optionnel)
         setTimeout(() => {
-          window.history.replaceState({}, '', '/messages');
+          window.history.replaceState({}, '', '/');
         }, 1000);
       }
     };
