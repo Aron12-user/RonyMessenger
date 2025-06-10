@@ -12,6 +12,8 @@ interface User {
   email: string | null;
   phone: string | null;
   title: string | null;
+  avatar: string | null;
+  theme: string | null;
   lastSeen?: Date;
 }
 
