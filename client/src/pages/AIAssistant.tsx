@@ -68,13 +68,27 @@ export default function AIAssistant() {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+    // Alternative si le scrollIntoView ne fonctionne pas
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
+    }
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // Utiliser un petit délai pour s'assurer que le DOM est mis à jour
+    const timer = setTimeout(() => {
+      scrollToBottom();
+    }, 100);
+    return () => clearTimeout(timer);
   }, [messages]);
 
   const chatMutation = useMutation({
@@ -160,7 +174,7 @@ export default function AIAssistant() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col h-screen max-h-screen overflow-hidden">
       {/* Header */}
       <div 
         className="p-6 border-b"
@@ -198,9 +212,9 @@ export default function AIAssistant() {
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 flex flex-col">
-        <ScrollArea className="flex-1 p-6">
-          <div className="space-y-4">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <ScrollArea ref={scrollAreaRef} className="flex-1 p-6 h-full overflow-y-auto">
+          <div className="space-y-4 min-h-full pb-4">
             {messages.map((message) => (
               <div
                 key={message.id}
