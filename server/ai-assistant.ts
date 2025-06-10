@@ -2,8 +2,9 @@ import OpenAI from "openai";
 import { storage } from "./storage";
 import { Request, Response } from "express";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+const groq = new OpenAI({
+  apiKey: process.env.GROQ_API_KEY,
+  baseURL: "https://api.groq.com/openai/v1",
 });
 
 interface AIFunction {
@@ -213,9 +214,9 @@ Instructions importantes:
 
 Tu dois toujours essayer d'aider l'utilisateur de manière pratique et efficace.`;
 
-    // Appel à OpenAI avec function calling
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+    // Appel à Groq avec function calling
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.1-70b-versatile",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: message }
@@ -244,8 +245,8 @@ Tu dois toujours essayer d'aider l'utilisateur de manière pratique et efficace.
       }
 
       // Faire un deuxième appel pour obtenir la réponse finale
-      const finalCompletion = await openai.chat.completions.create({
-        model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      const finalCompletion = await groq.chat.completions.create({
+        model: "llama-3.1-70b-versatile",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message },
