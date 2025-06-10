@@ -2,9 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -12,121 +13,61 @@ import {
   Send, 
   Bot, 
   User, 
-  Loader2, 
-  Globe, 
+  Sparkles,
+  MessageSquare,
   Calendar,
   Users,
   FileText,
-  MessageCircle,
-  Settings
+  Settings,
+  Search
 } from "lucide-react";
 
-interface Message {
+interface ChatMessage {
   id: string;
   content: string;
-  isUser: boolean;
+  sender: 'user' | 'assistant';
   timestamp: Date;
-  functionCall?: {
-    name: string;
-    args: any;
-    result?: any;
-  };
+  isLoading?: boolean;
 }
 
-interface AICapability {
-  name: string;
-  description: string;
-  icon: any;
-  examples: string[];
-}
-
-const AI_CAPABILITIES: AICapability[] = [
+const SUGGESTED_PROMPTS = [
   {
-    name: "Gestion des contacts",
-    description: "Ajouter, rechercher et organiser vos contacts",
-    icon: Users,
-    examples: [
-      "Ajoute un nouveau contact nommé Jean Dupont",
-      "Trouve mes contacts qui travaillent chez Google",
-      "Montre-moi tous mes contacts favoris"
-    ]
-  },
-  {
-    name: "Planification de réunions",
-    description: "Créer et gérer vos réunions virtuelles",
     icon: Calendar,
-    examples: [
-      "Crée une réunion pour demain à 14h",
-      "Planifie un appel d'équipe pour vendredi",
-      "Génère un lien de réunion"
-    ]
+    title: "Planifier une réunion",
+    prompt: "Peux-tu m'aider à planifier une réunion pour demain à 14h avec l'équipe marketing ?"
   },
   {
-    name: "Gestion de fichiers",
-    description: "Organiser et partager vos documents",
+    icon: Users,
+    title: "Gérer mes contacts",
+    prompt: "Affiche-moi la liste de mes contacts et aide-moi à organiser mes groupes"
+  },
+  {
     icon: FileText,
-    examples: [
-      "Crée un dossier pour mes projets 2025",
-      "Partage le fichier rapport.pdf avec Marie",
-      "Trouve tous mes documents PDF"
-    ]
+    title: "Organiser mes fichiers",
+    prompt: "Comment puis-je mieux organiser mes fichiers et dossiers ?"
   },
   {
-    name: "Messages et conversations",
-    description: "Envoyer des messages et gérer les conversations",
-    icon: MessageCircle,
-    examples: [
-      "Envoie un message à Pierre",
-      "Trouve ma conversation avec l'équipe marketing",
-      "Crée une nouvelle conversation de groupe"
-    ]
-  },
-  {
-    name: "Paramètres utilisateur",
-    description: "Modifier votre profil et préférences",
     icon: Settings,
-    examples: [
-      "Change mon thème en mode sombre",
-      "Met à jour mon email professionnel",
-      "Modifie mon nom d'affichage"
-    ]
-  },
-  {
-    name: "Recherche web",
-    description: "Rechercher des informations sur internet",
-    icon: Globe,
-    examples: [
-      "Recherche les dernières nouvelles tech",
-      "Trouve des informations sur React 18",
-      "Quelle est la météo à Paris ?"
-    ]
+    title: "Paramètres du profil",
+    prompt: "Aide-moi à mettre à jour mon profil utilisateur"
   }
 ];
 
 export default function AIAssistant() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = useState<ChatMessage[]>([
     {
-      id: "welcome",
-      content: `Bonjour ${user?.displayName || user?.username} ! Je suis votre assistant IA personnel. Je peux vous aider à automatiser vos tâches, gérer vos contacts, planifier des réunions, organiser vos fichiers, et bien plus encore. 
-
-Voici quelques exemples de ce que je peux faire :
-• Gérer vos contacts et conversations
-• Planifier et créer des réunions
-• Organiser vos fichiers et dossiers  
-• Modifier vos paramètres utilisateur
-• Rechercher des informations sur le web
-• Répondre à vos questions
-
-Que puis-je faire pour vous aujourd'hui ?`,
-      isUser: false,
+      id: '1',
+      content: `Bonjour ${user?.displayName || user?.username} ! Je suis votre assistant IA. Comment puis-je vous aider aujourd'hui ?`,
+      sender: 'assistant',
       timestamp: new Date()
     }
   ]);
-  const [inputValue, setInputValue] = useState("");
-  const [showCapabilities, setShowCapabilities] = useState(true);
+  const [inputMessage, setInputMessage] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -136,68 +77,62 @@ Que puis-je faire pour vous aujourd'hui ?`,
     scrollToBottom();
   }, [messages]);
 
-  const sendMessageMutation = useMutation({
+  const chatMutation = useMutation({
     mutationFn: async (message: string) => {
-      const response = await apiRequest('POST', '/api/ai/chat', {
+      const response = await apiRequest('POST', '/api/ai-chat', {
         message,
-        userId: user?.id,
         context: {
-          userName: user?.displayName || user?.username,
-          userEmail: user?.email,
-          capabilities: AI_CAPABILITIES.map(cap => cap.name)
+          userId: user?.id,
+          userName: user?.displayName || user?.username
         }
       });
-      return response.json();
+      return await response.json();
     },
     onSuccess: (data) => {
-      const aiMessage: Message = {
-        id: Date.now().toString() + "_ai",
-        content: data.response,
-        isUser: false,
-        timestamp: new Date(),
-        functionCall: data.functionCall
-      };
-      setMessages(prev => [...prev, aiMessage]);
-      
-      if (data.functionCall?.result) {
-        toast({
-          title: "Action effectuée",
-          description: `${data.functionCall.name} exécuté avec succès`,
-        });
-      }
+      setMessages(prev => prev.map(msg => 
+        msg.isLoading ? { ...msg, content: data.response, isLoading: false } : msg
+      ));
+      setIsTyping(false);
     },
-    onError: (error: Error) => {
+    onError: (error) => {
       toast({
         title: "Erreur",
-        description: "Impossible de contacter l'assistant IA",
-        variant: "destructive",
+        description: "Impossible de communiquer avec l'assistant IA",
+        variant: "destructive"
       });
-      
-      const errorMessage: Message = {
-        id: Date.now().toString() + "_error",
-        content: "Désolé, je rencontre un problème technique. Veuillez réessayer.",
-        isUser: false,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    },
+      setMessages(prev => prev.filter(msg => !msg.isLoading));
+      setIsTyping(false);
+    }
   });
 
   const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
-    
-    setShowCapabilities(false);
-    
-    const userMessage: Message = {
+    if (!inputMessage.trim()) return;
+
+    const userMessage: ChatMessage = {
       id: Date.now().toString(),
-      content: inputValue,
-      isUser: true,
+      content: inputMessage,
+      sender: 'user',
       timestamp: new Date()
     };
+
+    const loadingMessage: ChatMessage = {
+      id: (Date.now() + 1).toString(),
+      content: "L'assistant réfléchit...",
+      sender: 'assistant',
+      timestamp: new Date(),
+      isLoading: true
+    };
+
+    setMessages(prev => [...prev, userMessage, loadingMessage]);
+    setIsTyping(true);
     
-    setMessages(prev => [...prev, userMessage]);
-    sendMessageMutation.mutate(inputValue);
-    setInputValue("");
+    chatMutation.mutate(inputMessage);
+    setInputMessage("");
+  };
+
+  const handleSuggestedPrompt = (prompt: string) => {
+    setInputMessage(prompt);
+    inputRef.current?.focus();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -207,209 +142,233 @@ Que puis-je faire pour vous aujourd'hui ?`,
     }
   };
 
-  const handleCapabilityExample = (example: string) => {
-    setInputValue(example);
-    setShowCapabilities(false);
+  const formatTime = (date: Date) => {
+    return new Intl.DateTimeFormat('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
   };
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      {/* AI Assistant Header */}
+      {/* Header */}
       <div 
-        className="p-4 border-b"
+        className="p-6 border-b"
         style={{ 
           background: 'var(--color-surface)',
           borderColor: 'var(--color-border)',
         }}
       >
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-4">
           <div 
-            className="w-10 h-10 rounded-full flex items-center justify-center"
+            className="w-12 h-12 rounded-full flex items-center justify-center"
             style={{ background: 'var(--color-primary)' }}
           >
             <Bot className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--color-text)' }}>
-              Assistant IA Rony
-            </h2>
+            <h1 className="text-xl font-semibold" style={{ color: 'var(--color-text)' }}>
+              Assistant IA
+            </h1>
             <p className="text-sm" style={{ color: 'var(--color-textMuted)' }}>
-              Votre assistant intelligent pour automatiser vos tâches
+              Votre assistant intelligent personnel
             </p>
+          </div>
+          <div className="ml-auto">
+            <Badge 
+              variant="secondary"
+              className="flex items-center gap-1"
+              style={{ background: 'var(--color-background)', color: 'var(--color-text)' }}
+            >
+              <Sparkles className="w-3 h-3" />
+              En ligne
+            </Badge>
           </div>
         </div>
       </div>
 
       {/* Messages Area */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4 max-w-4xl mx-auto">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex items-start space-x-3 ${
-                message.isUser ? 'flex-row-reverse space-x-reverse' : ''
-              }`}
-            >
-              <Avatar className="w-8 h-8">
-                <AvatarFallback
-                  style={{ 
-                    background: message.isUser ? 'var(--color-primary)' : 'var(--color-secondary)' 
+      <div className="flex-1 flex flex-col">
+        <ScrollArea className="flex-1 p-6">
+          <div className="space-y-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex items-start space-x-3 ${
+                  message.sender === 'user' ? 'flex-row-reverse space-x-reverse' : ''
+                }`}
+              >
+                <Avatar className="w-8 h-8 flex-shrink-0">
+                  {message.sender === 'user' ? (
+                    <>
+                      <AvatarImage src={user?.avatar || undefined} />
+                      <AvatarFallback 
+                        style={{ background: 'var(--color-primary)', color: 'white' }}
+                      >
+                        {user?.displayName?.[0] || user?.username?.[0] || <User className="w-4 h-4" />}
+                      </AvatarFallback>
+                    </>
+                  ) : (
+                    <AvatarFallback 
+                      style={{ background: 'var(--color-secondary)', color: 'white' }}
+                    >
+                      <Bot className="w-4 h-4" />
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+
+                <div 
+                  className={`max-w-[70%] rounded-lg p-3 ${
+                    message.sender === 'user' 
+                      ? 'rounded-br-none' 
+                      : 'rounded-bl-none'
+                  } ${message.isLoading ? 'animate-pulse' : ''}`}
+                  style={{
+                    background: message.sender === 'user' 
+                      ? 'var(--color-primary)' 
+                      : 'var(--color-surface)',
+                    color: message.sender === 'user' 
+                      ? 'white' 
+                      : 'var(--color-text)',
+                    border: message.sender === 'assistant' 
+                      ? '1px solid var(--color-border)' 
+                      : 'none'
                   }}
                 >
-                  {message.isUser ? (
-                    <User className="w-4 h-4 text-white" />
-                  ) : (
-                    <Bot className="w-4 h-4 text-white" />
-                  )}
-                </AvatarFallback>
-              </Avatar>
-              
-              <Card
-                className={`max-w-[70%] ${
-                  message.isUser ? 'ml-auto' : 'mr-auto'
-                }`}
-                style={{ 
-                  background: message.isUser ? 'var(--color-primary)' : 'var(--color-surface)',
-                  borderColor: 'var(--color-border)',
-                }}
-              >
-                <CardContent className="p-3">
-                  <div
-                    className="text-sm whitespace-pre-wrap"
-                    style={{ 
-                      color: message.isUser ? 'white' : 'var(--color-text)' 
-                    }}
-                  >
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
                     {message.content}
-                  </div>
-                  
-                  {message.functionCall && (
-                    <div 
-                      className="mt-2 p-2 rounded text-xs"
-                      style={{ background: 'var(--color-border)' }}
-                    >
-                      <div className="font-medium">Action: {message.functionCall.name}</div>
-                      {message.functionCall.result && (
-                        <div className="mt-1">✓ Exécuté avec succès</div>
-                      )}
-                    </div>
-                  )}
-                  
-                  <div
-                    className="text-xs mt-2"
-                    style={{ 
-                      color: message.isUser ? 'rgba(255,255,255,0.7)' : 'var(--color-textMuted)' 
-                    }}
+                  </p>
+                  <p 
+                    className={`text-xs mt-1 ${
+                      message.sender === 'user' 
+                        ? 'text-white/70' 
+                        : 'opacity-50'
+                    }`}
                   >
-                    {message.timestamp.toLocaleTimeString()}
-                  </div>
-                </CardContent>
-              </Card>
+                    {formatTime(message.timestamp)}
+                  </p>
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+        </ScrollArea>
+
+        {/* Suggested Prompts */}
+        {messages.length <= 1 && (
+          <div className="px-6 py-4">
+            <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--color-text)' }}>
+              Suggestions pour commencer :
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {SUGGESTED_PROMPTS.map((suggestion, index) => {
+                const Icon = suggestion.icon;
+                return (
+                  <Card 
+                    key={index}
+                    className="cursor-pointer hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
+                    style={{ 
+                      background: 'var(--color-surface)', 
+                      borderColor: 'var(--color-border)' 
+                    }}
+                    onClick={() => handleSuggestedPrompt(suggestion.prompt)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-3">
+                        <div 
+                          className="w-8 h-8 rounded-lg flex items-center justify-center"
+                          style={{ background: 'var(--color-primary)/10' }}
+                        >
+                          <Icon className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>
+                            {suggestion.title}
+                          </h4>
+                          <p className="text-xs mt-1" style={{ color: 'var(--color-textMuted)' }}>
+                            {suggestion.prompt.length > 50 
+                              ? `${suggestion.prompt.substring(0, 50)}...` 
+                              : suggestion.prompt
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
-          ))}
+          </div>
+        )}
+
+        {/* Input Area */}
+        <div 
+          className="p-6 border-t"
+          style={{ 
+            background: 'var(--color-surface)',
+            borderColor: 'var(--color-border)',
+          }}
+        >
+          <div className="flex space-x-3">
+            <div className="flex-1 relative">
+              <Input
+                ref={inputRef}
+                placeholder="Tapez votre message..."
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                disabled={isTyping}
+                className="pr-12"
+                style={{
+                  background: 'var(--color-background)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text)',
+                }}
+              />
+              {inputMessage && (
+                <Button
+                  size="sm"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
+                  onClick={handleSendMessage}
+                  disabled={isTyping}
+                  style={{ background: 'var(--color-primary)' }}
+                >
+                  <Send className="w-3 h-3" />
+                </Button>
+              )}
+            </div>
+          </div>
           
-          {sendMessageMutation.isPending && (
-            <div className="flex items-start space-x-3">
-              <Avatar className="w-8 h-8">
-                <AvatarFallback style={{ background: 'var(--color-secondary)' }}>
-                  <Bot className="w-4 h-4 text-white" />
-                </AvatarFallback>
-              </Avatar>
-              <Card style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
-                <CardContent className="p-3">
-                  <div className="flex items-center space-x-2">
-                    <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--color-text)' }} />
-                    <span className="text-sm" style={{ color: 'var(--color-text)' }}>
-                      L'assistant réfléchit...
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
+          {isTyping && (
+            <div className="flex items-center space-x-2 mt-2">
+              <div className="flex space-x-1">
+                <div 
+                  className="w-2 h-2 rounded-full animate-bounce"
+                  style={{ 
+                    background: 'var(--color-primary)',
+                    animationDelay: '0ms'
+                  }}
+                />
+                <div 
+                  className="w-2 h-2 rounded-full animate-bounce"
+                  style={{ 
+                    background: 'var(--color-primary)',
+                    animationDelay: '150ms'
+                  }}
+                />
+                <div 
+                  className="w-2 h-2 rounded-full animate-bounce"
+                  style={{ 
+                    background: 'var(--color-primary)',
+                    animationDelay: '300ms'
+                  }}
+                />
+              </div>
+              <span className="text-xs" style={{ color: 'var(--color-textMuted)' }}>
+                L'assistant tape...
+              </span>
             </div>
           )}
-          
-          <div ref={messagesEndRef} />
-        </div>
-      </ScrollArea>
-
-      {/* Capabilities Section */}
-      {showCapabilities && (
-        <div className="p-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
-          <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--color-text)' }}>
-            Capacités de l'assistant :
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-            {AI_CAPABILITIES.map((capability) => {
-              const Icon = capability.icon;
-              return (
-                <Card 
-                  key={capability.name}
-                  className="hover:shadow-md transition-shadow cursor-pointer"
-                  style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Icon className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-                      <h4 className="font-medium text-sm" style={{ color: 'var(--color-text)' }}>
-                        {capability.name}
-                      </h4>
-                    </div>
-                    <p className="text-xs mb-2" style={{ color: 'var(--color-textMuted)' }}>
-                      {capability.description}
-                    </p>
-                    <div className="space-y-1">
-                      {capability.examples.slice(0, 2).map((example, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => handleCapabilityExample(example)}
-                          className="block text-xs text-left hover:underline w-full"
-                          style={{ color: 'var(--color-primary)' }}
-                        >
-                          "{example}"
-                        </button>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Input Area */}
-      <div 
-        className="p-4 border-t"
-        style={{ 
-          background: 'var(--color-surface)',
-          borderColor: 'var(--color-border)',
-        }}
-      >
-        <div className="flex space-x-2 max-w-4xl mx-auto">
-          <Input
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Tapez votre message ou demandez de l'aide..."
-            className="flex-1"
-            style={{
-              background: 'var(--color-background)',
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-text)',
-            }}
-            disabled={sendMessageMutation.isPending}
-          />
-          <Button
-            onClick={handleSendMessage}
-            disabled={!inputValue.trim() || sendMessageMutation.isPending}
-            style={{ background: 'var(--color-primary)' }}
-          >
-            {sendMessageMutation.isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-          </Button>
         </div>
       </div>
     </div>
