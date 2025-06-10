@@ -22,6 +22,28 @@ export default function Messages() {
   };
 
   const [activeConversationId, setActiveConversationId] = useState<number | null>(getConversationParam());
+
+  // Surveiller les changements d'URL pour détecter les nouveaux paramètres de conversation
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const newConversationId = getConversationParam();
+      if (newConversationId && newConversationId !== activeConversationId) {
+        setActiveConversationId(newConversationId);
+        // Nettoyer l'URL après avoir activé la conversation
+        window.history.replaceState({}, '', '/messages');
+      }
+    };
+
+    // Écouter les changements de l'historique du navigateur
+    window.addEventListener('popstate', handleLocationChange);
+    
+    // Vérifier immédiatement si il y a un paramètre de conversation
+    handleLocationChange();
+
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+    };
+  }, [activeConversationId]);
   const queryClient = useQueryClient();
   const { status: wsStatus, sendMessage, addMessageHandler } = useWebSocket();
 

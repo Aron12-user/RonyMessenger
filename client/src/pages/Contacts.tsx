@@ -93,7 +93,7 @@ export default function Contacts() {
     },
     onSuccess: (data) => {
       // Rediriger vers la page de messages avec la nouvelle conversation active
-      window.location.href = '/?conversation=' + data.id;
+      window.location.href = '/messages?conversation=' + data.id;
     },
     onError: (error: Error) => {
       toast({
