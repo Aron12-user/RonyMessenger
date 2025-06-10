@@ -216,7 +216,7 @@ Tu dois toujours essayer d'aider l'utilisateur de manière pratique et efficace.
 
     // Appel à Groq avec function calling
     const completion = await groq.chat.completions.create({
-      model: "llama-3.1-70b-versatile",
+      model: "deepseek-r1-distill-llama-70b",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: message }
@@ -246,7 +246,7 @@ Tu dois toujours essayer d'aider l'utilisateur de manière pratique et efficace.
 
       // Faire un deuxième appel pour obtenir la réponse finale
       const finalCompletion = await groq.chat.completions.create({
-        model: "llama-3.1-70b-versatile",
+        model: "deepseek-r1-distill-llama-70b",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message },
