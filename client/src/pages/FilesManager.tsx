@@ -428,7 +428,7 @@ export default function FilesManager() {
             </div>
             
             {/* Contenu */}
-            <ScrollArea className="h-96">
+            <ScrollArea className="max-h-96 min-h-48">
               {filteredFiles.length === 0 ? (
                 <div className="p-8 text-center">
                   <FileIcon className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--color-textMuted)' }} />

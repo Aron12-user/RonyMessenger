@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS "messages" (
   "sender_id" INTEGER NOT NULL REFERENCES "users" ("id"),
   "content" TEXT NOT NULL,
   "file_url" TEXT,
+  "file_name" TEXT,
+  "file_type" TEXT,
   "timestamp" TIMESTAMP NOT NULL DEFAULT NOW(),
   "is_read" BOOLEAN DEFAULT FALSE
 );

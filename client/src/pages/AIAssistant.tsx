@@ -68,19 +68,34 @@ export default function AIAssistant() {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+    // Alternative si le scrollIntoView ne fonctionne pas
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
+    }
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // Utiliser un petit délai pour s'assurer que le DOM est mis à jour
+    const timer = setTimeout(() => {
+      scrollToBottom();
+    }, 100);
+    return () => clearTimeout(timer);
   }, [messages]);
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
       const response = await apiRequest('POST', '/api/ai-chat', {
         message,
+        userId: user?.id,
         context: {
           userId: user?.id,
           userName: user?.displayName || user?.username
@@ -94,13 +109,22 @@ export default function AIAssistant() {
       ));
       setIsTyping(false);
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error('AI Chat error:', error);
+      const errorMessage = error?.message || "Impossible de communiquer avec l'assistant IA";
+      
       toast({
         title: "Erreur",
-        description: "Impossible de communiquer avec l'assistant IA",
+        description: errorMessage,
         variant: "destructive"
       });
-      setMessages(prev => prev.filter(msg => !msg.isLoading));
+      
+      // Remplacer le message de chargement par un message d'erreur
+      setMessages(prev => prev.map(msg => 
+        msg.isLoading 
+          ? { ...msg, content: "Désolé, je rencontre un problème technique. Veuillez réessayer.", isLoading: false }
+          : msg
+      ));
       setIsTyping(false);
     }
   });
@@ -150,7 +174,7 @@ export default function AIAssistant() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col h-screen max-h-screen overflow-hidden">
       {/* Header */}
       <div 
         className="p-6 border-b"
@@ -188,9 +212,9 @@ export default function AIAssistant() {
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 flex flex-col">
-        <ScrollArea className="flex-1 p-6">
-          <div className="space-y-4">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <ScrollArea ref={scrollAreaRef} className="flex-1 p-6 h-full overflow-y-auto">
+          <div className="space-y-4 min-h-full pb-4">
             {messages.map((message) => (
               <div
                 key={message.id}

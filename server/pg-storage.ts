@@ -200,7 +200,7 @@ export class PgStorage implements IStorage {
   async getFoldersForUser(userId: number): Promise<Folder[]> {
     return await db.select()
       .from(folders)
-      .where(eq(folders.userId, userId))
+      .where(eq(folders.ownerId, userId))
       .orderBy(folders.name);
   }
 
@@ -215,7 +215,7 @@ export class PgStorage implements IStorage {
         .from(folders)
         .where(
           and(
-            eq(folders.userId, userId),
+            eq(folders.ownerId, userId),
             isNull(folders.parentId)
           )
         )
@@ -225,7 +225,7 @@ export class PgStorage implements IStorage {
         .from(folders)
         .where(
           and(
-            eq(folders.userId, userId),
+            eq(folders.ownerId, userId),
             eq(folders.parentId, parentId)
           )
         )
@@ -235,6 +235,13 @@ export class PgStorage implements IStorage {
 
   async createFolder(folderData: InsertFolder): Promise<Folder> {
     try {
+      // Mapper userId vers ownerId si nécessaire
+      const mappedData = {
+        ...folderData,
+        ownerId: folderData.ownerId || folderData.userId,
+        updatedAt: new Date()
+      };
+
       const results = await db.insert(folders).values({
         name: folderData.name,
         userId: folderData.userId,

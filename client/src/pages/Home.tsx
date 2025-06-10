@@ -36,7 +36,7 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
   const renderSection = () => {
     switch (currentSection) {
       case "messages":
-        return currentSection === "messages" ? <WelcomeContent onNewConversation={() => toast({ title: "Nouvelle conversation" })} /> : <Messages />;
+        return <Messages />;
       case "assistant":
         return <AIAssistant />;
 

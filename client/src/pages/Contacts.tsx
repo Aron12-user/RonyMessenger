@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -16,6 +17,7 @@ export default function Contacts() {
   const [showAddModal, setShowAddModal] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [location, setLocation] = useLocation();
 
   // Fetch contacts
   const { data: contacts = [] as User[] } = useQuery<User[]>({
@@ -39,26 +41,59 @@ export default function Contacts() {
   // Extract users array from the paginated response safely
   const allUsers = (usersResponse?.data || []) as User[];
 
-  // Add contact mutation
+  // Add contact mutation - crée automatiquement une conversation
   const addContactMutation = useMutation({
     mutationFn: async (contactUsername: string) => {
-      const res = await apiRequest("POST", API_ENDPOINTS.CONTACTS, { username: contactUsername });
-      if (!res.ok) {
-        const errorData = await res.json();
+      // Première étape : ajouter le contact
+      const contactRes = await apiRequest("POST", API_ENDPOINTS.CONTACTS, { username: contactUsername });
+      if (!contactRes.ok) {
+        const errorData = await contactRes.json();
         throw new Error(errorData.message || "Erreur lors de l'ajout du contact");
       }
-      return res.json();
+      const contactData = await contactRes.json();
+      
+      // Deuxième étape : créer automatiquement une conversation avec ce contact
+      const conversationRes = await apiRequest("POST", API_ENDPOINTS.CONVERSATIONS, { 
+        participantId: contactData.id 
+      });
+      if (!conversationRes.ok) {
+        // Si la conversation existe déjà, récupérer l'ID existant
+        const errorData = await conversationRes.json();
+        if (errorData.message?.includes("existe déjà")) {
+          // Récupérer toutes les conversations pour trouver celle avec ce contact
+          const convRes = await fetch(API_ENDPOINTS.CONVERSATIONS);
+          if (convRes.ok) {
+            const conversations = await convRes.json();
+            const existingConv = conversations.find((conv: any) => 
+              conv.participantId === contactData.id || conv.creatorId === contactData.id
+            );
+            if (existingConv) {
+              return { contact: contactData, conversation: existingConv };
+            }
+          }
+        }
+        throw new Error("Impossible de créer la conversation");
+      }
+      const conversationData = await conversationRes.json();
+      
+      return { contact: contactData, conversation: conversationData };
     },
-    onSuccess: () => {
-      // Rafraîchir à la fois les contacts et les utilisateurs
+    onSuccess: (data) => {
+      // Rafraîchir les données
       queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.CONTACTS] });
       queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.USERS] });
+      queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.CONVERSATIONS] });
+      
       setShowAddModal(false);
       setUsername("");
+      
       toast({
         title: "Contact ajouté",
-        description: "Le contact a été ajouté avec succès à votre liste"
+        description: "Le contact a été ajouté et une conversation a été créée automatiquement"
       });
+      
+      // Rediriger vers la page d'accueil avec la conversation active
+      setLocation(`/?conversation=${data.conversation.id}`);
     },
     onError: (error: Error) => {
       toast({
@@ -85,15 +120,35 @@ export default function Contacts() {
     addContactMutation.mutate(username);
   };
 
-  // Mutation pour créer une nouvelle conversation
+  // Mutation pour créer une nouvelle conversation ou récupérer existante
   const createConversationMutation = useMutation({
     mutationFn: async (participantId: number) => {
       const res = await apiRequest("POST", API_ENDPOINTS.CONVERSATIONS, { participantId });
+      if (!res.ok) {
+        const errorData = await res.json();
+        // Si la conversation existe déjà, récupérer l'ID existant
+        if (errorData.message?.includes("existe déjà")) {
+          const convRes = await fetch(API_ENDPOINTS.CONVERSATIONS);
+          if (convRes.ok) {
+            const conversations = await convRes.json();
+            const existingConv = conversations.find((conv: any) => 
+              conv.participantId === participantId || conv.creatorId === participantId
+            );
+            if (existingConv) {
+              return existingConv;
+            }
+          }
+        }
+        throw new Error(errorData.message || "Impossible de créer une conversation");
+      }
       return res.json();
     },
     onSuccess: (data) => {
-      // Rediriger vers la page de messages avec la nouvelle conversation active
-      window.location.href = '/?conversation=' + data.id;
+      // Rafraîchir les conversations
+      queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.CONVERSATIONS] });
+      
+      // Rediriger vers la page d'accueil avec la conversation active en utilisant la navigation React
+      setLocation(`/?conversation=${data.id}`);
     },
     onError: (error: Error) => {
       toast({
