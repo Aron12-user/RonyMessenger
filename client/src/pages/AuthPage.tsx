@@ -46,15 +46,11 @@ export default function AuthPage() {
       return;
     }
     
-    try {
-      await register({
-        username: registerUsername,
-        password: registerPassword,
-        displayName: registerDisplayName || registerUsername
-      });
-    } catch (error) {
-      console.error('Erreur d\'inscription:', error);
-    }
+    registerMutation.mutate({
+      username: registerUsername,
+      password: registerPassword,
+      displayName: registerDisplayName || registerUsername
+    });
   };
   
   return (
