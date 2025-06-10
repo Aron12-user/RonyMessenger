@@ -286,7 +286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Assistant route
-  app.post('/api/ai/chat', requireAuth, handleAIChat);
+  app.post('/api/ai-chat', requireAuth, handleAIChat);
 
   // Serve uploaded avatars
   app.use('/uploads/avatars', expressStatic(path.join(process.cwd(), 'uploads/avatars')));
@@ -565,7 +565,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Préparation des données pour la création du dossier
       const folderData: InsertFolder = {
         name,
-        userId: userId,
         parentId: parentId === "null" ? null : (parentId ? parseInt(parentId) : null),
         path: path || name,
         ownerId: userId,
