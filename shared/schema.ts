@@ -14,6 +14,8 @@ export const users = pgTable("users", {
   email: text("email"),
   phone: text("phone"),
   title: text("title"),
+  avatar: text("avatar"), // URL or path to avatar image
+  theme: text("theme").default("ocean"), // Selected theme
   status: text("status").default("offline").notNull(),
   lastSeen: timestamp("last_seen").defaultNow(),
 }, (table) => {
