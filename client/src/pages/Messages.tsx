@@ -29,8 +29,10 @@ export default function Messages() {
       const newConversationId = getConversationParam();
       if (newConversationId && newConversationId !== activeConversationId) {
         setActiveConversationId(newConversationId);
-        // Nettoyer l'URL après avoir activé la conversation
-        window.history.replaceState({}, '', '/messages');
+        // Nettoyer l'URL après avoir activé la conversation (optionnel)
+        setTimeout(() => {
+          window.history.replaceState({}, '', '/messages');
+        }, 1000);
       }
     };
 
@@ -44,6 +46,14 @@ export default function Messages() {
       window.removeEventListener('popstate', handleLocationChange);
     };
   }, [activeConversationId]);
+
+  // Effet pour détecter les nouveaux paramètres quand le composant se monte
+  useEffect(() => {
+    const urlConversationId = getConversationParam();
+    if (urlConversationId && urlConversationId !== activeConversationId) {
+      setActiveConversationId(urlConversationId);
+    }
+  }, []);
   const queryClient = useQueryClient();
   const { status: wsStatus, sendMessage, addMessageHandler } = useWebSocket();
 
