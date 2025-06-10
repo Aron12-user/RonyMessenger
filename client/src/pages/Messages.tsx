@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import ConversationList from "@/components/ConversationList";
@@ -6,11 +7,14 @@ import ChatHeader from "@/components/ChatHeader";
 import MessageInput from "@/components/MessageInput";
 import useWebSocket from "@/hooks/useWebSocket";
 import { API_ENDPOINTS, WS_EVENTS } from "@/lib/constants";
-import { apiRequest, getQueryFn } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { fileToDataUrl } from "@/lib/utils";
 import { User, Message } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Messages() {
+  const { toast } = useToast();
+  
   // Obtenir l'ID de conversation depuis les paramètres d'URL s'il existe
   const getConversationParam = () => {
     if (typeof window !== 'undefined') {
@@ -54,12 +58,14 @@ export default function Messages() {
       setActiveConversationId(urlConversationId);
     }
   }, []);
+
   const queryClient = useQueryClient();
   const { status: wsStatus, sendMessage, addMessageHandler } = useWebSocket();
 
   // Fetch conversations
   const { data: conversations = [] as any[] } = useQuery<any[]>({
     queryKey: [API_ENDPOINTS.CONVERSATIONS],
+    refetchInterval: 5000, // Refresh every 5 seconds
   });
 
   // Fetch all users
@@ -81,7 +87,7 @@ export default function Messages() {
     return acc;
   }, {});
 
-  // Fetch messages for active conversation
+  // Fetch messages for active conversation with real-time updates
   const { data: messages = [] as any[] } = useQuery<any[]>({
     queryKey: [API_ENDPOINTS.MESSAGES, activeConversationId],
     queryFn: async () => {
@@ -94,6 +100,7 @@ export default function Messages() {
       return res.json();
     },
     enabled: !!activeConversationId,
+    refetchInterval: 2000, // Refresh every 2 seconds for real-time feel
   });
 
   // Get active conversation partner
@@ -120,8 +127,13 @@ export default function Messages() {
       return res.json();
     },
     onSuccess: (data, variables) => {
-      // Invalidate messages query to refresh the list
-      queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.MESSAGES, variables.conversationId] });
+      // Immediately update messages to show the new message
+      queryClient.setQueryData([API_ENDPOINTS.MESSAGES, variables.conversationId], (oldMessages: any[] = []) => {
+        return [...oldMessages, data];
+      });
+
+      // Update conversations list
+      queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.CONVERSATIONS] });
 
       // Send websocket notification
       sendMessage(WS_EVENTS.NEW_MESSAGE, {
@@ -151,7 +163,7 @@ export default function Messages() {
     addMessageHandler(WS_EVENTS.USER_TYPING, ({userId, isTyping}) => {
       setTypingUsers(prev => ({...prev, [userId]: isTyping}));
     });
-  }, []);
+  }, [addMessageHandler]);
 
   const handleStartCall = (type: "audio" | "video") => {
     if (!activeUser) return;
@@ -169,19 +181,9 @@ export default function Messages() {
     if (!activeConversationId) return;
 
     try {
-      let fileData = null;
-      if (file) {
-        const encryptedFile = await encryptFile(file);
-        fileData = {
-          data: encryptedFile,
-          name: file.name,
-          type: file.type
-        };
-      }
-
       sendMessageMutation.mutate({
         text,
-        file: fileData,
+        file,
         conversationId: activeConversationId,
       });
     } catch (error) {
@@ -197,18 +199,25 @@ export default function Messages() {
   const handleMessageRead = async (messageId: number) => {
     try {
       await apiRequest("PUT", `${API_ENDPOINTS.MESSAGES}/${messageId}/read`, {});
-      queryClient.invalidateQueries([API_ENDPOINTS.CONVERSATIONS]);
+      queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.CONVERSATIONS] });
     } catch (error) {
       console.error('Error marking message as read:', error);
     }
   };
 
-  // WebSocket handler for new messages
+  // WebSocket handler for new messages - Real-time updates
   useEffect(() => {
     const removeHandler = addMessageHandler(WS_EVENTS.NEW_MESSAGE, (data) => {
-      // If the message is for the active conversation, refresh messages
+      // If the message is for the active conversation, immediately add it
       if (data.conversationId === activeConversationId) {
-        queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.MESSAGES, activeConversationId] });
+        queryClient.setQueryData([API_ENDPOINTS.MESSAGES, activeConversationId], (oldMessages: any[] = []) => {
+          // Check if message already exists to avoid duplicates
+          const messageExists = oldMessages.some(msg => msg.id === data.message.id);
+          if (!messageExists) {
+            return [...oldMessages, data.message];
+          }
+          return oldMessages;
+        });
       }
 
       // Always refresh conversations list to update last message and unread count
@@ -230,7 +239,10 @@ export default function Messages() {
   }, [activeConversationId, queryClient]);
 
   return (
-    <section className="flex-1 flex overflow-hidden">
+    <section 
+      className="flex-1 flex overflow-hidden"
+      style={{ background: 'var(--color-background)' }}
+    >
       {/* Contacts/Conversations List */}
       <ConversationList 
         conversations={conversations}
@@ -240,9 +252,18 @@ export default function Messages() {
       />
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900">
+      <div 
+        className="flex-1 flex flex-col"
+        style={{ background: 'var(--color-background)' }}
+      >
         {/* Chat Header */}
-        <ChatHeader user={activeUser} />
+        {activeUser && (
+          <ChatHeader 
+            user={activeUser} 
+            onlineUsers={onlineUsers}
+            isOnline={onlineUsers.includes(activeUser.id)}
+          />
+        )}
 
         {/* Messages Container */}
         {activeConversationId ? (
@@ -251,15 +272,25 @@ export default function Messages() {
               messages={messages as any}
               currentUserId={currentUser?.id || 0}
               users={users}
+              onMessageRead={handleMessageRead}
+              onlineUsers={onlineUsers}
             />
 
             {/* Message Input Area */}
-            <MessageInput onSendMessage={handleSendMessage} onStartCall={handleStartCall} onEndCall={handleEndCall} activeCall={activeCall}/>
+            <MessageInput 
+              onSendMessage={handleSendMessage} 
+              onStartCall={handleStartCall} 
+              onEndCall={handleEndCall} 
+              activeCall={activeCall}
+            />
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400 p-6">
+          <div 
+            className="flex-1 flex items-center justify-center p-6"
+            style={{ color: 'var(--color-textMuted)' }}
+          >
             <div className="text-center">
-              <span className="material-icons text-6xl mb-4">chat</span>
+              <span className="material-icons text-6xl mb-4 opacity-30">chat</span>
               <h3 className="text-xl font-medium mb-2">Sélectionnez une conversation</h3>
               <p>Choisissez un contact dans la liste pour commencer à échanger</p>
             </div>

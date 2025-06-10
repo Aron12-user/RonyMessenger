@@ -1,15 +1,17 @@
+
 import { useState, useRef, FormEvent } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { compressImage } from "@/lib/utils";
-import { encryptFile } from "@/lib/encryption";
 
 interface MessageInputProps {
   onSendMessage: (text: string, file?: File | null) => void;
   onStartCall: (type: "audio" | "video") => void;
+  onEndCall: () => void;
+  activeCall: { type: "audio" | "video"; user: any } | null;
 }
 
-export default function MessageInput({ onSendMessage, onStartCall }: MessageInputProps) {
+export default function MessageInput({ onSendMessage, onStartCall, onEndCall, activeCall }: MessageInputProps) {
   const [message, setMessage] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -76,9 +78,60 @@ export default function MessageInput({ onSendMessage, onStartCall }: MessageInpu
   };
 
   return (
-    <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+    <div 
+      className="p-4 border-t"
+      style={{ 
+        background: 'var(--color-surface)',
+        borderColor: 'var(--color-border)'
+      }}
+    >
+      {/* File preview */}
+      {selectedFile && (
+        <div 
+          className="mb-3 p-3 rounded-lg flex items-center gap-3"
+          style={{ 
+            background: 'var(--color-background)',
+            border: '1px solid var(--color-border)'
+          }}
+        >
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span 
+                className="material-icons text-sm"
+                style={{ color: 'var(--color-primary)' }}
+              >
+                {selectedFile.type.startsWith('image/') ? 'image' : 
+                 selectedFile.type.startsWith('video/') ? 'videocam' : 'description'}
+              </span>
+              <span 
+                className="text-sm font-medium truncate"
+                style={{ color: 'var(--color-text)' }}
+              >
+                {selectedFile.name}
+              </span>
+            </div>
+            <p 
+              className="text-xs mt-1"
+              style={{ color: 'var(--color-textMuted)' }}
+            >
+              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setSelectedFile(null)}
+            className="h-8 w-8"
+          >
+            <span className="material-icons text-sm">close</span>
+          </Button>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="flex items-end gap-2">
-        <div className="flex items-center gap-2">
+        {/* Action buttons */}
+        <div className="flex items-center gap-1">
           <input
             type="file"
             ref={fileInputRef}
@@ -93,8 +146,10 @@ export default function MessageInput({ onSendMessage, onStartCall }: MessageInpu
             variant="ghost"
             size="icon"
             disabled={isProcessing}
+            className="h-9 w-9"
+            style={{ color: 'var(--color-textMuted)' }}
           >
-            <span className="material-icons">
+            <span className="material-icons text-lg">
               {isProcessing ? 'hourglass_empty' : 'attach_file'}
             </span>
           </Button>
@@ -104,8 +159,10 @@ export default function MessageInput({ onSendMessage, onStartCall }: MessageInpu
             onClick={() => onStartCall("audio")}
             variant="ghost"
             size="icon"
+            className="h-9 w-9"
+            style={{ color: 'var(--color-textMuted)' }}
           >
-            <span className="material-icons">call</span>
+            <span className="material-icons text-lg">call</span>
           </Button>
 
           <Button
@@ -113,38 +170,45 @@ export default function MessageInput({ onSendMessage, onStartCall }: MessageInpu
             onClick={() => onStartCall("video")}
             variant="ghost"
             size="icon"
+            className="h-9 w-9"
+            style={{ color: 'var(--color-textMuted)' }}
           >
-            <span className="material-icons">videocam</span>
+            <span className="material-icons text-lg">videocam</span>
           </Button>
+        </div>
 
-          <div className="flex-1 min-w-[200px] bg-gray-100 dark:bg-gray-700 rounded-lg px-4 py-2">
+        {/* Message input */}
+        <div className="flex-1 flex items-center gap-2">
+          <div 
+            className="flex-1 rounded-full px-4 py-2 min-h-[40px] flex items-center"
+            style={{ 
+              background: 'var(--color-background)',
+              border: '1px solid var(--color-border)'
+            }}
+          >
             <input
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Écrivez un message..."
-              className="w-full bg-transparent border-none focus:outline-none dark:text-white"
+              placeholder="Tapez un message..."
+              className="w-full bg-transparent border-none focus:outline-none text-sm"
+              style={{ color: 'var(--color-text)' }}
             />
           </div>
+
+          <Button 
+            type="submit" 
+            size="icon"
+            disabled={!message.trim() && !selectedFile}
+            className="h-10 w-10 rounded-full"
+            style={{ 
+              background: message.trim() || selectedFile ? 'var(--color-primary)' : 'var(--color-textMuted)',
+              color: 'white'
+            }}
+          >
+            <span className="material-icons">send</span>
+          </Button>
         </div>
-
-        {selectedFile && (
-          <div className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded flex items-center gap-2">
-            <span className="text-sm truncate">{selectedFile?.name}</span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => setSelectedFile(null)}
-            >
-              <span className="material-icons text-sm">close</span>
-            </Button>
-          </div>
-        )}
-
-        <Button type="submit" variant="default" size="icon">
-          <span className="material-icons">send</span>
-        </Button>
       </form>
     </div>
   );
