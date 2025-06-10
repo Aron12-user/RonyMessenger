@@ -1,10 +1,14 @@
 import React, { useState, useRef } from "react";
+import EmptyState from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import UserAvatar from "@/components/UserAvatar";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { API_ENDPOINTS } from "@/lib/constants";
 import { User } from "@shared/schema";
 import MeetingRoom from "@/components/MeetingRoom";
@@ -20,9 +24,9 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import {
   Tabs,
@@ -96,17 +100,17 @@ export default function MeetingsNew() {
       setValidationError('Veuillez entrer un code de réunion');
       return false;
     }
-    
+
     try {
       setIsValidatingCode(true);
       const response = await apiRequest('GET', `/api/meetings/validate/${code.trim()}`);
       const data = await response.json();
-      
+
       if (!data.valid) {
         setValidationError(data.message || 'Code de réunion invalide ou expiré');
         return false;
       }
-      
+
       return true;
     } catch (error) {
       setValidationError('Erreur lors de la validation du code');
@@ -119,7 +123,7 @@ export default function MeetingsNew() {
   // Rejoindre une réunion avec un code
   const handleJoinWithCode = async () => {
     const isValid = await validateMeetingCode(joinCode.trim());
-    
+
     if (isValid) {
       setActiveCode(joinCode.trim());
       closeJoinDialog();
@@ -141,7 +145,7 @@ export default function MeetingsNew() {
     setActiveCode(null);
     // Rafraîchir la liste des réunions actives
     queryClient.invalidateQueries({ queryKey: ['/api/meetings/active'] });
-    
+
     toast({
       title: "Réunion terminée",
       description: "Vous avez quitté la réunion"
@@ -178,7 +182,7 @@ export default function MeetingsNew() {
       </div>
     );
   }
-  
+
   // Afficher la réunion si active
   if (activeCode !== null) {
     return (
@@ -215,7 +219,7 @@ export default function MeetingsNew() {
               </Button>
             </div>
           </div>
-          
+
           <Tabs defaultValue="active" className="w-full">
             <TabsList className="mb-6">
               <TabsTrigger value="active" className="flex items-center">
@@ -227,7 +231,7 @@ export default function MeetingsNew() {
                 <span>Réunions programmées</span>
               </TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="active" className="space-y-6">
               {isLoadingMeetings ? (
                 <div className="flex justify-center py-8">
@@ -298,7 +302,7 @@ export default function MeetingsNew() {
                   ))}
                 </div>
               )}
-              
+
               <div className="mt-8 bg-gray-50 dark:bg-gray-700 rounded-lg p-6 border border-gray-200 dark:border-gray-600">
                 <h3 className="font-bold text-lg mb-4">Réunion Instantanée</h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-6">
@@ -336,21 +340,125 @@ export default function MeetingsNew() {
                 </div>
               </div>
             </TabsContent>
-            
+
             <TabsContent value="scheduled">
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-8 text-center border border-gray-200 dark:border-gray-600">
-                <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Planification de réunions</h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md mx-auto">
-                  Cette fonctionnalité sera bientôt disponible. Elle vous permettra de programmer des réunions à l'avance et d'envoyer des invitations à vos contacts.
-                </p>
-                <Button variant="outline">En cours de développement</Button>
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Programmer une nouvelle réunion</CardTitle>
+                    <CardDescription>
+                      Planifiez une réunion et invitez des participants
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className="h-[60vh] pr-4">
+                      <form className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="title">Titre de la réunion</Label>
+                        <Input id="title" name="title" placeholder="Réunion hebdomadaire" />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea id="description" name="description" placeholder="Ordre du jour..." />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Date et heure de début</Label>
+                          <input
+                            type="datetime-local"
+                            name="startTime"
+                            className="w-full rounded-md border border-gray-200 p-2"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Date et heure de fin</Label>
+                          <input
+                            type="datetime-local"
+                            name="endTime"
+                            className="w-full rounded-md border border-gray-200 p-2"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Participants</Label>
+                        <div className="flex flex-wrap gap-2">
+                          <Button variant="outline" className="h-8">
+                            <Users className="h-4 w-4 mr-2" />
+                            Ajouter des participants
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="flex space-x-2">
+                        <Switch id="recurring" name="recurring"/>
+                        <Label htmlFor="recurring">Réunion récurrente</Label>
+                      </div>
+                    </form>
+                    </ScrollArea>
+                  </CardContent>
+                  <CardFooter>
+                    <Button 
+                      onClick={async () => {
+                        try {
+                          const formData = new FormData(document.querySelector('form')!);
+                          const response = await apiRequest('POST', '/api/meetings/schedule', {
+                            title: formData.get('title'),
+                            description: formData.get('description'),
+                            startTime: formData.get('startTime'),
+                            endTime: formData.get('endTime'),
+                            isRecurring: formData.get('recurring') === 'on'
+                          });
+
+                          const data = await response.json();
+                          if (data.success) {
+                            toast({
+                              title: "Réunion programmée",
+                              description: "La réunion a été programmée avec succès"
+                            });
+                            // Rafraîchir la liste des réunions
+                            queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
+                          } else {
+                            throw new Error(data.message);
+                          }
+                        } catch (error) {
+                          toast({
+                            title: "Erreur",
+                            description: "Impossible de programmer la réunion",
+                            variant: "destructive"
+                          });
+                        }
+                      }}
+                      className="w-full"
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Programmer la réunion
+                    </Button>
+                  </CardFooter>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Réunions programmées</CardTitle>
+                    <CardDescription>
+                      Vos prochaines réunions planifiées
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {/* Liste des réunions programmées */}
+                      <EmptyState />
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </TabsContent>
           </Tabs>
         </div>
       </div>
-      
+
       {/* Dialogue pour rejoindre une réunion avec un code */}
       <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
         <DialogContent className="sm:max-w-md">

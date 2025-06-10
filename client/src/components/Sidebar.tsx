@@ -58,7 +58,6 @@ export default function Sidebar({
 
   const navigationItems = [
     { name: "Messages", icon: "chat", target: "messages" },
-    { name: "Calls", icon: "call", target: "calls" },
     { name: "Meetings", icon: "videocam", target: "meetings" },
     { name: "Files", icon: "folder", target: "files" },
     { name: "Cloud Storage", icon: "cloud", target: "cloud" },

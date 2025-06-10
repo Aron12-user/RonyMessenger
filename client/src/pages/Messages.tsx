@@ -34,7 +34,7 @@ export default function Messages() {
   const { data: usersResponse } = useQuery<{data: User[]}>({
     queryKey: [API_ENDPOINTS.USERS],
   });
-  
+
   // Extraire les données des utilisateurs de la réponse paginée
   const usersData = usersResponse?.data || [];
 
@@ -90,7 +90,7 @@ export default function Messages() {
     onSuccess: (data, variables) => {
       // Invalidate messages query to refresh the list
       queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.MESSAGES, variables.conversationId] });
-      
+
       // Send websocket notification
       sendMessage(WS_EVENTS.NEW_MESSAGE, {
         message: data,
@@ -100,14 +100,75 @@ export default function Messages() {
   });
 
   // Handle sending a new message
-  const handleSendMessage = (text: string, file: File | null = null) => {
-    if (!activeConversationId || !text.trim()) return;
-    
-    sendMessageMutation.mutate({
-      text,
-      file,
-      conversationId: activeConversationId,
+  const [onlineUsers, setOnlineUsers] = useState<number[]>([]);
+  const [typingUsers, setTypingUsers] = useState<{[key: number]: boolean}>({});
+  const [activeCall, setActiveCall] = useState<{
+    type: "audio" | "video";
+    user: User;
+  } | null>(null);
+
+  useEffect(() => {
+    addMessageHandler(WS_EVENTS.USER_STATUS, ({userId, status}) => {
+      setOnlineUsers(prev => 
+        status === 'online' 
+          ? [...prev, userId]
+          : prev.filter(id => id !== userId)
+      );
     });
+
+    addMessageHandler(WS_EVENTS.USER_TYPING, ({userId, isTyping}) => {
+      setTypingUsers(prev => ({...prev, [userId]: isTyping}));
+    });
+  }, []);
+
+  const handleStartCall = (type: "audio" | "video") => {
+    if (!activeUser) return;
+    setActiveCall({ type, user: activeUser });
+  };
+
+  const handleEndCall = () => {
+    setActiveCall(null);
+    sendMessage(WS_EVENTS.CALL_ENDED, {
+      target: activeUser?.id
+    });
+  };
+
+  const handleSendMessage = async (text: string, file: File | null = null) => {
+    if (!activeConversationId) return;
+
+    try {
+      let fileData = null;
+      if (file) {
+        const encryptedFile = await encryptFile(file);
+        fileData = {
+          data: encryptedFile,
+          name: file.name,
+          type: file.type
+        };
+      }
+
+      sendMessageMutation.mutate({
+        text,
+        file: fileData,
+        conversationId: activeConversationId,
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'envoyer le message",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleMessageRead = async (messageId: number) => {
+    try {
+      await apiRequest("PUT", `${API_ENDPOINTS.MESSAGES}/${messageId}/read`, {});
+      queryClient.invalidateQueries([API_ENDPOINTS.CONVERSATIONS]);
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+    }
   };
 
   // WebSocket handler for new messages
@@ -117,11 +178,11 @@ export default function Messages() {
       if (data.conversationId === activeConversationId) {
         queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.MESSAGES, activeConversationId] });
       }
-      
+
       // Always refresh conversations list to update last message and unread count
       queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.CONVERSATIONS] });
     });
-    
+
     return () => removeHandler();
   }, [addMessageHandler, activeConversationId, queryClient]);
 
@@ -145,12 +206,12 @@ export default function Messages() {
         onSelectConversation={setActiveConversationId}
         users={users}
       />
-      
+
       {/* Chat Area */}
       <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900">
         {/* Chat Header */}
         <ChatHeader user={activeUser} />
-        
+
         {/* Messages Container */}
         {activeConversationId ? (
           <>
@@ -159,9 +220,9 @@ export default function Messages() {
               currentUserId={currentUser?.id || 0}
               users={users}
             />
-            
+
             {/* Message Input Area */}
-            <MessageInput onSendMessage={handleSendMessage} />
+            <MessageInput onSendMessage={handleSendMessage} onStartCall={handleStartCall} onEndCall={handleEndCall} activeCall={activeCall}/>
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400 p-6">

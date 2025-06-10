@@ -7,6 +7,8 @@ interface MessageListProps {
   messages: Message[];
   currentUserId: number;
   users: Record<number, User>;
+  onMessageRead: (messageId: number) => void;
+  onlineUsers: number[];
 }
 
 export default function MessageList({ messages, currentUserId, users }: MessageListProps) {
@@ -26,6 +28,21 @@ export default function MessageList({ messages, currentUserId, users }: MessageL
     }
     messagesByDate[date].push(message);
   });
+
+  useEffect(() => {
+    // Mark visible messages as read
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const messageId = Number(entry.target.getAttribute('data-message-id'));
+          if (messageId) onMessageRead(messageId);
+        }
+      });
+    });
+
+    document.querySelectorAll('.message-item').forEach(msg => observer.observe(msg));
+    return () => observer.disconnect();
+  }, [messages]);
 
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
@@ -126,9 +143,23 @@ export default function MessageList({ messages, currentUserId, users }: MessageL
                     </div>
                   )}
 
-                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {formatMessageTime(message.timestamp)}
-                  </span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {formatMessageTime(message.timestamp)}
+                    </span>
+                    {isCurrentUser && message.seen && (
+                      <span className="text-xs text-blue-500">
+                        <span className="material-icons text-sm">done_all</span>
+                      </span>
+                    )}
+                  </div>
+                  {message.isTyping && (
+                    <div className="flex gap-1 mt-2">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200"></div>
+                    </div>
+                  )}
                 </div>
 
                 {isCurrentUser && (

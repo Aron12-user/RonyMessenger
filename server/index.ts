@@ -65,7 +65,7 @@ app.use((req, res, next) => {
     const migrationsOk = await runMigrations();
     if (migrationsOk) {
       log('Migrations de base de données réussies', 'database');
-      
+
       // Créer les tables manquantes
       const tablesOk = await createTables();
       if (tablesOk) {
@@ -73,7 +73,7 @@ app.use((req, res, next) => {
       } else {
         log('Échec de la création des tables', 'database');
       }
-      
+
       // Initialiser les données de test si besoin
       const seedOk = await seedDatabase();
       if (seedOk) {
@@ -87,7 +87,7 @@ app.use((req, res, next) => {
   } catch (error) {
     log(`Erreur lors de l'initialisation de la base de données: ${error}`, 'database');
   }
-  
+
   // Définir les routes API AVANT de configurer Vite
   // afin que les routes API ne soient pas interceptées par le middleware de Vite
   const server = await registerRoutes(app);
@@ -118,5 +118,18 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+  }).on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`Port ${port} is busy, trying to close existing connection...`);
+      setTimeout(() => {
+        server.listen({
+          port,
+          host: "0.0.0.0",
+          reusePort: true,
+        }, () => {
+          console.log(`[express] serving on port ${port}`);
+        });
+      }, 1000);
+    }
   });
 })();

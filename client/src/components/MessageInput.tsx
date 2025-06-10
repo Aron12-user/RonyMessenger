@@ -1,140 +1,150 @@
 import { useState, useRef, FormEvent } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { compressImage } from "@/lib/utils";
+import { encryptFile } from "@/lib/encryption";
 
 interface MessageInputProps {
   onSendMessage: (text: string, file?: File | null) => void;
+  onStartCall: (type: "audio" | "video") => void;
 }
 
-export default function MessageInput({ onSendMessage }: MessageInputProps) {
+export default function MessageInput({ onSendMessage, onStartCall }: MessageInputProps) {
   const [message, setMessage] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
-    if (message.trim() || selectedFile) {
+    if (!message.trim() && !selectedFile) return;
+
+    try {
       onSendMessage(message, selectedFile);
       setMessage("");
       setSelectedFile(null);
-    }
-  };
-
-  const handleFileButtonClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'envoyer le message",
+        variant: "destructive"
+      });
     }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      
-      // Vérifier la taille du fichier (max 50MB)
+    if (!e.target.files?.length) return;
+
+    const file = e.target.files[0];
+    setIsProcessing(true);
+
+    try {
+      // Vérifier la taille (50MB max)
       if (file.size > 50 * 1024 * 1024) {
-        toast({
-          title: "Erreur",
-          description: "Le fichier est trop volumineux (max 50MB)",
-          variant: "destructive"
-        });
-        return;
+        throw new Error("Fichier trop volumineux (max 50MB)");
       }
 
-      try {
-        toast({
-          title: "Préparation",
-          description: "Traitement du fichier en cours...",
-        });
-        
-        // Compression du fichier si c'est une image
-        let processedFile = file;
-        if (file.type.startsWith('image/')) {
-          // Logique de compression d'image ici si nécessaire
-          processedFile = file; // Pour l'instant on garde l'original
-        }
-        
-        // Chiffrement du fichier
-        const { encryptedData, key } = await encryptFile(processedFile);
-        
-        // Créer un nouveau File object avec les données chiffrées
-        const encryptedFile = new File(
-          [encryptedData],
-          file.name,
-          { type: file.type }
-        );
-        
-        setSelectedFile({
-          file: encryptedFile,
-          originalName: file.name,
-          type: file.type,
-          size: file.size,
-          encryptionKey: key
-        });
-        
-        toast({
-          title: "Succès",
-          description: "Fichier prêt à être envoyé",
-        });
-      } catch (error) {
-        console.error('Error processing file:', error);
-        toast({
-          title: "Erreur",
-          description: "Impossible de préparer le fichier",
-          variant: "destructive"
-        });
-        setSelectedFile(null);
+      // Vérifier le type
+      const allowedTypes = ['image/', 'video/', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument'];
+      if (!allowedTypes.some(type => file.type.startsWith(type))) {
+        throw new Error("Type de fichier non supporté");
       }
+
+      let processedFile = file;
+      if (file.type.startsWith('image/')) {
+        const compressed = await compressImage(file);
+        if (compressed) processedFile = compressed;
+      }
+
+      setSelectedFile(processedFile);
+      toast({
+        title: "Succès",
+        description: "Fichier prêt à être envoyé"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: error.message,
+        variant: "destructive"
+      });
+      setSelectedFile(null);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   return (
     <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
       <form onSubmit={handleSubmit} className="flex items-end gap-2">
-        <button 
-          type="button" 
-          onClick={handleFileButtonClick}
-          className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
-        >
-          <span className="material-icons">attach_file</span>
-        </button>
-        <input 
-          type="file" 
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          className="hidden" 
-        />
-        
         <div className="flex items-center gap-2">
-          <button 
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+            accept="image/*,video/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.*"
+          />
+
+          <Button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            variant="ghost"
+            size="icon"
+            disabled={isProcessing}
+          >
+            <span className="material-icons">
+              {isProcessing ? 'hourglass_empty' : 'attach_file'}
+            </span>
+          </Button>
+
+          <Button
             type="button"
             onClick={() => onStartCall("audio")}
-            className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+            variant="ghost"
+            size="icon"
           >
             <span className="material-icons">call</span>
-          </button>
-          <button 
+          </Button>
+
+          <Button
             type="button"
-            onClick={() => onStartCall("video")} 
-            className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+            onClick={() => onStartCall("video")}
+            variant="ghost"
+            size="icon"
           >
             <span className="material-icons">videocam</span>
-          </button>
-          <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-lg px-4 py-2">
-            <input 
-              type="text" 
+          </Button>
+
+          <div className="flex-1 min-w-[200px] bg-gray-100 dark:bg-gray-700 rounded-lg px-4 py-2">
+            <input
+              type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type a message..." 
-              className="w-full bg-transparent border-none focus:outline-none dark:text-white" 
+              placeholder="Écrivez un message..."
+              className="w-full bg-transparent border-none focus:outline-none dark:text-white"
             />
           </div>
         </div>
-        
-        <button 
-          type="submit" 
-          className="p-2 bg-primary hover:bg-primary-dark text-white rounded-full flex items-center justify-center"
-        >
+
+        {selectedFile && (
+          <div className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded flex items-center gap-2">
+            <span className="text-sm truncate">{selectedFile?.name}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setSelectedFile(null)}
+            >
+              <span className="material-icons text-sm">close</span>
+            </Button>
+          </div>
+        )}
+
+        <Button type="submit" variant="default" size="icon">
           <span className="material-icons">send</span>
-        </button>
+        </Button>
       </form>
     </div>
   );

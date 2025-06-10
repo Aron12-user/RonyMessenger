@@ -6,6 +6,22 @@ type WebSocketStatus = 'connecting' | 'open' | 'closed' | 'error';
 export default function useWebSocket() {
   const [status, setStatus] = useState<WebSocketStatus>('connecting');
   const socketRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const maxReconnectAttempts = 5;
+  const reconnectAttempts = useRef(0);
+
+  const reconnect = useCallback(() => {
+    if (reconnectAttempts.current >= maxReconnectAttempts) {
+      console.error('Max reconnection attempts reached');
+      return;
+    }
+    
+    reconnectAttempts.current += 1;
+    reconnectTimeoutRef.current = setTimeout(() => {
+      console.log('Attempting to reconnect...');
+      initializeWebSocket();
+    }, 2000 * Math.pow(2, reconnectAttempts.current));
+  }, []);
   const messageHandlersRef = useRef<Record<string, MessageHandler>>({});
 
   // Initialize WebSocket connection

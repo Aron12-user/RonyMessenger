@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 import Messages from "@/pages/Messages";
-import Calls from "@/pages/Calls";
 import MeetingsNew from "@/pages/MeetingsNew";
 import Files from "@/pages/Files";
 import CloudStorage from "@/pages/CloudStorage";
@@ -19,6 +18,7 @@ interface HomeProps {
 }
 
 export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
+  const { user } = useAuth();
   const [, navigate] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [currentSection, setCurrentSection] = useState("messages");
@@ -93,7 +93,7 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
         {/* Main Content Area */}
         <main className="flex-1 flex flex-col overflow-hidden bg-gray-100 dark:bg-gray-900 transition-all duration-200">
           {/* App Header */}
-          <Header setIsMobileOpen={setIsMobileOpen} />
+          <Header setIsMobileOpen={setIsMobileOpen} currentUser={currentUser} />
           
           {/* Content Sections */}
           {renderSection()}

@@ -3,13 +3,11 @@ import jwt from 'jsonwebtoken';
 
 // Configuration du serveur Jitsi
 export const JITSI_CONFIG = {
-  // Domaine du serveur auto-hébergé (VPS)
-  // Pour l'auto-hébergement, il faut configurer un domaine avec DNS et SSL
-  DOMAIN: process.env.JITSI_DOMAIN || 'jitsi.rony.app',
+  // Configuration du domaine Jitsi
+  DOMAIN: process.env.JITSI_DOMAIN || 'meet.jit.si',
   
-  // Clé secrète pour la génération des JWT 
-  // Cette clé DOIT être la même que celle configurée dans prosody et jicofo
-  JWT_SECRET: process.env.JITSI_JWT_SECRET || 'rony_secure_jitsi_jwt_secret',
+  // Clé secrète pour la génération des JWT
+  JWT_SECRET: process.env.JITSI_JWT_SECRET || 'default_jwt_secret',
   
   // Durée de validité du token (24 heures pour éviter les déconnexions)
   JWT_EXPIRY: '24h',
