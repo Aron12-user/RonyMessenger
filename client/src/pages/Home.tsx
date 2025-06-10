@@ -8,7 +8,7 @@ import WelcomeContent from "@/components/WelcomeContent";
 import AIAssistant from "@/pages/AIAssistant";
 import Messages from "@/pages/Messages";
 import MeetingsNew from "@/pages/MeetingsNew";
-import Files from "@/pages/Files";
+import FilesManager from "@/pages/FilesManager";
 import CloudStorage from "@/pages/CloudStorage";
 import Contacts from "@/pages/Contacts";
 import SettingsPage from "@/pages/SettingsPage";
@@ -43,7 +43,7 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
       case "meetings":
         return <MeetingsNew />;
       case "files":
-        return <Files />;
+        return <FilesManager />;
       case "cloud":
         return <CloudStorage />;
       case "contacts":
