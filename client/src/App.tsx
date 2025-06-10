@@ -6,6 +6,7 @@ import Home from "@/pages/Home";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthProvider } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
+import { getCurrentTheme, applyTheme } from "@/lib/themes";
 
 function App() {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -14,6 +15,10 @@ function App() {
   });
 
   useEffect(() => {
+    // Apply modern theme system
+    const theme = getCurrentTheme();
+    applyTheme(theme);
+    
     const html = document.documentElement;
     if (isDarkMode) {
       html.classList.add('dark');

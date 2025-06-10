@@ -10,7 +10,7 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   getPaginatedUsers(options: PaginationOptions): Promise<PaginatedResult<User>>;
   updateUserStatus(userId: number, status: string): Promise<void>;
-  updateUserProfile(userId: number, profileData: { displayName?: string; email?: string; phone?: string; title?: string }): Promise<void>;
+  updateUserProfile(userId: number, profileData: { displayName?: string; email?: string; phone?: string; title?: string; avatar?: string; theme?: string }): Promise<void>;
   
   // Conversations
   getConversation(id: number): Promise<Conversation | undefined>;
