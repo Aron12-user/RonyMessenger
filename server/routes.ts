@@ -19,6 +19,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { v4 as uuidv4 } from "uuid";
 import { registerJitsiRoutes } from "./jitsi/routes";
+import { handleAIChat } from "./ai-assistant";
 
 // Configure multer for avatar uploads
 const avatarStorage = multer.diskStorage({
@@ -283,6 +284,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: 'Erreur lors de la mise à jour du thème' });
     }
   });
+
+  // AI Assistant route
+  app.post('/api/ai/chat', requireAuth, handleAIChat);
 
   // Serve uploaded avatars
   app.use('/uploads/avatars', expressStatic(path.join(process.cwd(), 'uploads/avatars')));

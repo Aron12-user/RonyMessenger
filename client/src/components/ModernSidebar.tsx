@@ -46,7 +46,6 @@ export default function ModernSidebar({
   const menuItems = [
     { id: "messages", label: "Messages", icon: MessageCircle, active: true },
     { id: "assistant", label: "Assistant IA", icon: Bot },
-    { id: "calls", label: "Appels", icon: Phone },
     { id: "meetings", label: "Réunions", icon: Video },
     { id: "files", label: "Fichiers", icon: FolderOpen },
     { id: "contacts", label: "Contacts", icon: Users },

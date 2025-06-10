@@ -5,6 +5,7 @@ import ModernSidebar from "@/components/ModernSidebar";
 import ModernHeader from "@/components/ModernHeader";
 import MainContent from "@/components/MainContent";
 import WelcomeContent from "@/components/WelcomeContent";
+import AIAssistant from "@/pages/AIAssistant";
 import Messages from "@/pages/Messages";
 import MeetingsNew from "@/pages/MeetingsNew";
 import Files from "@/pages/Files";
@@ -37,19 +38,8 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
       case "messages":
         return currentSection === "messages" ? <WelcomeContent onNewConversation={() => toast({ title: "Nouvelle conversation" })} /> : <Messages />;
       case "assistant":
-        return <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-text)' }}>Assistant IA</h2>
-            <p style={{ color: 'var(--color-textMuted)' }}>Fonctionnalité en cours de développement</p>
-          </div>
-        </div>;
-      case "calls":
-        return <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-text)' }}>Appels</h2>
-            <p style={{ color: 'var(--color-textMuted)' }}>Fonctionnalité en cours de développement</p>
-          </div>
-        </div>;
+        return <AIAssistant />;
+
       case "meetings":
         return <MeetingsNew />;
       case "files":
