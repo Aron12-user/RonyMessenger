@@ -1,6 +1,7 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
+import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
@@ -28,6 +29,19 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
+  // Configuration des sessions
+  const sessionSettings = {
+    secret: process.env.SESSION_SECRET || 'rony_session_secret_key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 24 * 60 * 60 * 1000 // 24 heures
+    }
+  };
+
+  app.set('trust proxy', 1);
+  app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
 
@@ -39,13 +53,10 @@ export function setupAuth(app: Express) {
           return done(null, false, { message: "Nom d'utilisateur incorrect" });
         }
         
-        // Pour le développement, accepter tous les mots de passe
-        // En production, utiliser comparePasswords(password, user.password)
-        if (process.env.NODE_ENV === 'production') {
-          const isValid = await comparePasswords(password, user.password);
-          if (!isValid) {
-            return done(null, false, { message: "Mot de passe incorrect" });
-          }
+        // Vérifier le mot de passe haché
+        const isValid = await comparePasswords(password, user.password);
+        if (!isValid) {
+          return done(null, false, { message: "Mot de passe incorrect" });
         }
         
         return done(null, user);
