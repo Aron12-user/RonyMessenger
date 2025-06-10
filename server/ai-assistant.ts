@@ -84,11 +84,11 @@ const AI_FUNCTIONS: AIFunction[] = [
       try {
         const folder = await storage.createFolder({
           name: args.name,
-          userId: userId,
           ownerId: userId,
           path: `/${args.name}`,
           parentId: args.parentId || null,
           createdAt: new Date(),
+          updatedAt: new Date(),
           isShared: false
         });
         
@@ -166,11 +166,20 @@ export async function handleAIChat(req: Request, res: Response) {
   try {
     const { message, userId, context } = req.body;
     
-    if (!message || !userId) {
-      return res.status(400).json({ error: "Message et userId requis" });
+    console.log('AI Chat request:', { message, userId, context });
+    
+    if (!message) {
+      return res.status(400).json({ error: "Message requis" });
+    }
+    
+    // Utiliser l'ID de l'utilisateur connecté si pas fourni dans le body
+    const effectiveUserId = userId || (req.user as any)?.id;
+    
+    if (!effectiveUserId) {
+      return res.status(400).json({ error: "Utilisateur non identifié" });
     }
 
-    const user = await storage.getUser(userId);
+    const user = await storage.getUser(effectiveUserId);
     if (!user) {
       return res.status(404).json({ error: "Utilisateur non trouvé" });
     }
@@ -231,7 +240,7 @@ Tu dois toujours essayer d'aider l'utilisateur de manière pratique et efficace.
       
       const aiFunction = AI_FUNCTIONS.find(f => f.name === functionName);
       if (aiFunction) {
-        functionResult = await aiFunction.handler(functionArgs, userId);
+        functionResult = await aiFunction.handler(functionArgs, effectiveUserId);
       }
 
       // Faire un deuxième appel pour obtenir la réponse finale

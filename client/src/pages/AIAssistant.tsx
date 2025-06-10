@@ -81,6 +81,7 @@ export default function AIAssistant() {
     mutationFn: async (message: string) => {
       const response = await apiRequest('POST', '/api/ai-chat', {
         message,
+        userId: user?.id,
         context: {
           userId: user?.id,
           userName: user?.displayName || user?.username
@@ -94,13 +95,22 @@ export default function AIAssistant() {
       ));
       setIsTyping(false);
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error('AI Chat error:', error);
+      const errorMessage = error?.message || "Impossible de communiquer avec l'assistant IA";
+      
       toast({
         title: "Erreur",
-        description: "Impossible de communiquer avec l'assistant IA",
+        description: errorMessage,
         variant: "destructive"
       });
-      setMessages(prev => prev.filter(msg => !msg.isLoading));
+      
+      // Remplacer le message de chargement par un message d'erreur
+      setMessages(prev => prev.map(msg => 
+        msg.isLoading 
+          ? { ...msg, content: "Désolé, je rencontre un problème technique. Veuillez réessayer.", isLoading: false }
+          : msg
+      ));
       setIsTyping(false);
     }
   });
