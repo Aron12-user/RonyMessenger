@@ -1,4 +1,3 @@
-
 import UserAvatar from "./UserAvatar";
 import { User } from "@shared/schema";
 

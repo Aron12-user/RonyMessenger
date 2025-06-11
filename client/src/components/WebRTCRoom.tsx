@@ -70,6 +70,18 @@ export default function WebRTCRoom({
   // Initialiser le stream local
   const initializeLocalStream = useCallback(async () => {
     try {
+      // Vérifier si on est en HTTPS
+      const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+      
+      if (!isSecure) {
+        throw new Error('HTTPS_REQUIRED');
+      }
+
+      // Vérifier la disponibilité des médias
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('MEDIA_NOT_SUPPORTED');
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 1280, height: 720 },
         audio: true
@@ -82,11 +94,29 @@ export default function WebRTCRoom({
       }
       
       return stream;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur d\'accès aux médias:', error);
+      
+      let title = "Erreur d'accès aux médias";
+      let description = "Impossible d'accéder à la caméra ou au microphone";
+      
+      if (error.message === 'HTTPS_REQUIRED') {
+        title = "Connexion sécurisée requise";
+        description = "Les réunions vidéo nécessitent une connexion HTTPS. Veuillez déployer l'application.";
+      } else if (error.message === 'MEDIA_NOT_SUPPORTED') {
+        title = "Navigateur non supporté";
+        description = "Votre navigateur ne supporte pas l'accès aux médias.";
+      } else if (error.name === 'NotAllowedError') {
+        title = "Autorisation refusée";
+        description = "Veuillez autoriser l'accès à la caméra et au microphone dans les paramètres du navigateur.";
+      } else if (error.name === 'NotFoundError') {
+        title = "Équipement introuvable";
+        description = "Aucune caméra ou microphone détecté sur cet appareil.";
+      }
+      
       toast({
-        title: "Erreur d'accès aux médias",
-        description: "Impossible d'accéder à la caméra ou au microphone",
+        title,
+        description,
         variant: "destructive"
       });
       throw error;
@@ -160,10 +190,41 @@ export default function WebRTCRoom({
         title: "Connexion établie",
         description: "Vous avez rejoint la réunion"
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors de la connexion:', error);
+      
+      // Tentative de connexion audio seulement
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: false
+        });
+        
+        localStreamRef.current = audioStream;
+        setIsVideoMuted(true);
+        
+        sendMessage(WS_EVENTS.JOIN_WEBRTC_ROOM, {
+          roomCode,
+          userId,
+          userName
+        });
+        
+        setIsConnected(true);
+        
+        toast({
+          title: "Connexion audio établie",
+          description: "Vous avez rejoint la réunion en mode audio seulement"
+        });
+      } catch (audioError) {
+        toast({
+          title: "Échec de la connexion",
+          description: "Impossible d'accéder aux médias. Vérifiez vos autorisations.",
+          variant: "destructive"
+        });
+        onClose();
+      }
     }
-  }, [initializeLocalStream, sendMessage, roomCode, userId, userName, toast]);
+  }, [initializeLocalStream, sendMessage, roomCode, userId, userName, toast, onClose]);
 
   // Quitter la salle
   const leaveRoom = useCallback(() => {
@@ -390,6 +451,13 @@ export default function WebRTCRoom({
       className="fixed inset-0 bg-black z-50 flex flex-col"
       style={{ background: 'var(--color-background)' }}
     >
+      {/* Warning Banner for HTTP */}
+      {window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && (
+        <div className="bg-yellow-500 text-black p-2 text-center text-sm">
+          ⚠️ Les réunions vidéo nécessitent HTTPS. Déployez l'application pour une utilisation complète.
+        </div>
+      )}
+      
       {/* Header */}
       <div 
         className="flex items-center justify-between p-4 border-b"
