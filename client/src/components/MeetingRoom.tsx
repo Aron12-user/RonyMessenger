@@ -162,13 +162,14 @@ export default function MeetingRoom({ roomCode, userName, userId, onClose, showC
   const leaveMeetingMutation = useMutation({
     mutationFn: async () => {
       if (!room) return Promise.resolve();
-      return await apiRequest('POST', '/api/meetings/leave', { code: room.friendlyCode });
+      try {
+        return await apiRequest('POST', '/api/meetings/leave', { code: room.friendlyCode });
+      } catch (error) {
+        console.log('Erreur lors de la sortie de réunion (ignorée):', error);
+        return Promise.resolve();
+      }
     },
     onSuccess: () => {
-      // Nettoyage avant de fermer
-      if (tokenExpiryTimerRef.current) {
-        clearTimeout(tokenExpiryTimerRef.current);
-      }
       onClose();
     },
     onError: () => {
@@ -210,6 +211,12 @@ export default function MeetingRoom({ roomCode, userName, userId, onClose, showC
 
   // Gérer la fermeture de la réunion
   const handleCloseRoom = () => {
+    // Nettoyage avant de fermer
+    if (tokenExpiryTimerRef.current) {
+      clearTimeout(tokenExpiryTimerRef.current);
+    }
+    
+    // Quitter la réunion via l'API
     leaveMeetingMutation.mutate();
   };
 
@@ -351,7 +358,7 @@ export default function MeetingRoom({ roomCode, userName, userId, onClose, showC
             // Écouter les événements spécifiques
             externalApi.addListener('videoConferenceLeft', () => {
               console.log('Utilisateur a quitté la conférence');
-              handleCloseRoom();
+              // Ne pas fermer automatiquement, laisser l'utilisateur décider
             });
 
             externalApi.addListener('participantJoined', (participant: any) => {

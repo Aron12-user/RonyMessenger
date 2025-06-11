@@ -1,7 +1,7 @@
-
-import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import WebRTCRoom from './WebRTCRoom';
+import React, { useState } from 'react';
+import MeetingRoom from './MeetingRoom';
+import { Button } from '@/components/ui/button';
+import { Minimize2, Maximize2 } from 'lucide-react';
 
 interface MeetingWindowProps {
   roomCode: string;
@@ -12,108 +12,74 @@ interface MeetingWindowProps {
 
 export default function MeetingWindow({ roomCode, userName, userId, onClose }: MeetingWindowProps) {
   const [isMinimized, setIsMinimized] = useState(false);
-  const [windowRef, setWindowRef] = useState<Window | null>(null);
 
-  // Ouvrir dans un nouvel onglet
-  useEffect(() => {
-    const newWindow = window.open(
-      `about:blank`,
-      `meeting-${roomCode}`,
-      'width=1200,height=800,resizable=yes,scrollbars=yes'
-    );
-
-    if (newWindow) {
-      // Configuration de la nouvelle fenêtre
-      newWindow.document.title = `Réunion ${roomCode} - Rony`;
-      newWindow.document.head.innerHTML = `
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
-          
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-            background: #000;
-            color: #fff;
-            overflow: hidden;
-          }
-          
-          #meeting-root {
-            width: 100vw;
-            height: 100vh;
-          }
-        </style>
-        <link rel="stylesheet" href="${window.location.origin}/src/index.css">
-      `;
-      
-      // Créer le conteneur pour React
-      const meetingRoot = newWindow.document.createElement('div');
-      meetingRoot.id = 'meeting-root';
-      newWindow.document.body.appendChild(meetingRoot);
-      
-      setWindowRef(newWindow);
-      
-      // Gérer la fermeture de la fenêtre
-      newWindow.addEventListener('beforeunload', () => {
-        onClose();
-      });
-    } else {
-      // Fallback : utiliser le mode réduit dans la fenêtre principale
-      setIsMinimized(true);
-    }
-
-    return () => {
-      if (newWindow && !newWindow.closed) {
-        newWindow.close();
-      }
-    };
-  }, [roomCode, onClose]);
-
-  // Gérer la minimisation/maximisation
   const handleToggleMinimize = () => {
-    if (windowRef && !windowRef.closed) {
-      if (windowRef.document.visibilityState === 'visible') {
-        windowRef.blur();
-        setIsMinimized(true);
-      } else {
-        windowRef.focus();
-        setIsMinimized(false);
-      }
-    } else {
-      setIsMinimized(!isMinimized);
-    }
+    setIsMinimized(!isMinimized);
   };
 
-  // Rendu dans la nouvelle fenêtre ou en mode réduit
-  if (windowRef && !windowRef.closed) {
-    const meetingRoot = windowRef.document.getElementById('meeting-root');
-    if (meetingRoot) {
-      return createPortal(
-        <WebRTCRoom
+  if (isMinimized) {
+    return (
+      <div className="fixed bottom-4 right-4 z-50">
+        <div className="bg-gray-900 rounded-lg shadow-2xl border border-gray-700 overflow-hidden">
+          <div className="bg-gray-800 p-3 flex items-center justify-between min-w-[250px]">
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-white text-sm font-medium">Réunion en cours</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleMinimize}
+                className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="p-3 bg-gray-900">
+            <p className="text-gray-300 text-xs">Code: {roomCode}</p>
+            <p className="text-gray-400 text-xs">{userName}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+      {/* En-tête avec contrôles */}
+      <div className="bg-gray-900 p-2 flex justify-between items-center flex-shrink-0">
+        <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-white text-sm font-medium">Réunion Rony</span>
+          </div>
+          <span className="text-gray-400 text-sm">Code: {roomCode}</span>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleToggleMinimize}
+            className="text-gray-400 hover:text-white"
+          >
+            <Minimize2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Zone de réunion */}
+      <div className="flex-1 overflow-hidden">
+        <MeetingRoom
           roomCode={roomCode}
           userName={userName}
           userId={userId}
           onClose={onClose}
-          isMinimized={false}
-        />,
-        meetingRoot
-      );
-    }
-  }
-
-  // Fallback : mode réduit dans la fenêtre principale
-  return (
-    <WebRTCRoom
-      roomCode={roomCode}
-      userName={userName}
-      userId={userId}
-      onClose={onClose}
-      isMinimized={isMinimized}
-      onToggleMinimize={handleToggleMinimize}
-    />
+          showControls={false}
+        />
+      </div>
+    </div>
   );
 }
