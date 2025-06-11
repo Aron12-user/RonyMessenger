@@ -480,4 +480,79 @@ export class PgStorage implements IStorage {
       throw error;
     }
   }
+
+  // Scheduled meetings methods
+  async getScheduledMeetings(userId: number): Promise<any[]> {
+    try {
+      // Pour l'instant, retourner un tableau vide car la table n'existe pas encore
+      // Dans une vraie implémentation, on ferait une requête à la table scheduledMeetings
+      return [];
+    } catch (error) {
+      console.error('Error in getScheduledMeetings:', error);
+      return [];
+    }
+  }
+
+  async createScheduledMeeting(meetingData: any): Promise<any> {
+    try {
+      // Pour l'instant, retourner un objet vide car la table n'existe pas encore
+      // Dans une vraie implémentation, on insérerait dans la table scheduledMeetings
+      return {
+        id: Date.now(),
+        ...meetingData
+      };
+    } catch (error) {
+      console.error('Error in createScheduledMeeting:', error);
+      throw error;
+    }
+  }
+
+  async getScheduledMeeting(meetingId: number): Promise<any | undefined> {
+    try {
+      // Pour l'instant, retourner undefined car la table n'existe pas encore
+      return undefined;
+    } catch (error) {
+      console.error('Error in getScheduledMeeting:', error);
+      return undefined;
+    }
+  }
+
+  async deleteScheduledMeeting(meetingId: number): Promise<void> {
+    try {
+      // Pour l'instant, ne rien faire car la table n'existe pas encore
+    } catch (error) {
+      console.error('Error in deleteScheduledMeeting:', error);
+    }
+  }
+
+  async createActiveMeeting(meetingData: any): Promise<any> {
+    try {
+      // Pour l'instant, retourner un objet vide car la table n'existe pas encore
+      return {
+        id: Date.now(),
+        ...meetingData
+      };
+    } catch (error) {
+      console.error('Error in createActiveMeeting:', error);
+      throw error;
+    }
+  }
+
+  async getActiveMeetingByCode(friendlyCode: string): Promise<any | undefined> {
+    try {
+      // Pour l'instant, retourner undefined car la table n'existe pas encore
+      return undefined;
+    } catch (error) {
+      console.error('Error in getActiveMeetingByCode:', error);
+      return undefined;
+    }
+  }
+
+  async deleteActiveMeeting(friendlyCode: string): Promise<void> {
+    try {
+      // Pour l'instant, ne rien faire car la table n'existe pas encore
+    } catch (error) {
+      console.error('Error in deleteActiveMeeting:', error);
+    }
+  }
 }

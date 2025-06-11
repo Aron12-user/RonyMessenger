@@ -833,12 +833,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // In-memory storage for meetings (simple alternative)
+  const activeMeetings = new Map<string, any>();
+  const scheduledMeetings = new Map<number, any>();
+  let meetingIdCounter = 1;
+
   // Routes pour les réunions programmées
   app.get('/api/meetings/scheduled', requireAuth, async (req, res) => {
     try {
       const userId = (req.user as Express.User).id;
-      const scheduledMeetings = await storage.getScheduledMeetings(userId);
-      res.json({ success: true, meetings: scheduledMeetings });
+      const userMeetings = Array.from(scheduledMeetings.values())
+        .filter(meeting => meeting.organizerId === userId);
+      res.json({ success: true, meetings: userMeetings });
     } catch (error) {
       console.error('Error fetching scheduled meetings:', error);
       res.status(500).json({ success: false, message: 'Failed to fetch scheduled meetings' });
@@ -858,6 +864,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const meetingData = {
+        id: meetingIdCounter++,
         title,
         description: description || '',
         startTime: new Date(startTime),
@@ -869,8 +876,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: new Date()
       };
 
-      const meeting = await storage.createScheduledMeeting(meetingData);
-      res.json({ success: true, meeting });
+      scheduledMeetings.set(meetingData.id, meetingData);
+      res.json({ success: true, meeting: meetingData });
     } catch (error) {
       console.error('Error scheduling meeting:', error);
       res.status(500).json({ success: false, message: 'Failed to schedule meeting' });
@@ -882,7 +889,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const meetingId = parseInt(req.params.id);
       const userId = (req.user as Express.User).id;
 
-      const meeting = await storage.getScheduledMeeting(meetingId);
+      const meeting = scheduledMeetings.get(meetingId);
       if (!meeting) {
         return res.status(404).json({ success: false, message: 'Meeting not found' });
       }
@@ -895,13 +902,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const friendlyCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       
       // Créer la réunion active
-      const activeMeeting = await storage.createActiveMeeting({
+      const activeMeeting = {
         friendlyCode,
         roomName: meeting.roomName,
         createdBy: userId,
-        expiresAt: meeting.endTime
-      });
+        expiresAt: meeting.endTime,
+        title: meeting.title,
+        createdAt: new Date()
+      };
 
+      activeMeetings.set(friendlyCode, activeMeeting);
       res.json({ success: true, friendlyCode });
     } catch (error) {
       console.error('Error starting scheduled meeting:', error);
@@ -914,7 +924,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const meetingId = parseInt(req.params.id);
       const userId = (req.user as Express.User).id;
 
-      const meeting = await storage.getScheduledMeeting(meetingId);
+      const meeting = scheduledMeetings.get(meetingId);
       if (!meeting) {
         return res.status(404).json({ success: false, message: 'Meeting not found' });
       }
@@ -923,7 +933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ success: false, message: 'Not authorized' });
       }
 
-      await storage.deleteScheduledMeeting(meetingId);
+      scheduledMeetings.delete(meetingId);
       res.json({ success: true });
     } catch (error) {
       console.error('Error deleting scheduled meeting:', error);
@@ -936,7 +946,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const friendlyCode = req.params.code;
       const userId = (req.user as Express.User).id;
 
-      const activeMeeting = await storage.getActiveMeetingByCode(friendlyCode);
+      const activeMeeting = activeMeetings.get(friendlyCode);
       if (!activeMeeting) {
         return res.status(404).json({ success: false, message: 'Meeting not found' });
       }
@@ -945,7 +955,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ success: false, message: 'Not authorized' });
       }
 
-      await storage.deleteActiveMeeting(friendlyCode);
+      activeMeetings.delete(friendlyCode);
       res.json({ success: true });
     } catch (error) {
       console.error('Error deleting active meeting:', error);
@@ -953,8 +963,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Route pour démarrer une nouvelle réunion
+  app.post('/api/meetings/start', requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const { title } = req.body;
+
+      // Générer un code unique pour la réunion
+      const friendlyCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      // Créer la réunion active (expire dans 24 heures)
+      const activeMeeting = {
+        friendlyCode,
+        roomName: `meeting-${Date.now()}`,
+        createdBy: userId,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 heures
+        title: title || `Réunion ${friendlyCode}`,
+        createdAt: new Date()
+      };
+
+      activeMeetings.set(friendlyCode, activeMeeting);
+      res.json({ success: true, friendlyCode });
+    } catch (error) {
+      console.error('Error starting new meeting:', error);
+      res.status(500).json({ success: false, message: 'Failed to start meeting' });
+    }
+  });
+
+  // Route pour valider un code de réunion
+  app.post('/api/meetings/validate', requireAuth, async (req, res) => {
+    try {
+      const { code } = req.body;
+
+      if (!code) {
+        return res.status(400).json({ success: false, message: 'Code is required' });
+      }
+
+      const meeting = activeMeetings.get(code.toUpperCase());
+      
+      if (!meeting) {
+        return res.status(404).json({ success: false, message: 'Meeting not found' });
+      }
+
+      // Vérifier si la réunion n'a pas expiré
+      if (meeting.expiresAt < new Date()) {
+        activeMeetings.delete(code.toUpperCase());
+        return res.status(410).json({ success: false, message: 'Meeting has expired' });
+      }
+
+      res.json({ success: true, meeting: {
+        friendlyCode: meeting.friendlyCode,
+        roomName: meeting.roomName,
+        title: meeting.title
+      }});
+    } catch (error) {
+      console.error('Error validating meeting code:', error);
+      res.status(500).json({ success: false, message: 'Failed to validate meeting code' });
+    }
+  });
+
   // Enregistrer les routes pour les réunions vidéo Jitsi
-  registerJitsiRoutes(app, requireAuth);
+  registerJitsiRoutes(app, requireAuth, activeMeetings);
 
   return httpServer;
 }
