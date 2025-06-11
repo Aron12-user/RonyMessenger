@@ -30,7 +30,24 @@ export const WS_EVENTS = {
   CALL_REJECTED: 'call_rejected',
   CALL_ENDED: 'call_ended',
   JOIN_MEETING: 'join_meeting',
-  LEAVE_MEETING: 'leave_meeting'
+  LEAVE_MEETING: 'leave_meeting',
+  // Appels audio/vidéo
+  CALL_INVITE: 'call:invite',
+  CALL_ACCEPT: 'call:accept',
+  CALL_REJECT: 'call:reject',
+  CALL_ENDED: 'call:ended',
+  CALL_CANDIDATE: 'call:candidate',
+  CALL_OFFER: 'call:offer',
+  CALL_ANSWER: 'call:answer',
+
+  // WebRTC Room
+  JOIN_WEBRTC_ROOM: 'webrtc:join_room',
+  LEAVE_WEBRTC_ROOM: 'webrtc:leave_room',
+  USER_JOINED_WEBRTC_ROOM: 'webrtc:user_joined',
+  USER_LEFT_WEBRTC_ROOM: 'webrtc:user_left',
+  WEBRTC_OFFER: 'webrtc:offer',
+  WEBRTC_ANSWER: 'webrtc:answer',
+  WEBRTC_ICE_CANDIDATE: 'webrtc:ice_candidate',
 };
 
 // Local storage keys

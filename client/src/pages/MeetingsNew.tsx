@@ -11,7 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { API_ENDPOINTS } from "@/lib/constants";
 import { User } from "@shared/schema";
-import MeetingRoom from "@/components/MeetingRoom";
+import MeetingWindow from '@/components/MeetingWindow';
 import {
   Dialog,
   DialogContent,
@@ -186,7 +186,7 @@ export default function MeetingsNew() {
   // Afficher la réunion si active
   if (activeCode !== null) {
     return (
-      <MeetingRoom
+      <MeetingWindow
         roomCode={activeCode || undefined}
         userName={currentUser.displayName || currentUser.username}
         userId={currentUser.id}
