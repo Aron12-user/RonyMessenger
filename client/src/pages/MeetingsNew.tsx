@@ -669,7 +669,7 @@ export default function MeetingsNew() {
                                             >
                                               Supprimer
                                             </AlertDialogAction>
-                                          </AlertDialงooter>
+                                          </AlertDialogFooter>
                                         </AlertDialogContent>
                                       </AlertDialog>
                                     </DropdownMenuContent>
