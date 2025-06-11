@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from "react";
 import EmptyState from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -35,14 +36,35 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Calendar,
   Video,
   Users,
   ClipboardCheck,
   Clock,
   CalendarClock,
-  Loader2
+  Loader2,
+  Trash2,
+  MoreVertical,
+  Play,
+  X
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 // Interface pour une réunion active
@@ -55,12 +77,34 @@ interface ActiveMeeting {
   participantsCount: number;
 }
 
+// Interface pour une réunion programmée
+interface ScheduledMeeting {
+  id: number;
+  title: string;
+  description: string;
+  startTime: Date;
+  endTime: Date;
+  organizerId: number;
+  roomName: string;
+  isRecurring: boolean;
+  recurringPattern?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export default function MeetingsNew() {
   const [activeCode, setActiveCode] = useState<string | null>(null);
   const [joinDialogOpen, setJoinDialogOpen] = useState<boolean>(false);
   const [joinCode, setJoinCode] = useState<string>('');
   const [isValidatingCode, setIsValidatingCode] = useState<boolean>(false);
   const [validationError, setValidationError] = useState<string>('');
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    startTime: '',
+    endTime: '',
+    isRecurring: false
+  });
   const joinInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -72,8 +116,13 @@ export default function MeetingsNew() {
   // Récupérer les réunions actives
   const { data: activeMeetings, isLoading: isLoadingMeetings } = useQuery<{success: boolean, rooms: ActiveMeeting[]}>({
     queryKey: ['/api/meetings/active'],
-    // Rafraîchir toutes les 30 secondes
     refetchInterval: 30000,
+  });
+
+  // Récupérer les réunions programmées
+  const { data: scheduledMeetings, isLoading: isLoadingScheduled } = useQuery<{success: boolean, meetings: ScheduledMeeting[]}>({
+    queryKey: ['/api/meetings/scheduled'],
+    refetchInterval: 60000,
   });
 
   // Ouvrir la boîte de dialogue pour rejoindre une réunion
@@ -81,7 +130,6 @@ export default function MeetingsNew() {
     setJoinCode('');
     setValidationError('');
     setJoinDialogOpen(true);
-    // Focus après le rendu du dialogue
     setTimeout(() => {
       if (joinInputRef.current) {
         joinInputRef.current.focus();
@@ -132,7 +180,7 @@ export default function MeetingsNew() {
 
   // Démarrer une nouvelle réunion
   const handleStartMeeting = () => {
-    setActiveCode(''); // Code vide indique une nouvelle réunion
+    setActiveCode('');
   };
 
   // Rejoindre une réunion existante
@@ -140,10 +188,105 @@ export default function MeetingsNew() {
     setActiveCode(code);
   };
 
+  // Supprimer une réunion active
+  const handleDeleteActiveMeeting = async (code: string) => {
+    try {
+      await apiRequest('DELETE', `/api/meetings/active/${code}`);
+      queryClient.invalidateQueries({ queryKey: ['/api/meetings/active'] });
+      toast({
+        title: "Réunion supprimée",
+        description: "La réunion a été supprimée avec succès"
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer la réunion",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Démarrer une réunion programmée
+  const handleStartScheduledMeeting = async (meeting: ScheduledMeeting) => {
+    try {
+      const response = await apiRequest('POST', `/api/meetings/start-scheduled/${meeting.id}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setActiveCode(data.friendlyCode);
+        queryClient.invalidateQueries({ queryKey: ['/api/meetings/active'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
+      }
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de démarrer la réunion programmée",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Supprimer une réunion programmée
+  const handleDeleteScheduledMeeting = async (id: number) => {
+    try {
+      await apiRequest('DELETE', `/api/meetings/scheduled/${id}`);
+      queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
+      toast({
+        title: "Réunion supprimée",
+        description: "La réunion programmée a été supprimée"
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer la réunion programmée",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Programmer une réunion
+  const handleScheduleMeeting = async () => {
+    try {
+      if (!formData.title || !formData.startTime || !formData.endTime) {
+        toast({
+          title: "Erreur",
+          description: "Veuillez remplir tous les champs obligatoires",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const response = await apiRequest('POST', '/api/meetings/schedule', formData);
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: "Réunion programmée",
+          description: "La réunion a été programmée avec succès"
+        });
+        setFormData({
+          title: '',
+          description: '',
+          startTime: '',
+          endTime: '',
+          isRecurring: false
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de programmer la réunion",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Quitter une réunion
   const handleEndMeeting = () => {
     setActiveCode(null);
-    // Rafraîchir la liste des réunions actives
     queryClient.invalidateQueries({ queryKey: ['/api/meetings/active'] });
 
     toast({
@@ -163,6 +306,13 @@ export default function MeetingsNew() {
       day: '2-digit',
       month: '2-digit'
     });
+  };
+
+  // Vérifier si une réunion programmée doit démarrer
+  const shouldAutoStart = (meeting: ScheduledMeeting) => {
+    const now = new Date();
+    const startTime = new Date(meeting.startTime);
+    return now >= startTime && now <= new Date(meeting.endTime);
   };
 
   // Si utilisateur non chargé, afficher un indicateur de chargement
@@ -196,10 +346,10 @@ export default function MeetingsNew() {
   }
 
   return (
-    <section className="flex-1 p-6 flex flex-col">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex-1">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex justify-between items-center mb-6">
+    <section className="flex-1 p-6 flex flex-col max-h-screen">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex-1 flex flex-col">
+        <div className="max-w-4xl mx-auto flex-1 flex flex-col">
+          <div className="flex justify-between items-center mb-6 flex-shrink-0">
             <h2 className="text-2xl font-bold">Réunions Vidéo</h2>
             <div className="flex gap-2">
               <Button
@@ -220,8 +370,8 @@ export default function MeetingsNew() {
             </div>
           </div>
 
-          <Tabs defaultValue="active" className="w-full">
-            <TabsList className="mb-6">
+          <Tabs defaultValue="active" className="w-full flex-1 flex flex-col">
+            <TabsList className="mb-6 flex-shrink-0">
               <TabsTrigger value="active" className="flex items-center">
                 <Video className="h-4 w-4 mr-2" />
                 <span>Réunions actives</span>
@@ -232,7 +382,7 @@ export default function MeetingsNew() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="active" className="space-y-6">
+            <TabsContent value="active" className="space-y-6 flex-1 flex flex-col">
               {isLoadingMeetings ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -250,60 +400,98 @@ export default function MeetingsNew() {
                   </Button>
                 </div>
               ) : (
-                <div className="grid md:grid-cols-2 gap-6">
-                  {activeMeetings.rooms.map((meeting) => (
-                    <Card key={meeting.friendlyCode} className="overflow-hidden border border-gray-200 dark:border-gray-600">
-                      <CardHeader className="bg-gray-50 dark:bg-gray-700 pb-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <CardTitle className="text-lg">Réunion en cours</CardTitle>
-                            <CardDescription className="flex items-center mt-1">
-                              <Clock className="h-3.5 w-3.5 mr-1 text-gray-500" />
-                              <span>Début: {formatDate(meeting.createdAt)}</span>
-                            </CardDescription>
+                <ScrollArea className="flex-1">
+                  <div className="grid md:grid-cols-2 gap-6 pr-4">
+                    {activeMeetings.rooms.map((meeting) => (
+                      <Card key={meeting.friendlyCode} className="overflow-hidden border border-gray-200 dark:border-gray-600">
+                        <CardHeader className="bg-gray-50 dark:bg-gray-700 pb-4">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <CardTitle className="text-lg">Réunion en cours</CardTitle>
+                              <CardDescription className="flex items-center mt-1">
+                                <Clock className="h-3.5 w-3.5 mr-1 text-gray-500" />
+                                <span>Début: {formatDate(meeting.createdAt)}</span>
+                              </CardDescription>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 flex items-center">
+                                <span className="h-2 w-2 rounded-full bg-green-500 mr-1.5"></span>
+                                Active
+                              </span>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Supprimer
+                                      </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Supprimer la réunion</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Êtes-vous sûr de vouloir supprimer cette réunion active ? Tous les participants seront déconnectés.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() => handleDeleteActiveMeeting(meeting.friendlyCode)}
+                                          className="bg-red-600 hover:bg-red-700"
+                                        >
+                                          Supprimer
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           </div>
-                          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 flex items-center">
-                            <span className="h-2 w-2 rounded-full bg-green-500 mr-1.5"></span>
-                            Active
-                          </span>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pt-4">
-                        <div className="flex justify-between items-center mb-4">
-                          <div>
-                            <p className="text-sm font-medium">Code d'accès</p>
-                            <p className="text-lg font-mono bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded mt-1">
-                              {meeting.friendlyCode}
-                            </p>
+                        </CardHeader>
+                        <CardContent className="pt-4">
+                          <div className="flex justify-between items-center mb-4">
+                            <div>
+                              <p className="text-sm font-medium">Code d'accès</p>
+                              <p className="text-lg font-mono bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded mt-1">
+                                {meeting.friendlyCode}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-medium">Participants</p>
+                              <p className="text-lg font-semibold flex items-center justify-end mt-1">
+                                <Users className="h-4 w-4 mr-2 text-gray-500" />
+                                {meeting.participantsCount}
+                              </p>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm font-medium">Participants</p>
-                            <p className="text-lg font-semibold flex items-center justify-end mt-1">
-                              <Users className="h-4 w-4 mr-2 text-gray-500" />
-                              {meeting.participantsCount}
-                            </p>
+                          <div className="text-sm text-gray-500 flex items-center">
+                            <CalendarClock className="h-4 w-4 mr-2" />
+                            <span>Expire le: {formatDate(meeting.expiresAt)}</span>
                           </div>
-                        </div>
-                        <div className="text-sm text-gray-500 flex items-center">
-                          <CalendarClock className="h-4 w-4 mr-2" />
-                          <span>Expire le: {formatDate(meeting.expiresAt)}</span>
-                        </div>
-                      </CardContent>
-                      <CardFooter className="bg-gray-50 dark:bg-gray-700 px-6 py-4">
-                        <Button 
-                          onClick={() => handleJoinMeeting(meeting.friendlyCode)}
-                          className="w-full bg-primary hover:bg-primary/90"
-                        >
-                          <Video className="h-4 w-4 mr-2" />
-                          <span>Rejoindre la réunion</span>
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))}
-                </div>
+                        </CardContent>
+                        <CardFooter className="bg-gray-50 dark:bg-gray-700 px-6 py-4">
+                          <Button 
+                            onClick={() => handleJoinMeeting(meeting.friendlyCode)}
+                            className="w-full bg-primary hover:bg-primary/90"
+                          >
+                            <Video className="h-4 w-4 mr-2" />
+                            <span>Rejoindre la réunion</span>
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    ))}
+                  </div>
+                </ScrollArea>
               )}
 
-              <div className="mt-8 bg-gray-50 dark:bg-gray-700 rounded-lg p-6 border border-gray-200 dark:border-gray-600">
+              <div className="mt-8 bg-gray-50 dark:bg-gray-700 rounded-lg p-6 border border-gray-200 dark:border-gray-600 flex-shrink-0">
                 <h3 className="font-bold text-lg mb-4">Réunion Instantanée</h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-6">
                   Démarrez une réunion vidéo instantanée pour collaborer en temps réel avec votre équipe. Les réunions sont sécurisées avec un accès par code unique.
@@ -341,96 +529,73 @@ export default function MeetingsNew() {
               </div>
             </TabsContent>
 
-            <TabsContent value="scheduled">
-              <div className="space-y-6">
-                <Card>
+            <TabsContent value="scheduled" className="space-y-6 flex-1 flex flex-col">
+              <div className="grid lg:grid-cols-2 gap-6 flex-1">
+                <Card className="flex flex-col">
                   <CardHeader>
                     <CardTitle>Programmer une nouvelle réunion</CardTitle>
                     <CardDescription>
                       Planifiez une réunion et invitez des participants
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <ScrollArea className="h-[60vh] pr-4">
-                      <form className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="title">Titre de la réunion</Label>
-                        <Input id="title" name="title" placeholder="Réunion hebdomadaire" />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="description">Description</Label>
-                        <Textarea id="description" name="description" placeholder="Ordre du jour..." />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
+                  <CardContent className="flex-1">
+                    <ScrollArea className="h-[400px] pr-4">
+                      <div className="space-y-4">
                         <div className="space-y-2">
-                          <Label>Date et heure de début</Label>
-                          <input
-                            type="datetime-local"
-                            name="startTime"
-                            className="w-full rounded-md border border-gray-200 p-2"
+                          <Label htmlFor="title">Titre de la réunion *</Label>
+                          <Input 
+                            id="title" 
+                            value={formData.title}
+                            onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                            placeholder="Réunion hebdomadaire" 
                           />
                         </div>
+
                         <div className="space-y-2">
-                          <Label>Date et heure de fin</Label>
-                          <input
-                            type="datetime-local"
-                            name="endTime"
-                            className="w-full rounded-md border border-gray-200 p-2"
+                          <Label htmlFor="description">Description</Label>
+                          <Textarea 
+                            id="description" 
+                            value={formData.description}
+                            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                            placeholder="Ordre du jour..." 
                           />
                         </div>
-                      </div>
 
-                      <div className="space-y-2">
-                        <Label>Participants</Label>
-                        <div className="flex flex-wrap gap-2">
-                          <Button variant="outline" className="h-8">
-                            <Users className="h-4 w-4 mr-2" />
-                            Ajouter des participants
-                          </Button>
+                        <div className="grid grid-cols-1 gap-4">
+                          <div className="space-y-2">
+                            <Label>Date et heure de début *</Label>
+                            <input
+                              type="datetime-local"
+                              value={formData.startTime}
+                              onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
+                              className="w-full rounded-md border border-gray-200 dark:border-gray-600 p-2 bg-white dark:bg-gray-800"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Date et heure de fin *</Label>
+                            <input
+                              type="datetime-local"
+                              value={formData.endTime}
+                              onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
+                              className="w-full rounded-md border border-gray-200 dark:border-gray-600 p-2 bg-white dark:bg-gray-800"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex space-x-2">
+                          <Switch 
+                            id="recurring" 
+                            checked={formData.isRecurring}
+                            onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isRecurring: checked }))}
+                          />
+                          <Label htmlFor="recurring">Réunion récurrente</Label>
                         </div>
                       </div>
-
-                      <div className="flex space-x-2">
-                        <Switch id="recurring" name="recurring"/>
-                        <Label htmlFor="recurring">Réunion récurrente</Label>
-                      </div>
-                    </form>
                     </ScrollArea>
                   </CardContent>
                   <CardFooter>
                     <Button 
-                      onClick={async () => {
-                        try {
-                          const formData = new FormData(document.querySelector('form')!);
-                          const response = await apiRequest('POST', '/api/meetings/schedule', {
-                            title: formData.get('title'),
-                            description: formData.get('description'),
-                            startTime: formData.get('startTime'),
-                            endTime: formData.get('endTime'),
-                            isRecurring: formData.get('recurring') === 'on'
-                          });
-
-                          const data = await response.json();
-                          if (data.success) {
-                            toast({
-                              title: "Réunion programmée",
-                              description: "La réunion a été programmée avec succès"
-                            });
-                            // Rafraîchir la liste des réunions
-                            queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
-                          } else {
-                            throw new Error(data.message);
-                          }
-                        } catch (error) {
-                          toast({
-                            title: "Erreur",
-                            description: "Impossible de programmer la réunion",
-                            variant: "destructive"
-                          });
-                        }
-                      }}
+                      onClick={handleScheduleMeeting}
                       className="w-full"
                     >
                       <Calendar className="h-4 w-4 mr-2" />
@@ -439,18 +604,113 @@ export default function MeetingsNew() {
                   </CardFooter>
                 </Card>
 
-                <Card>
+                <Card className="flex flex-col">
                   <CardHeader>
                     <CardTitle>Réunions programmées</CardTitle>
                     <CardDescription>
                       Vos prochaines réunions planifiées
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {/* Liste des réunions programmées */}
-                      <EmptyState />
-                    </div>
+                  <CardContent className="flex-1">
+                    {isLoadingScheduled ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      </div>
+                    ) : !scheduledMeetings?.meetings || scheduledMeetings.meetings.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                        <p className="text-gray-500">Aucune réunion programmée</p>
+                      </div>
+                    ) : (
+                      <ScrollArea className="h-[400px] pr-4">
+                        <div className="space-y-4">
+                          {scheduledMeetings.meetings.map((meeting) => (
+                            <Card key={meeting.id} className="border border-gray-200 dark:border-gray-600">
+                              <CardHeader className="pb-2">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex-1">
+                                    <CardTitle className="text-base">{meeting.title}</CardTitle>
+                                    <CardDescription className="text-sm mt-1">
+                                      {meeting.description}
+                                    </CardDescription>
+                                  </div>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                        <MoreVertical className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent>
+                                      {shouldAutoStart(meeting) && (
+                                        <DropdownMenuItem onClick={() => handleStartScheduledMeeting(meeting)}>
+                                          <Play className="h-4 w-4 mr-2" />
+                                          Démarrer maintenant
+                                        </DropdownMenuItem>
+                                      )}
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                            <Trash2 className="h-4 w-4 mr-2" />
+                                            Supprimer
+                                          </DropdownMenuItem>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                          <AlertDialogHeader>
+                                            <AlertDialogTitle>Supprimer la réunion programmée</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                              Êtes-vous sûr de vouloir supprimer cette réunion programmée ?
+                                            </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter>
+                                            <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                            <AlertDialogAction
+                                              onClick={() => handleDeleteScheduledMeeting(meeting.id)}
+                                              className="bg-red-600 hover:bg-red-700"
+                                            >
+                                              Supprimer
+                                            </AlertDialogAction>
+                                          </AlertDialงooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="pt-2">
+                                <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                  <div className="flex items-center">
+                                    <Clock className="h-4 w-4 mr-2" />
+                                    <span>Début: {formatDate(meeting.startTime)}</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <CalendarClock className="h-4 w-4 mr-2" />
+                                    <span>Fin: {formatDate(meeting.endTime)}</span>
+                                  </div>
+                                  {meeting.isRecurring && (
+                                    <div className="flex items-center">
+                                      <Calendar className="h-4 w-4 mr-2" />
+                                      <span>Récurrente</span>
+                                    </div>
+                                  )}
+                                </div>
+                                {shouldAutoStart(meeting) && (
+                                  <div className="mt-2">
+                                    <Button 
+                                      onClick={() => handleStartScheduledMeeting(meeting)}
+                                      size="sm"
+                                      className="w-full bg-green-600 hover:bg-green-700"
+                                    >
+                                      <Play className="h-4 w-4 mr-2" />
+                                      Démarrer maintenant
+                                    </Button>
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
                   </CardContent>
                 </Card>
               </div>

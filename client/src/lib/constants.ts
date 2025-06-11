@@ -41,13 +41,31 @@ export const WS_EVENTS = {
   CALL_ANSWER: 'call:answer',
 
   // WebRTC Room
-  JOIN_WEBRTC_ROOM: 'webrtc:join_room',
-  LEAVE_WEBRTC_ROOM: 'webrtc:leave_room',
-  USER_JOINED_WEBRTC_ROOM: 'webrtc:user_joined',
-  USER_LEFT_WEBRTC_ROOM: 'webrtc:user_left',
+  JOIN_WEBRTC_ROOM: 'join:webrtc_room',
+  LEAVE_WEBRTC_ROOM: 'leave:webrtc_room',
   WEBRTC_OFFER: 'webrtc:offer',
   WEBRTC_ANSWER: 'webrtc:answer',
-  WEBRTC_ICE_CANDIDATE: 'webrtc:ice_candidate',
+  WEBRTC_CANDIDATE: 'webrtc:candidate',
+  WEBRTC_USER_JOINED: 'webrtc:user_joined',
+  WEBRTC_USER_LEFT: 'webrtc:user_left',
+
+  // Meeting events
+  JOIN_MEETING: 'join:meeting',
+  LEAVE_MEETING: 'leave:meeting',
+  MEETING_UPDATE: 'meeting:update',
+
+  // Meeting Room events
+  MEETING_ROOM_JOIN: 'meeting_room:join',
+  MEETING_ROOM_LEAVE: 'meeting_room:leave',
+  MEETING_ROOM_OFFER: 'meeting_room:offer',
+  MEETING_ROOM_ANSWER: 'meeting_room:answer',
+  MEETING_ROOM_CANDIDATE: 'meeting_room:candidate',
+  MEETING_ROOM_USER_JOINED: 'meeting_room:user_joined',
+  MEETING_ROOM_USER_LEFT: 'meeting_room:user_left',
+
+  // Error handling
+  ERROR: 'error',
+  CONNECTION_ERROR: 'connection:error',
 };
 
 // Local storage keys
