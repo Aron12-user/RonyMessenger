@@ -111,12 +111,23 @@ export default function Contacts() {
   const submitAddContact = () => {
     if (!username.trim()) {
       toast({
-        title: "Nom d'utilisateur requis",
-        description: "Veuillez saisir un nom d'utilisateur",
+        title: "Adresse Rony requise",
+        description: "Veuillez saisir une adresse Rony",
         variant: "destructive"
       });
       return;
     }
+    
+    // Vérifier que l'adresse Rony se termine par @rony.com
+    if (!username.endsWith('@rony.com')) {
+      toast({
+        title: "Format invalide",
+        description: "L'adresse Rony doit se terminer par @rony.com",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     addContactMutation.mutate(username);
   };
 
@@ -287,11 +298,11 @@ export default function Contacts() {
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              Entrez le nom d'utilisateur de la personne que vous souhaitez ajouter à vos contacts.
+              Entrez l'adresse Rony de la personne que vous souhaitez ajouter à vos contacts.
             </p>
             <Input
-              type="text"
-              placeholder="Nom d'utilisateur"
+              type="email"
+              placeholder="exemple@rony.com"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full"
@@ -299,7 +310,7 @@ export default function Contacts() {
             
             {username.length > 0 && (
               <div className="mt-4">
-                <p className="text-sm font-medium mb-2">Utilisateurs correspondants :</p>
+                <p className="text-sm font-medium mb-2">Adresses Rony correspondantes :</p>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {allUsers.filter((user: User) => 
                     user.username.toLowerCase().includes(username.toLowerCase()) ||
@@ -317,7 +328,7 @@ export default function Contacts() {
                       />
                       <div className="ml-3">
                         <p className="font-medium">{user.displayName || user.username}</p>
-                        {user.displayName && <p className="text-xs text-gray-500">@{user.username}</p>}
+                        {user.displayName && <p className="text-xs text-gray-500">{user.username}</p>}
                       </div>
                       <StatusIndicator status={user.status as UserStatus} size="sm" />
                     </div>
