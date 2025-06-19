@@ -46,10 +46,16 @@ export default function AuthPage() {
       return;
     }
     
+    // Vérifier que l'adresse Rony se termine par @rony.com
+    if (!registerUsername.endsWith('@rony.com')) {
+      alert('L\'adresse Rony doit se terminer par @rony.com');
+      return;
+    }
+    
     registerMutation.mutate({
       username: registerUsername,
       password: registerPassword,
-      displayName: registerDisplayName || registerUsername
+      displayName: registerDisplayName || registerUsername.split('@')[0]
     });
   };
   
@@ -72,12 +78,13 @@ export default function AuthPage() {
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
-                  <Label htmlFor="loginUsername">Nom d'utilisateur</Label>
+                  <Label htmlFor="loginUsername">Adresse Rony</Label>
                   <Input 
                     id="loginUsername" 
-                    type="text" 
+                    type="email" 
                     value={loginUsername}
                     onChange={(e) => setLoginUsername(e.target.value)}
+                    placeholder="exemple@rony.com"
                     required 
                   />
                 </div>
@@ -115,14 +122,16 @@ export default function AuthPage() {
             <TabsContent value="register">
               <form onSubmit={handleRegister} className="space-y-4">
                 <div>
-                  <Label htmlFor="registerUsername">Nom d'utilisateur</Label>
+                  <Label htmlFor="registerUsername">Adresse Rony</Label>
                   <Input 
                     id="registerUsername" 
-                    type="text" 
+                    type="email" 
                     value={registerUsername}
                     onChange={(e) => setRegisterUsername(e.target.value)}
+                    placeholder="votrenom@rony.com"
                     required 
                   />
+                  <p className="text-xs text-gray-500 mt-1">Doit se terminer par @rony.com</p>
                 </div>
                 
                 <div>
