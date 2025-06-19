@@ -28,10 +28,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     data: user,
     error,
     isLoading,
+    refetch: refetchUser,
   } = useQuery<SelectUser | undefined, Error>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
-    retry: false,
+    retry: 1,
+    staleTime: 1000, // 1 seconde seulement
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchInterval: 30000, // Vérifier toutes les 30 secondes
   });
 
   const loginMutation = useMutation({
@@ -45,6 +50,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
+      // Invalider et rafraîchir toutes les données liées à l'utilisateur
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      refetchUser();
       toast({
         title: "Connexion réussie",
         description: `Bienvenue ${user.displayName || user.username}!`,
@@ -70,6 +80,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
+      // Invalider et rafraîchir toutes les données liées à l'utilisateur
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      refetchUser();
       toast({
         title: "Inscription réussie",
         description: `Bienvenue ${user.displayName || user.username}!`,
@@ -98,6 +113,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Déconnexion réussie",
         description: "À bientôt!",
       });
+      // Rediriger vers la page d'authentification
+      setTimeout(() => {
+        window.location.href = '/auth';
+      }, 100);
     },
     onError: (error: Error) => {
       toast({

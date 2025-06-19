@@ -14,12 +14,15 @@ app.use(session({
   store: new MemStore({
     checkPeriod: 86400000 // prune expired entries every 24h
   }),
-  secret: process.env.SESSION_SECRET || 'rony_session_secret',
+  secret: process.env.SESSION_SECRET || 'rony_session_secret_key_2025',
   resave: false,
   saveUninitialized: false,
+  name: 'rony.session',
   cookie: { 
     secure: false, // Désactivé pour le développement
-    maxAge: 24 * 60 * 60 * 1000 // 1 jour
+    httpOnly: true,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
+    sameSite: 'lax'
   }
 }));
 

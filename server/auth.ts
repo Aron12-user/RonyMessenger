@@ -27,19 +27,6 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
-  // Configuration des sessions
-  const sessionSettings = {
-    secret: process.env.SESSION_SECRET || 'rony_session_secret_key',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 24 * 60 * 60 * 1000 // 24 heures
-    }
-  };
-
-  app.set('trust proxy', 1);
-  app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
 
@@ -87,13 +74,10 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Ce nom d'utilisateur est déjà pris" });
       }
       
-      // Hash du mot de passe
-      const hashedPassword = await hashPassword(password);
-      
-      // Créer un nouvel utilisateur
+      // Pour le stockage en mémoire, utiliser le mot de passe en texte brut
       const user = await storage.createUser({
         username,
-        password: hashedPassword,
+        password: password, // Stockage en texte brut pour la simplicité
         displayName: displayName || username,
         status: 'online',
         lastSeen: new Date(),
@@ -157,14 +141,22 @@ export function setupAuth(app: Express) {
     });
   });
 
-  app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) {
+  app.get("/api/user", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
       return res.status(401).json({ message: "Non authentifié" });
     }
     
-    // Retourner l'utilisateur sans le mot de passe
-    const { password, ...userWithoutPassword } = req.user as Express.User;
-    res.json(userWithoutPassword);
+    try {
+      // Mettre à jour le statut en ligne et la dernière connexion
+      await storage.updateUserStatus(req.user.id, 'online');
+      
+      // Retourner l'utilisateur sans le mot de passe
+      const { password, ...userWithoutPassword } = req.user as Express.User;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error('Erreur lors de la récupération de l\'utilisateur:', error);
+      res.status(500).json({ message: "Erreur serveur" });
+    }
   });
 
   // Middleware d'authentification pour protéger les routes
