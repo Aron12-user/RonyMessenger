@@ -56,12 +56,16 @@ export class MemStorage implements IStorage {
   private conversations: Map<number, Conversation>;
   private messages: Map<number, Message>;
   private files: Map<number, File>;
+  private folders: Map<number, Folder>;
+  private fileSharing: Map<number, FileSharing>;
   private contacts: Map<number, Contact>;
   
   private userId: number = 1;
   private conversationId: number = 1;
   private messageId: number = 1;
   private fileId: number = 1;
+  private folderId: number = 1;
+  private fileSharingId: number = 1;
   private contactId: number = 1;
   
   constructor() {
@@ -69,6 +73,8 @@ export class MemStorage implements IStorage {
     this.conversations = new Map();
     this.messages = new Map();
     this.files = new Map();
+    this.folders = new Map();
+    this.fileSharing = new Map();
     this.contacts = new Map();
     
     // Add some seed data
@@ -331,13 +337,133 @@ export class MemStorage implements IStorage {
   
   async addContact(contactData: InsertContact): Promise<Contact> {
     const id = this.contactId++;
-    const contact: Contact = { ...contactData, id };
+    const contact: Contact = { 
+      ...contactData, 
+      id,
+      createdAt: new Date(),
+      isFavorite: contactData.isFavorite || false
+    };
     this.contacts.set(id, contact);
     return contact;
+  }
+
+  // Méthodes pour les dossiers
+  async getFoldersForUser(userId: number): Promise<Folder[]> {
+    return Array.from(this.folders.values()).filter(folder => folder.userId === userId);
+  }
+
+  async getFolderById(folderId: number): Promise<Folder | undefined> {
+    return this.folders.get(folderId);
+  }
+
+  async getFoldersByParent(parentId: number | null, userId: number): Promise<Folder[]> {
+    return Array.from(this.folders.values()).filter(
+      folder => folder.parentId === parentId && folder.userId === userId
+    );
+  }
+
+  async createFolder(folderData: InsertFolder): Promise<Folder> {
+    const id = this.folderId++;
+    const folder: Folder = { 
+      ...folderData, 
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      isShared: folderData.isShared || false
+    };
+    this.folders.set(id, folder);
+    return folder;
+  }
+
+  async updateFolder(folderId: number, name: string): Promise<Folder> {
+    const folder = this.folders.get(folderId);
+    if (!folder) throw new Error('Folder not found');
+    
+    const updatedFolder = { ...folder, name, updatedAt: new Date() };
+    this.folders.set(folderId, updatedFolder);
+    return updatedFolder;
+  }
+
+  async deleteFolder(folderId: number): Promise<void> {
+    this.folders.delete(folderId);
+  }
+
+  async getFilesByFolder(folderId: number | null): Promise<File[]> {
+    return Array.from(this.files.values()).filter(file => file.folderId === folderId);
+  }
+
+  async getFileById(fileId: number): Promise<File | undefined> {
+    return this.files.get(fileId);
+  }
+
+  async updateFile(fileId: number, data: Partial<InsertFile>): Promise<File> {
+    const file = this.files.get(fileId);
+    if (!file) throw new Error('File not found');
+    
+    const updatedFile = { ...file, ...data, updatedAt: new Date() };
+    this.files.set(fileId, updatedFile);
+    return updatedFile;
+  }
+
+  async deleteFile(fileId: number): Promise<void> {
+    this.files.delete(fileId);
+  }
+
+  async getSharedFiles(userId: number): Promise<File[]> {
+    return Array.from(this.files.values()).filter(file => file.isShared);
+  }
+
+  async shareFile(sharingData: InsertFileSharing): Promise<FileSharing> {
+    const id = this.fileSharingId++;
+    const sharing: FileSharing = { 
+      ...sharingData, 
+      id,
+      createdAt: new Date(),
+      expiresAt: sharingData.expiresAt || null,
+      isActive: sharingData.isActive !== false
+    };
+    this.fileSharing.set(id, sharing);
+    return sharing;
+  }
+
+  async getFileSharingById(id: number): Promise<FileSharing | undefined> {
+    return this.fileSharing.get(id);
+  }
+
+  async getFileSharingsForFile(fileId: number): Promise<FileSharing[]> {
+    return Array.from(this.fileSharing.values()).filter(sharing => sharing.fileId === fileId);
+  }
+
+  async revokeFileSharing(id: number): Promise<void> {
+    this.fileSharing.delete(id);
+  }
+
+  async getPaginatedUsers(options: PaginationOptions): Promise<PaginatedResult<User>> {
+    const users = Array.from(this.users.values());
+    const start = (options.page - 1) * options.pageSize;
+    const end = start + options.pageSize;
+    const paginatedUsers = users.slice(start, end);
+    
+    return {
+      data: paginatedUsers,
+      total: users.length,
+      page: options.page,
+      pageSize: options.pageSize,
+      totalPages: Math.ceil(users.length / options.pageSize),
+      hasMore: end < users.length
+    };
+  }
+
+  async updateUserProfile(userId: number, profileData: { displayName?: string; email?: string; phone?: string; title?: string; avatar?: string; theme?: string }): Promise<void> {
+    const user = this.users.get(userId);
+    if (!user) throw new Error('User not found');
+    
+    const updatedUser = { ...user, ...profileData };
+    this.users.set(userId, updatedUser);
   }
 }
 
 import { PgStorage } from './pg-storage';
 
 // Exporter l'instance PgStorage par défaut, avec MemStorage comme fallback si nécessaire
-export const storage = new PgStorage();
+export const storage = new MemStorage();

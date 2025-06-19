@@ -1,38 +1,33 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { runMigrations, seedDatabase } from './db';
-import { createTables } from './create-tables';
 import session from 'express-session';
-import connectPgSimple from 'connect-pg-simple';
-import { db } from './db';
+import MemoryStore from 'memorystore';
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Configuration de session avec stockage PostgreSQL
-const PgSession = connectPgSimple(session);
+// Configuration de session avec stockage en mémoire
+const MemStore = MemoryStore(session);
 app.use(session({
-  store: new PgSession({
-    conObject: {
-      connectionString: process.env.DATABASE_URL,
-    },
-    createTableIfMissing: true
+  store: new MemStore({
+    checkPeriod: 86400000 // prune expired entries every 24h
   }),
   secret: process.env.SESSION_SECRET || 'rony_session_secret',
   resave: false,
   saveUninitialized: false,
   cookie: { 
-    secure: process.env.NODE_ENV === 'production', 
+    secure: false, // Désactivé pour le développement
     maxAge: 24 * 60 * 60 * 1000 // 1 jour
   }
 }));
 
-app.use((req, res, next) => {
+// Logging middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  const { method, url: path } = req;
+  let capturedJsonResponse: any = undefined;
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
@@ -59,79 +54,39 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use('/uploads', express.static('uploads'));
+
 (async () => {
-  // Exécuter les migrations de base de données
   try {
-    const migrationsOk = await runMigrations();
-    if (migrationsOk) {
-      log('Migrations de base de données réussies', 'database');
-
-      // Créer les tables manquantes
-      const tablesOk = await createTables();
-      if (tablesOk) {
-        log('Création des tables réussie', 'database');
-      } else {
-        log('Échec de la création des tables', 'database');
-      }
-
-      // Initialiser les données de test si besoin
-      const seedOk = await seedDatabase();
-      if (seedOk) {
-        log('Initialisation des données réussie', 'database');
-      } else {
-        log('Échec de l\'initialisation des données', 'database');
-      }
-    } else {
-      log('Échec des migrations de base de données', 'database');
-    }
+    log("Application démarrée avec stockage en mémoire", "system");
   } catch (error) {
-    log(`Erreur lors de l'initialisation de la base de données: ${error}`, 'database');
+    console.error("Erreur lors du démarrage:", error);
+    log("Échec du démarrage de l'application", "system");
   }
 
-  // Définir les routes API AVANT de configurer Vite
-  // afin que les routes API ne soient pas interceptées par le middleware de Vite
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
-
-  // Important: Vite est configuré après les routes API
-  // pour que son middleware catch-all n'interfère pas avec les routes API
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
-  
-  // Fonction pour démarrer le serveur avec gestion d'erreur améliorée
-  const startServer = () => {
-    server.listen({
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    }, () => {
-      log(`serving on port ${port}`);
-    }).on('error', (err: any) => {
-      if (err.code === 'EADDRINUSE') {
-        log(`Port ${port} is already in use. Server may already be running.`);
-        // Arrêter le processus proprement au lieu de redémarrer
-        process.exit(0);
-      } else {
-        log(`Server error: ${err.message}`);
-        throw err;
-      }
+  // Gestion d'erreur globale
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    console.error("Erreur serveur:", err);
+    if (res.headersSent) {
+      return;
+    }
+    
+    res.status(500).json({ 
+      error: "Erreur interne du serveur",
+      message: err.message 
     });
-  };
+  });
 
-  startServer();
+  const PORT = 5000;
+  server.listen(PORT, "0.0.0.0", () => {
+    log(`serving on port ${PORT}`, "express");
+  });
 })();
