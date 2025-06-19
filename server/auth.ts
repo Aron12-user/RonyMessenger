@@ -68,10 +68,15 @@ export function setupAuth(app: Express) {
     try {
       const { username, password, displayName } = req.body;
       
+      // Vérifier que l'adresse Rony se termine par @rony.com
+      if (!username.endsWith('@rony.com')) {
+        return res.status(400).json({ message: "L'adresse Rony doit se terminer par @rony.com" });
+      }
+      
       // Vérifier si l'utilisateur existe déjà
       const existingUser = await storage.getUserByUsername(username);
       if (existingUser) {
-        return res.status(400).json({ message: "Ce nom d'utilisateur est déjà pris" });
+        return res.status(400).json({ message: "Cette adresse Rony est déjà utilisée" });
       }
       
       // Pour le stockage en mémoire, utiliser le mot de passe en texte brut

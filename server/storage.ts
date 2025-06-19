@@ -82,12 +82,12 @@ export class MemStorage implements IStorage {
   }
   
   private seedData() {
-    // Create some users
+    // Create some users with Rony addresses
     const users = [
-      { username: 'john', password: 'password', displayName: 'John Doe', status: 'online', email: 'john@example.com', phone: '+1 (555) 123-4567', title: 'Software Engineer' },
-      { username: 'sarah', password: 'password', displayName: 'Sarah Anderson', status: 'online', email: 'sarah@example.com', phone: '+1 (555) 987-6543', title: 'Product Designer' },
-      { username: 'michael', password: 'password', displayName: 'Michael Moore', status: 'away', email: 'michael@example.com', phone: '+1 (555) 456-7890', title: 'Senior Developer' },
-      { username: 'jessica', password: 'password', displayName: 'Jessica Wong', status: 'offline', email: 'jessica@example.com', phone: '+1 (555) 321-7654', title: 'Marketing Manager' }
+      { username: 'john@rony.com', password: 'password', displayName: 'John Doe', status: 'online', email: 'john@rony.com', phone: '+1 (555) 123-4567', title: 'Software Engineer' },
+      { username: 'sarah@rony.com', password: 'password', displayName: 'Sarah Anderson', status: 'online', email: 'sarah@rony.com', phone: '+1 (555) 987-6543', title: 'Product Designer' },
+      { username: 'michael@rony.com', password: 'password', displayName: 'Michael Moore', status: 'away', email: 'michael@rony.com', phone: '+1 (555) 456-7890', title: 'Senior Developer' },
+      { username: 'jessica@rony.com', password: 'password', displayName: 'Jessica Wong', status: 'offline', email: 'jessica@rony.com', phone: '+1 (555) 321-7654', title: 'Marketing Manager' }
     ];
     
     users.forEach(userData => this.createUser(userData));
