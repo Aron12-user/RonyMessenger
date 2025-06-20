@@ -20,11 +20,11 @@ export default function ConversationList({
   const { user: currentUser } = useAuth();
 
   return (
-    <div className="w-72 border-r border-gray-200 dark:border-gray-700 overflow-y-auto scrollbar-thin bg-white dark:bg-gray-800">
+    <div className="w-72 border-r border-gray-700 overflow-y-auto scrollbar-thin bg-gray-800">
       {/* Conversations Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-        <h2 className="text-lg font-semibold">Messages</h2>
-        <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+      <div className="p-4 border-b border-gray-700 flex justify-between items-center">
+        <h2 className="text-lg font-semibold text-gray-100">Messages</h2>
+        <button className="p-1 hover:bg-gray-700 rounded text-gray-300 hover:text-white">
           <span className="material-icons">add</span>
         </button>
       </div>
@@ -47,8 +47,8 @@ export default function ConversationList({
               onClick={() => onSelectConversation(conversation.id)}
               className={`p-2 rounded-lg flex items-center cursor-pointer ${
                 isActive 
-                  ? "bg-gray-100 dark:bg-gray-700" 
-                  : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                  ? "bg-gray-700 text-white" 
+                  : "hover:bg-gray-700 text-gray-100"
               }`}
             >
               <div className="relative">
@@ -60,19 +60,19 @@ export default function ConversationList({
               </div>
               <div className="ml-3 flex-1 min-w-0">
                 <div className="flex justify-between items-baseline">
-                  <h3 className="font-medium truncate">{user.displayName || user.username}</h3>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                  <h3 className="font-medium truncate text-gray-100">{user.displayName || user.username}</h3>
+                  <span className="text-xs text-gray-400">
                     {getMessageTime(conversation.lastMessageTime)}
                   </span>
                 </div>
                 <p className={`text-sm truncate ${
-                  conversation.unreadCount ? "font-semibold text-gray-600 dark:text-gray-300" : "text-gray-500 dark:text-gray-400"
+                  conversation.unreadCount ? "font-semibold text-gray-300" : "text-gray-400"
                 }`}>
                   {conversation.lastMessage}
                 </p>
               </div>
-              {conversation.unreadCount > 0 && (
-                <div className="ml-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center text-white text-xs">
+              {conversation.unreadCount && conversation.unreadCount > 0 && (
+                <div className="ml-2 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs">
                   {conversation.unreadCount}
                 </div>
               )}

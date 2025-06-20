@@ -9,9 +9,9 @@ interface ChatHeaderProps {
 export default function ChatHeader({ user }: ChatHeaderProps) {
   if (!user) {
     return (
-      <div className="py-3 px-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center">
+      <div className="py-3 px-4 border-b border-gray-700 bg-gray-800 flex items-center">
         <div className="flex-1">
-          <h3 className="font-medium">Select a conversation</h3>
+          <h3 className="font-medium text-gray-100">Select a conversation</h3>
         </div>
       </div>
     );
@@ -28,7 +28,7 @@ export default function ChatHeader({ user }: ChatHeaderProps) {
   };
 
   return (
-    <div className="py-3 px-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center">
+    <div className="py-3 px-4 border-b border-gray-700 bg-gray-800 flex items-center">
       <div className="flex items-center flex-1">
         <div className="relative">
           <UserAvatar 
@@ -38,16 +38,16 @@ export default function ChatHeader({ user }: ChatHeaderProps) {
           <StatusIndicator status={user.status} />
         </div>
         <div className="ml-3">
-          <h3 className="font-medium">{user.displayName || user.username}</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{getStatusText(user.status)}</p>
+          <h3 className="font-medium text-gray-100">{user.displayName || user.username}</h3>
+          <p className="text-xs text-gray-400">{getStatusText(user.status)}</p>
         </div>
       </div>
       
       <div className="flex space-x-2">
-        <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full">
           <span className="material-icons">call</span>
         </button>
-        <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full">
           <span className="material-icons">videocam</span>
         </button>
         <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">

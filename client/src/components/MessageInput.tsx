@@ -76,7 +76,7 @@ export default function MessageInput({ onSendMessage, onStartCall }: MessageInpu
   };
 
   return (
-    <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+    <div className="border-t border-gray-700 bg-gray-800 p-4">
       <form onSubmit={handleSubmit} className="flex items-end gap-2">
         <div className="flex items-center gap-2">
           <input
