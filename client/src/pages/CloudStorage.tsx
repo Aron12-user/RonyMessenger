@@ -178,41 +178,68 @@ export default function CloudStorage() {
     mutationFn: async (files: FileList) => {
       const formData = new FormData();
       const folderStructure: { [key: string]: string[] } = {};
+      const filePaths: string[] = [];
       
-      Array.from(files).forEach(file => {
+      // Traiter chaque fichier et construire la structure des dossiers
+      Array.from(files).forEach((file, index) => {
         const relativePath = file.webkitRelativePath || file.name;
         const pathParts = relativePath.split('/');
         const folderPath = pathParts.slice(0, -1).join('/');
         
-        if (!folderStructure[folderPath]) {
+        // Ajouter le fichier au FormData
+        formData.append('files', file);
+        filePaths.push(relativePath);
+        
+        // Construire la structure des dossiers
+        if (folderPath && !folderStructure[folderPath]) {
           folderStructure[folderPath] = [];
         }
-        folderStructure[folderPath].push(relativePath);
-        
-        formData.append('files', file);
-        formData.append('filePaths', relativePath);
+        if (folderPath) {
+          folderStructure[folderPath].push(relativePath);
+        }
+      });
+      
+      // Ajouter les chemins de fichiers comme un tableau
+      filePaths.forEach(path => {
+        formData.append('filePaths', path);
       });
       
       formData.append('folderId', currentFolderId?.toString() || 'null');
       formData.append('folderStructure', JSON.stringify(folderStructure));
       
+      console.log('Uploading folder with structure:', folderStructure);
+      console.log('File paths:', filePaths);
+      
       const res = await fetch('/api/upload-folder', {
         method: 'POST',
         body: formData
       });
-      if (!res.ok) throw new Error('Folder upload failed');
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Upload failed' }));
+        throw new Error(errorData.message || 'Folder upload failed');
+      }
+      
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
       queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
-      toast({ title: "Dossier uploadé avec succès" });
+      
+      const message = `Dossier uploadé avec succès! ${data.foldersCreated || 0} dossier(s) créé(s), ${data.filesUploaded || 0} fichier(s) uploadé(s)`;
+      toast({ title: message });
+      
       if (folderInputRef.current) {
         folderInputRef.current.value = '';
       }
     },
     onError: (error: Error) => {
-      toast({ title: "Erreur lors de l'upload du dossier", description: error.message, variant: "destructive" });
+      console.error('Folder upload error:', error);
+      toast({ 
+        title: "Erreur lors de l'upload du dossier", 
+        description: error.message, 
+        variant: "destructive" 
+      });
     }
   });
 
@@ -350,6 +377,19 @@ export default function CloudStorage() {
   const handleFolderUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
+      // Vérifier que les fichiers ont des chemins relatifs (webkitRelativePath)
+      const hasValidPaths = Array.from(files).some(file => file.webkitRelativePath);
+      
+      if (!hasValidPaths) {
+        toast({ 
+          title: "Erreur de sélection", 
+          description: "Veuillez sélectionner un dossier entier, pas des fichiers individuels", 
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      console.log(`Uploading folder with ${files.length} files`);
       uploadFolderMutation.mutate(files);
     }
   };
@@ -445,9 +485,10 @@ export default function CloudStorage() {
                 onClick={triggerFolderInput}
                 variant="outline"
                 className="flex items-center space-x-2"
+                disabled={uploadFolderMutation.isPending}
               >
                 <Upload className="h-4 w-4" />
-                <span>Upload Folder</span>
+                <span>{uploadFolderMutation.isPending ? 'Uploading...' : 'Upload Folder'}</span>
               </Button>
               <Button
                 onClick={() => setIsCreateFolderDialogOpen(true)}
