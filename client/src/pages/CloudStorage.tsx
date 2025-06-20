@@ -65,6 +65,7 @@ export default function CloudStorage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   // États du composant
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
@@ -170,6 +171,48 @@ export default function CloudStorage() {
     },
     onError: (error: Error) => {
       toast({ title: "Erreur lors de l'upload", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const uploadFolderMutation = useMutation({
+    mutationFn: async (files: FileList) => {
+      const formData = new FormData();
+      const folderStructure: { [key: string]: string[] } = {};
+      
+      Array.from(files).forEach(file => {
+        const relativePath = file.webkitRelativePath || file.name;
+        const pathParts = relativePath.split('/');
+        const folderPath = pathParts.slice(0, -1).join('/');
+        
+        if (!folderStructure[folderPath]) {
+          folderStructure[folderPath] = [];
+        }
+        folderStructure[folderPath].push(relativePath);
+        
+        formData.append('files', file);
+        formData.append('filePaths', relativePath);
+      });
+      
+      formData.append('folderId', currentFolderId?.toString() || 'null');
+      formData.append('folderStructure', JSON.stringify(folderStructure));
+      
+      const res = await fetch('/api/upload-folder', {
+        method: 'POST',
+        body: formData
+      });
+      if (!res.ok) throw new Error('Folder upload failed');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
+      queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
+      toast({ title: "Dossier uploadé avec succès" });
+      if (folderInputRef.current) {
+        folderInputRef.current.value = '';
+      }
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erreur lors de l'upload du dossier", description: error.message, variant: "destructive" });
     }
   });
 
@@ -304,6 +347,13 @@ export default function CloudStorage() {
     }
   };
 
+  const handleFolderUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      uploadFolderMutation.mutate(files);
+    }
+  };
+
   const handleCreateFolder = () => {
     if (newFolderName.trim()) {
       createFolderMutation.mutate({
@@ -339,6 +389,10 @@ export default function CloudStorage() {
     fileInputRef.current?.click();
   };
 
+  const triggerFolderInput = () => {
+    folderInputRef.current?.click();
+  };
+
   // Filtrage des données
   const filteredFolders = folders.filter((folder: Folder) =>
     folder.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -371,6 +425,14 @@ export default function CloudStorage() {
                 className="hidden" 
                 multiple 
               />
+              <input 
+                type="file" 
+                ref={folderInputRef} 
+                onChange={handleFolderUpload} 
+                className="hidden" 
+                {...({ webkitdirectory: "", directory: "" } as any)}
+                multiple 
+              />
               <Button
                 onClick={triggerFileInput}
                 variant="outline"
@@ -378,6 +440,14 @@ export default function CloudStorage() {
               >
                 <Upload className="h-4 w-4" />
                 <span>Upload Files</span>
+              </Button>
+              <Button
+                onClick={triggerFolderInput}
+                variant="outline"
+                className="flex items-center space-x-2"
+              >
+                <Upload className="h-4 w-4" />
+                <span>Upload Folder</span>
               </Button>
               <Button
                 onClick={() => setIsCreateFolderDialogOpen(true)}
