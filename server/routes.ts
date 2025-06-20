@@ -696,7 +696,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (file) {
         // Extract filename from URL
         const filename = path.basename(file.url);
-        const filepath = path.join(__dirname, '../uploads', filename);
+        const filepath = path.join(process.cwd(), 'uploads', filename);
         
         // Delete physical file if it exists
         if (fs.existsSync(filepath)) {
