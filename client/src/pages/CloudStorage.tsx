@@ -200,7 +200,7 @@ export default function CloudStorage() {
   // Update folder icon mutation
   const updateFolderIconMutation = useMutation({
     mutationFn: async ({ folderId, iconType }: { folderId: number; iconType: string }) => {
-      const res = await apiRequest("PATCH", `/api/folders/${folderId}/icon`, { iconType });
+      const res = await apiRequest("PATCH", `/api/folders/${folderId}`, { iconType });
       if (!res.ok) throw new Error("Failed to update folder icon");
       return res.json();
     },
@@ -501,7 +501,7 @@ export default function CloudStorage() {
         <div className="max-w-7xl mx-auto">
           {/* Header with title and primary actions */}
           <div className="flex flex-wrap justify-between items-center mb-6">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Cloud Storage</h2>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Cloud</h2>
             <div className="flex space-x-3">
               <input 
                 type="file" 

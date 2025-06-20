@@ -303,6 +303,7 @@ export class SimpleStorage implements IStorage {
       path: folderData.path || '/',
       ownerId: folderData.ownerId,
       parentId: folderData.parentId || null,
+      iconType: folderData.iconType || null,
       createdAt: folderData.createdAt || new Date(),
       updatedAt: folderData.updatedAt || new Date(),
       isShared: folderData.isShared || null

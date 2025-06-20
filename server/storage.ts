@@ -387,6 +387,14 @@ export class MemStorage implements IStorage {
     return updatedFolder;
   }
 
+  async updateFolderIcon(folderId: number, iconType: string): Promise<void> {
+    const folder = this.folders.get(folderId);
+    if (!folder) throw new Error('Folder not found');
+    
+    const updatedFolder = { ...folder, iconType, updatedAt: new Date() };
+    this.folders.set(folderId, updatedFolder);
+  }
+
   async deleteFolder(folderId: number): Promise<void> {
     this.folders.delete(folderId);
   }
