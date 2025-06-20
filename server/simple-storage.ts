@@ -319,6 +319,13 @@ export class SimpleStorage implements IStorage {
     return folder;
   }
 
+  async updateFolderIcon(folderId: number, iconType: string): Promise<void> {
+    const folder = this.folders.get(folderId);
+    if (!folder) throw new Error('Folder not found');
+    folder.iconType = iconType;
+    folder.updatedAt = new Date();
+  }
+
   async deleteFolder(folderId: number): Promise<void> {
     this.folders.delete(folderId);
   }

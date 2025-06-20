@@ -29,6 +29,7 @@ export interface IStorage {
   getFoldersByParent(parentId: number | null, userId: number): Promise<Folder[]>;
   createFolder(folder: InsertFolder): Promise<Folder>;
   updateFolder(folderId: number, name: string): Promise<Folder>;
+  updateFolderIcon(folderId: number, iconType: string): Promise<void>;
   deleteFolder(folderId: number): Promise<void>;
   
   // Files

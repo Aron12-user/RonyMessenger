@@ -32,8 +32,15 @@ import {
   Grid3X3,
   List,
   SortAsc,
-  Filter
+  Filter,
+  Settings,
+  Home
 } from "lucide-react";
+
+// Import des icônes personnalisées des dossiers
+import folderOrangeIcon from "@assets/icons8-dossier-mac-94_1750386744627.png";
+import folderArchiveIcon from "@assets/icons8-dossier-mac-64_1750386753922.png";
+import folderBlueIcon from "@assets/icons8-dossier-mac-48_1750386762042.png";
 
 export default function CloudStorage() {
   const { toast } = useToast();
@@ -59,6 +66,16 @@ export default function CloudStorage() {
   const [itemToDelete, setItemToDelete] = useState<{ id: number; name: string; isFolder: boolean } | null>(null);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
+  
+  // États pour les icônes personnalisées des dossiers
+  const [selectedFolderIcon, setSelectedFolderIcon] = useState<"orange" | "blue" | "archive">("orange");
+  const [isIconSelectorOpen, setIsIconSelectorOpen] = useState(false);
+  const [folderToUpdateIcon, setFolderToUpdateIcon] = useState<number | null>(null);
+  
+  // Pagination et défilement
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // Utility functions
   const getFileIcon = (type: string) => {
@@ -68,6 +85,20 @@ export default function CloudStorage() {
     if (type.includes('pdf') || type.includes('document') || type.includes('text')) return <FileText className="h-8 w-8 text-gray-500" />;
     if (type.includes('zip') || type.includes('rar') || type.includes('archive')) return <Archive className="h-8 w-8 text-yellow-500" />;
     return <FileText className="h-8 w-8 text-gray-500" />;
+  };
+
+  const getFolderIcon = (iconType: string = "orange") => {
+    const className = "h-10 w-10 object-contain";
+    switch (iconType) {
+      case "orange":
+        return <img src={folderOrangeIcon} alt="Dossier orange" className={className} />;
+      case "blue":
+        return <img src={folderBlueIcon} alt="Dossier bleu" className={className} />;
+      case "archive":
+        return <img src={folderArchiveIcon} alt="Dossier archive" className={className} />;
+      default:
+        return <img src={folderOrangeIcon} alt="Dossier" className={className} />;
+    }
   };
 
   const formatDate = (date: Date | string) => {
@@ -138,11 +169,12 @@ export default function CloudStorage() {
 
   // Create folder mutation
   const createFolderMutation = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async () => {
       const res = await apiRequest("POST", "/api/folders", {
-        name,
+        name: newFolderName,
         parentId: currentFolderId,
-        path: folderStack.map(f => f.name).join("/") + "/" + name
+        path: folderStack.map(f => f.name).join("/") + "/" + newFolderName,
+        iconType: selectedFolderIcon
       });
       if (!res.ok) throw new Error("Failed to create folder");
       return res.json();
@@ -159,6 +191,31 @@ export default function CloudStorage() {
     onError: (error: Error) => {
       toast({
         title: "Error creating folder",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Update folder icon mutation
+  const updateFolderIconMutation = useMutation({
+    mutationFn: async ({ folderId, iconType }: { folderId: number; iconType: string }) => {
+      const res = await apiRequest("PATCH", `/api/folders/${folderId}/icon`, { iconType });
+      if (!res.ok) throw new Error("Failed to update folder icon");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
+      setIsIconSelectorOpen(false);
+      setFolderToUpdateIcon(null);
+      toast({
+        title: "Icône mise à jour",
+        description: "L'icône du dossier a été mise à jour avec succès."
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erreur lors de la mise à jour",
         description: error.message,
         variant: "destructive"
       });
@@ -634,8 +691,16 @@ export default function CloudStorage() {
                     className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex flex-col hover:shadow-md transition-shadow cursor-pointer"
                   >
                     <div className="flex items-center">
-                      <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400 mr-3">
-                        <span className="material-icons">folder</span>
+                      <div 
+                        className="w-12 h-12 flex items-center justify-center mr-3 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFolderToUpdateIcon(folder.id);
+                          setIsIconSelectorOpen(true);
+                        }}
+                        title="Cliquez pour changer l'icône"
+                      >
+                        {getFolderIcon(folder.iconType || "orange")}
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium truncate" onClick={() => handleFolderClick(folder)}>
@@ -811,24 +876,58 @@ export default function CloudStorage() {
           <DialogHeader>
             <DialogTitle>Create New Folder</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <label className="text-sm font-medium mb-2 block">Folder Name</label>
-            <Input
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              placeholder="Enter folder name"
-              className="w-full"
-            />
+          <div className="py-4 space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Nom du dossier</label>
+              <Input
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="Entrez le nom du dossier"
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-3 block">Choisir une icône</label>
+              <div className="flex gap-4 justify-center">
+                <div 
+                  className={`p-3 border-2 rounded-lg cursor-pointer transition-colors ${
+                    selectedFolderIcon === "orange" ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+                  }`}
+                  onClick={() => setSelectedFolderIcon("orange")}
+                >
+                  <img src={folderOrangeIcon} alt="Dossier orange" className="w-12 h-12" />
+                  <p className="text-xs text-center mt-1">Orange</p>
+                </div>
+                <div 
+                  className={`p-3 border-2 rounded-lg cursor-pointer transition-colors ${
+                    selectedFolderIcon === "blue" ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+                  }`}
+                  onClick={() => setSelectedFolderIcon("blue")}
+                >
+                  <img src={folderBlueIcon} alt="Dossier bleu" className="w-12 h-12" />
+                  <p className="text-xs text-center mt-1">Bleu</p>
+                </div>
+                <div 
+                  className={`p-3 border-2 rounded-lg cursor-pointer transition-colors ${
+                    selectedFolderIcon === "archive" ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+                  }`}
+                  onClick={() => setSelectedFolderIcon("archive")}
+                >
+                  <img src={folderArchiveIcon} alt="Dossier archive" className="w-12 h-12" />
+                  <p className="text-xs text-center mt-1">Archive</p>
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateFolderDialogOpen(false)}>
               Cancel
             </Button>
             <Button
-              onClick={() => createFolderMutation.mutate(newFolderName)}
+              onClick={() => createFolderMutation.mutate()}
               disabled={!newFolderName.trim() || createFolderMutation.isPending}
             >
-              {createFolderMutation.isPending ? "Creating..." : "Create Folder"}
+              {createFolderMutation.isPending ? "Création..." : "Créer le dossier"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -907,6 +1006,64 @@ export default function CloudStorage() {
               disabled={!shareRecipient.trim() || shareFilesMutation.isPending}
             >
               {shareFilesMutation.isPending ? "Sharing..." : "Share Files"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Icon Selector Dialog */}
+      <Dialog open={isIconSelectorOpen} onOpenChange={setIsIconSelectorOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Changer l'icône du dossier</DialogTitle>
+          </DialogHeader>
+          <div className="py-6">
+            <div className="flex gap-6 justify-center">
+              <div 
+                className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                  selectedFolderIcon === "orange" ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+                }`}
+                onClick={() => setSelectedFolderIcon("orange")}
+              >
+                <img src={folderOrangeIcon} alt="Dossier orange" className="w-16 h-16" />
+                <p className="text-sm text-center mt-2">Orange</p>
+              </div>
+              <div 
+                className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                  selectedFolderIcon === "blue" ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+                }`}
+                onClick={() => setSelectedFolderIcon("blue")}
+              >
+                <img src={folderBlueIcon} alt="Dossier bleu" className="w-16 h-16" />
+                <p className="text-sm text-center mt-2">Bleu</p>
+              </div>
+              <div 
+                className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                  selectedFolderIcon === "archive" ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+                }`}
+                onClick={() => setSelectedFolderIcon("archive")}
+              >
+                <img src={folderArchiveIcon} alt="Dossier archive" className="w-16 h-16" />
+                <p className="text-sm text-center mt-2">Archive</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsIconSelectorOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              onClick={() => {
+                if (folderToUpdateIcon) {
+                  updateFolderIconMutation.mutate({ 
+                    folderId: folderToUpdateIcon, 
+                    iconType: selectedFolderIcon 
+                  });
+                }
+              }}
+              disabled={!folderToUpdateIcon || updateFolderIconMutation.isPending}
+            >
+              {updateFolderIconMutation.isPending ? "Mise à jour..." : "Mettre à jour"}
             </Button>
           </DialogFooter>
         </DialogContent>
