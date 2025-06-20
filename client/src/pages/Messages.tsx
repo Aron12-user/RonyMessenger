@@ -98,7 +98,16 @@ export default function Messages() {
 
   // Get active conversation partner
   const activeUser = activeConversationId 
-    ? users[conversations.find((c: any) => c.id === activeConversationId)?.participantId] 
+    ? (() => {
+        const conversation = conversations.find((c: any) => c.id === activeConversationId);
+        if (!conversation) return null;
+        // Si l'utilisateur actuel est le créateur, l'autre personne est le participant
+        // Si l'utilisateur actuel est le participant, l'autre personne est le créateur
+        const otherUserId = conversation.creatorId === currentUser?.id 
+          ? conversation.participantId 
+          : conversation.creatorId;
+        return users[otherUserId];
+      })()
     : null;
 
   // Send message mutation

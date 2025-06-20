@@ -2,6 +2,7 @@ import { useState } from "react";
 import UserAvatar from "./UserAvatar";
 import StatusIndicator from "./StatusIndicator";
 import { User, Conversation } from "@shared/schema";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -16,6 +17,8 @@ export default function ConversationList({
   onSelectConversation,
   users
 }: ConversationListProps) {
+  const { user: currentUser } = useAuth();
+
   return (
     <div className="w-72 border-r border-gray-200 dark:border-gray-700 overflow-y-auto scrollbar-thin bg-white dark:bg-gray-800">
       {/* Conversations Header */}
@@ -29,7 +32,11 @@ export default function ConversationList({
       {/* Conversations List */}
       <div className="space-y-1 p-2">
         {conversations.map((conversation) => {
-          const user = users[conversation.participantId];
+          // Déterminer qui est l'autre personne dans la conversation
+          const otherUserId = conversation.creatorId === currentUser?.id 
+            ? conversation.participantId 
+            : conversation.creatorId;
+          const user = users[otherUserId];
           const isActive = activeConversationId === conversation.id;
           
           if (!user) return null;
