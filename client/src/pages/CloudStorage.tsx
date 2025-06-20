@@ -79,6 +79,13 @@ export default function CloudStorage() {
   const [selectedFolderIcon, setSelectedFolderIcon] = useState<string>("orange");
   const [folderToUpdateIcon, setFolderToUpdateIcon] = useState<number | null>(null);
   const [itemToDelete, setItemToDelete] = useState<{ id: number; name: string; isFolder: boolean } | null>(null);
+  const [itemToRename, setItemToRename] = useState<{ id: number; name: string; isFolder: boolean } | null>(null);
+  const [newItemName, setNewItemName] = useState("");
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [itemToShare, setItemToShare] = useState<{ id: number; name: string; isFolder: boolean } | null>(null);
+  const [sharePermission, setSharePermission] = useState<"read" | "write" | "admin">("read");
+  const [shareEmail, setShareEmail] = useState("");
 
   // Requêtes
   const { data: folders = [] } = useQuery({
@@ -158,6 +165,55 @@ export default function CloudStorage() {
     },
     onError: (error: Error) => {
       toast({ title: "Erreur lors de l'upload", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: async ({ id, name, isFolder }: { id: number; name: string; isFolder: boolean }) => {
+      const endpoint = isFolder ? `/api/folders/${id}` : `/api/files/${id}`;
+      const res = await apiRequest("PATCH", endpoint, { name });
+      if (!res.ok) throw new Error("Failed to rename item");
+      return res.json();
+    },
+    onSuccess: (_, { isFolder }) => {
+      const queryKey = isFolder ? ["folders", currentFolderId] : ["files", currentFolderId];
+      queryClient.invalidateQueries({ queryKey });
+      setIsRenameDialogOpen(false);
+      setItemToRename(null);
+      setNewItemName("");
+      toast({ title: "Élément renommé avec succès" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erreur lors du renommage", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const shareMutation = useMutation({
+    mutationFn: async ({ fileId, email, permission }: { fileId: number; email: string; permission: string }) => {
+      // First get user by email
+      const userRes = await fetch(`/api/users?email=${email}`);
+      if (!userRes.ok) throw new Error("Utilisateur introuvable");
+      const users = await userRes.json();
+      if (!users.data || users.data.length === 0) throw new Error("Utilisateur introuvable");
+      
+      const sharedWithId = users.data[0].id;
+      const res = await apiRequest("POST", "/api/files/share", {
+        fileId,
+        sharedWithId,
+        permission
+      });
+      if (!res.ok) throw new Error("Failed to share file");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
+      setIsShareDialogOpen(false);
+      setItemToShare(null);
+      setShareEmail("");
+      toast({ title: "Fichier partagé avec succès" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erreur lors du partage", description: error.message, variant: "destructive" });
     }
   });
 
@@ -254,6 +310,17 @@ export default function CloudStorage() {
   const handleUpdateFolderIcon = (folderId: number) => {
     setFolderToUpdateIcon(folderId);
     setIsIconSelectorOpen(true);
+  };
+
+  const handleRenameItem = (id: number, name: string, isFolder: boolean) => {
+    setItemToRename({ id, name, isFolder });
+    setNewItemName(name);
+    setIsRenameDialogOpen(true);
+  };
+
+  const handleShareItem = (id: number, name: string, isFolder: boolean) => {
+    setItemToShare({ id, name, isFolder });
+    setIsShareDialogOpen(true);
   };
 
   const triggerFileInput = () => {
@@ -388,17 +455,43 @@ export default function CloudStorage() {
                             {formatDate(folder.updatedAt)}
                           </p>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteItem(folder.id, folder.name, true);
-                          }}
-                          className="ml-2"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRenameItem(folder.id, folder.name, true);
+                            }}
+                            title="Renommer"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleShareItem(folder.id, folder.name, true);
+                            }}
+                            title="Partager"
+                          >
+                            <Share className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteItem(folder.id, folder.name, true);
+                            }}
+                            title="Supprimer"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -426,14 +519,34 @@ export default function CloudStorage() {
                       <div className="p-3">
                         <div className="flex justify-between items-start">
                           <h4 className="font-medium truncate flex-1">{file.name}</h4>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteItem(file.id, file.name, false)}
-                            className="ml-2"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex space-x-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRenameItem(file.id, file.name, false)}
+                              title="Renommer"
+                            >
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleShareItem(file.id, file.name, false)}
+                              title="Partager"
+                            >
+                              <Share className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteItem(file.id, file.name, false)}
+                              title="Supprimer"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                         <p className="text-sm text-gray-500 mt-1">
                           {formatFileSize(file.size)} • {formatDate(file.uploadedAt)}
@@ -573,6 +686,103 @@ export default function CloudStorage() {
               disabled={!folderToUpdateIcon || updateFolderIconMutation.isPending}
             >
               {updateFolderIconMutation.isPending ? "Mise à jour..." : "Mettre à jour"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogue de renommage */}
+      <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Renommer {itemToRename?.isFolder ? "le dossier" : "le fichier"}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              placeholder="Nouveau nom"
+              className="w-full"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newItemName.trim() && itemToRename) {
+                  renameMutation.mutate({
+                    id: itemToRename.id,
+                    name: newItemName.trim(),
+                    isFolder: itemToRename.isFolder
+                  });
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRenameDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              onClick={() => {
+                if (newItemName.trim() && itemToRename) {
+                  renameMutation.mutate({
+                    id: itemToRename.id,
+                    name: newItemName.trim(),
+                    isFolder: itemToRename.isFolder
+                  });
+                }
+              }}
+              disabled={!newItemName.trim() || renameMutation.isPending}
+            >
+              {renameMutation.isPending ? "Renommage..." : "Renommer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogue de partage */}
+      <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Partager {itemToShare?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Email de l'utilisateur</label>
+              <Input
+                type="email"
+                value={shareEmail}
+                onChange={(e) => setShareEmail(e.target.value)}
+                placeholder="exemple@email.com"
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Permissions</label>
+              <select 
+                value={sharePermission} 
+                onChange={(e) => setSharePermission(e.target.value as "read" | "write" | "admin")}
+                className="w-full p-2 border rounded-md"
+              >
+                <option value="read">Lecture seule</option>
+                <option value="write">Lecture et écriture</option>
+                <option value="admin">Administration complète</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsShareDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              onClick={() => {
+                if (shareEmail.trim() && itemToShare) {
+                  shareMutation.mutate({
+                    fileId: itemToShare.id,
+                    email: shareEmail.trim(),
+                    permission: sharePermission
+                  });
+                }
+              }}
+              disabled={!shareEmail.trim() || shareMutation.isPending}
+            >
+              {shareMutation.isPending ? "Partage..." : "Partager"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -510,7 +510,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Upload file
+  // Upload multiple files
+  app.post('/api/upload', requireAuth, upload.array('files', 10), async (req, res) => {
+    try {
+      if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+        return res.status(400).json({ message: 'No files uploaded' });
+      }
+      
+      const userId = req.user!.id;
+      const folderId = req.body.folderId === "null" ? null : req.body.folderId ? parseInt(req.body.folderId) : null;
+      
+      const uploadedFiles = [];
+      
+      for (const file of req.files) {
+        const { originalname, path: filepath, mimetype, size } = file;
+        
+        // Create URL for the file
+        const serverUrl = `http://${req.headers.host}`;
+        const fileUrl = `${serverUrl}/uploads/${path.basename(filepath)}`;
+        
+        // Save file metadata to database
+        const savedFile = await storage.createFile({
+          name: originalname,
+          type: mimetype,
+          size: size,
+          url: fileUrl,
+          uploaderId: userId,
+          folderId: folderId,
+          uploadedAt: new Date(),
+          updatedAt: new Date(),
+          isShared: false,
+          expiresAt: null,
+          sharedWithId: null,
+          shareLink: null,
+          shareLinkExpiry: null,
+          isPublic: false
+        });
+        
+        uploadedFiles.push(savedFile);
+      }
+      
+      res.status(201).json({ files: uploadedFiles, count: uploadedFiles.length });
+    } catch (error) {
+      console.error('Error uploading files:', error);
+      res.status(500).json({ message: 'Failed to upload files' });
+    }
+  });
+
+  // Upload single file (legacy support)
   app.post('/api/files/upload', requireAuth, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
