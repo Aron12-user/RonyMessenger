@@ -197,18 +197,14 @@ export default function Messages() {
       });
     } catch (error) {
       console.error('Error sending message:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible d'envoyer le message",
-        variant: "destructive"
-      });
+      // Handle error silently for now
     }
   };
 
   const handleMessageRead = async (messageId: number) => {
     try {
       await apiRequest("PUT", `${API_ENDPOINTS.MESSAGES}/${messageId}/read`, {});
-      queryClient.invalidateQueries([API_ENDPOINTS.CONVERSATIONS]);
+      queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.CONVERSATIONS] });
     } catch (error) {
       console.error('Error marking message as read:', error);
     }
@@ -262,10 +258,12 @@ export default function Messages() {
               messages={messages as any}
               currentUserId={currentUser?.id || 0}
               users={users}
+              onMessageRead={handleMessageRead}
+              onlineUsers={[]}
             />
 
             {/* Message Input Area */}
-            <MessageInput onSendMessage={handleSendMessage} onStartCall={handleStartCall} onEndCall={handleEndCall} activeCall={activeCall}/>
+            <MessageInput onSendMessage={handleSendMessage} onStartCall={handleStartCall} activeCall={activeCall}/>
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-gray-400 p-6">

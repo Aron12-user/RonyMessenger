@@ -403,12 +403,20 @@ export default function CloudStorage() {
   );
 
   return (
-    <div className="flex-1 p-6 flex flex-col overflow-hidden bg-gray-900">
-      <div className="bg-gray-800 rounded-lg shadow p-6 flex-1 flex flex-col overflow-hidden border border-gray-700">
+    <div 
+      className="flex-1 p-6 flex flex-col overflow-hidden"
+      style={{
+        backgroundImage: `url(${cloudBackgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg shadow p-6 flex-1 flex flex-col overflow-hidden">
         <div className="max-w-7xl mx-auto flex flex-col h-full overflow-hidden">
           {/* Header avec titre et actions principales */}
           <div className="flex flex-wrap justify-between items-center mb-6">
-            <h2 className="text-3xl font-bold text-gray-100">Cloud</h2>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Cloud</h2>
             <div className="flex space-x-3">
               <input 
                 type="file" 
@@ -428,7 +436,7 @@ export default function CloudStorage() {
               <Button
                 onClick={triggerFileInput}
                 variant="outline"
-                className="flex items-center space-x-2 border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
+                className="flex items-center space-x-2"
               >
                 <Upload className="h-4 w-4" />
                 <span>Upload Files</span>
@@ -436,14 +444,14 @@ export default function CloudStorage() {
               <Button
                 onClick={triggerFolderInput}
                 variant="outline"
-                className="flex items-center space-x-2 border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
+                className="flex items-center space-x-2"
               >
                 <Upload className="h-4 w-4" />
                 <span>Upload Folder</span>
               </Button>
               <Button
                 onClick={() => setIsCreateFolderDialogOpen(true)}
-                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700"
+                className="flex items-center space-x-2"
               >
                 <FolderPlus className="h-4 w-4" />
                 <span>New Folder</span>
