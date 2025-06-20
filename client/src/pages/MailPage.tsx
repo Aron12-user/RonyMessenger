@@ -1,27 +1,8 @@
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Mail, 
-  Download, 
-  Eye, 
-  Search, 
-  FileText, 
-  Image, 
-  Video, 
-  Music, 
-  Archive, 
-  FolderOpen,
-  User,
-  Calendar,
-  FileIcon
-} from "lucide-react";
+import { useQuery } from '@tanstack/react-query';
+import { Reply, Forward, ChevronDown, Paperclip } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 interface SharedFile {
   id: number;
@@ -30,10 +11,7 @@ interface SharedFile {
   size: number;
   url: string;
   uploaderId: number;
-  sharedWithId: number;
   uploadedAt: string;
-  isShared: boolean;
-  permission: 'read' | 'write' | 'admin';
   sharedBy?: {
     id: number;
     username: string;
@@ -41,210 +19,204 @@ interface SharedFile {
   };
 }
 
-export default function MailPage() {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState("");
+interface EmailItem {
+  id: number;
+  sender: string;
+  senderEmail: string;
+  subject: string;
+  preview: string;
+  date: string;
+  hasAttachment: boolean;
+  isRead: boolean;
+  attachment?: SharedFile;
+}
 
-  // Récupérer les fichiers partagés avec l'utilisateur
-  const { data: sharedFiles = [], isLoading, error } = useQuery({
-    queryKey: ["shared-files"],
-    queryFn: async () => {
-      const res = await fetch('/api/files/shared');
-      if (!res.ok) throw new Error("Failed to fetch shared files");
-      return res.json();
-    }
+export default function MailPage() {
+  const [selectedEmail, setSelectedEmail] = useState<EmailItem | null>(null);
+
+  const { data: sharedFiles, isLoading } = useQuery<SharedFile[]>({
+    queryKey: ['/api/files/shared'],
   });
 
-  // Filtrer les fichiers par recherche
-  const filteredFiles = sharedFiles.filter((file: SharedFile) =>
-    file.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const getFileIcon = (type: string) => {
-    if (type.startsWith('image/')) return <Image className="h-6 w-6 text-blue-500" />;
-    if (type.startsWith('video/')) return <Video className="h-6 w-6 text-red-500" />;
-    if (type.startsWith('audio/')) return <Music className="h-6 w-6 text-green-500" />;
-    if (type.includes('pdf') || type.includes('document') || type.includes('text')) 
-      return <FileText className="h-6 w-6 text-gray-500" />;
-    if (type.includes('zip') || type.includes('rar') || type.includes('archive')) 
-      return <Archive className="h-6 w-6 text-yellow-500" />;
-    return <FileIcon className="h-6 w-6 text-gray-500" />;
-  };
+  // Transformer les fichiers partagés en emails
+  const emails: EmailItem[] = sharedFiles?.map((file, index) => {
+    const senderName = file.sharedBy?.displayName || 'Utilisateur inconnu';
+    const senderEmail = file.sharedBy?.username || 'user@rony.com';
+    
+    return {
+      id: file.id,
+      sender: senderName,
+      senderEmail: senderEmail,
+      subject: `Partage de fichier: ${file.name}`,
+      preview: `${senderName} a partagé un fichier avec vous`,
+      date: new Date(file.uploadedAt).toLocaleDateString('fr-FR'),
+      hasAttachment: true,
+      isRead: index > 0, // Premier email non lu pour la démo
+      attachment: file
+    };
+  }) || [];
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ['Bytes', 'Ko', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const handleDownload = (file: SharedFile) => {
-    window.open(file.url, '_blank');
-    toast({ title: `Téléchargement de ${file.name}` });
-  };
-
-  const handlePreview = (file: SharedFile) => {
-    if (file.type.startsWith('image/') || file.type === 'application/pdf') {
-      window.open(file.url, '_blank');
-    } else {
-      toast({ 
-        title: "Aperçu non disponible", 
-        description: "Ce type de fichier ne peut pas être prévisualisé" 
-      });
-    }
-  };
-
   if (isLoading) {
     return (
-      <div className="flex-1 p-6 flex items-center justify-center">
-        <div className="text-center">
-          <Mail className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-          <p className="text-gray-600">Chargement du courrier...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex-1 p-6 flex items-center justify-center">
-        <div className="text-center">
-          <Mail className="h-12 w-12 mx-auto mb-4 text-red-400" />
-          <p className="text-red-600">Erreur lors du chargement du courrier</p>
+      <div className="h-full bg-white">
+        <div className="animate-pulse p-4">
+          <div className="h-10 bg-gray-200 rounded mb-4"></div>
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 bg-gray-200 rounded"></div>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 p-6 flex flex-col overflow-hidden">
-      <div className="max-w-7xl mx-auto flex flex-col h-full overflow-hidden">
-        {/* Header */}
-        <div className="flex flex-wrap justify-between items-center mb-6">
-          <div className="flex items-center space-x-3">
-            <Mail className="h-8 w-8 text-blue-600" />
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Courrier</h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                Fichiers et dossiers partagés avec vous
-              </p>
-            </div>
-          </div>
-          <Badge variant="secondary" className="text-lg px-3 py-1">
-            {filteredFiles.length} élément(s)
-          </Badge>
-        </div>
-
-        {/* Barre de recherche */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Rechercher dans le courrier..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+    <div className="h-full bg-white flex flex-col">
+      {/* Header avec colonnes */}
+      <div className="border-b px-4 py-2 bg-gray-50">
+        <div className="flex items-center text-sm font-medium text-gray-700">
+          <div className="w-48 flex-shrink-0">De</div>
+          <div className="flex-1">Objet</div>
+          <div className="w-24 flex items-center justify-end">
+            <span>Reçu</span>
+            <ChevronDown className="w-4 h-4 ml-1" />
           </div>
         </div>
+      </div>
 
-        {/* Liste des fichiers partagés */}
-        <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-full">
-            {filteredFiles.length === 0 ? (
-              <div className="text-center py-12">
-                <Mail className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-                <h3 className="text-xl font-medium text-gray-600 mb-2">
-                  Aucun fichier partagé
-                </h3>
-                <p className="text-gray-500">
-                  {searchQuery 
-                    ? "Aucun fichier ne correspond à votre recherche" 
-                    : "Vous n'avez pas encore reçu de fichiers partagés"
-                  }
-                </p>
-              </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredFiles.map((file: SharedFile) => (
-                  <Card key={file.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-3">
-                          {getFileIcon(file.type)}
-                          <div className="flex-1 min-w-0">
-                            <CardTitle className="text-sm font-medium truncate">
-                              {file.name}
-                            </CardTitle>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {formatFileSize(file.size)}
-                            </p>
-                          </div>
-                        </div>
-                        <Badge 
-                          variant={file.permission === 'admin' ? 'default' : 'secondary'}
-                          className="text-xs"
-                        >
-                          {file.permission}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    
-                    <CardContent className="pt-0">
-                      {/* Informations de partage */}
-                      <div className="flex items-center space-x-2 mb-3 text-xs text-gray-600">
-                        <User className="h-3 w-3" />
-                        <span>
-                          Partagé par {file.sharedBy?.displayName || file.sharedBy?.username || 'Utilisateur'}
+      {/* Liste des emails */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-y-auto">
+          <div className="divide-y">
+            {emails.map((email) => (
+              <div
+                key={email.id}
+                className={cn(
+                  "px-4 py-3 hover:bg-gray-50 cursor-pointer border-l-4 transition-colors",
+                  !email.isRead ? "bg-blue-50 border-l-blue-500 font-medium" : "border-l-transparent",
+                  selectedEmail?.id === email.id && "bg-blue-100"
+                )}
+                onClick={() => setSelectedEmail(email)}
+              >
+                <div className="flex items-center">
+                  {/* Avatar et expéditeur */}
+                  <div className="w-48 flex-shrink-0 flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-full bg-orange-200 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-medium text-orange-800">
+                        {email.sender.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <span className="text-sm text-gray-900 truncate">
+                      {email.sender}
+                    </span>
+                  </div>
+
+                  {/* Objet et aperçu avec pièce jointe */}
+                  <div className="flex-1 min-w-0 px-4">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-900 truncate">
+                        {email.subject}
+                      </span>
+                      {email.hasAttachment && (
+                        <Paperclip className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-600 truncate mt-1">
+                      {email.preview}
+                    </div>
+                    {email.attachment && (
+                      <div className="mt-1">
+                        <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded inline-flex items-center">
+                          📎 {email.attachment.name}
                         </span>
                       </div>
-                      
-                      <div className="flex items-center space-x-2 mb-4 text-xs text-gray-500">
-                        <Calendar className="h-3 w-3" />
-                        <span>{formatDate(file.uploadedAt)}</span>
-                      </div>
+                    )}
+                  </div>
 
-                      {/* Actions */}
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handlePreview(file)}
-                          className="flex-1"
-                        >
-                          <Eye className="h-3 w-3 mr-1" />
-                          Aperçu
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => handleDownload(file)}
-                          className="flex-1"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Télécharger
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                  {/* Date */}
+                  <div className="w-24 text-sm text-gray-500 text-right flex-shrink-0">
+                    {email.date}
+                  </div>
+                </div>
               </div>
-            )}
-          </ScrollArea>
+            ))}
+          </div>
         </div>
+
+        {/* Panneau de lecture d'email sélectionné */}
+        {selectedEmail && (
+          <div className="border-t bg-white">
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                    <span className="text-white font-medium text-sm">
+                      {selectedEmail.sender.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {selectedEmail.sender} &lt;{selectedEmail.senderEmail}&gt;
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      À : vous
+                    </div>
+                  </div>
+                </div>
+                <div className="text-sm text-gray-500">
+                  Ven {selectedEmail.date} 11:06
+                </div>
+              </div>
+
+              {selectedEmail.attachment && (
+                <div className="mb-4">
+                  <div className="flex items-center space-x-3 p-3 border rounded-lg bg-gray-50">
+                    <div className="w-8 h-8 bg-red-100 rounded flex items-center justify-center">
+                      <span className="text-red-600 text-xs font-medium">PDF</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-gray-900">
+                        {selectedEmail.attachment.name}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {formatFileSize(selectedEmail.attachment.size)}
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="sm">
+                      <ChevronDown className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="mb-4">
+                <p className="text-sm text-gray-900">
+                  Bonne réception
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm">
+                  <Reply className="w-4 h-4 mr-2" />
+                  Répondre
+                </Button>
+                <Button variant="outline" size="sm">
+                  <Forward className="w-4 h-4 mr-2" />
+                  Transférer
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
