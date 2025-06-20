@@ -345,7 +345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Conversation routes
   app.get('/api/conversations', requireAuth, async (req, res) => {
     // Utiliser l'ID de l'utilisateur connecté
-    const userId = (req.user as Express.User).id;
+    const userId = req.user!.id;
     
     const conversations = await storage.getConversationsForUser(userId);
     res.json(conversations);
@@ -356,7 +356,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { participantId } = req.body;
       
       // Utiliser l'ID de l'utilisateur connecté
-      const creatorId = (req.user as Express.User).id;
+      const creatorId = req.user!.id;
       
       if (!participantId) {
         return res.status(400).json({ message: 'Participant ID is required' });
@@ -396,7 +396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const conversationId = parseInt(req.params.id);
       
       // Utiliser l'ID de l'utilisateur connecté
-      const userId = (req.user as Express.User).id;
+      const userId = req.user!.id;
       
       await storage.markConversationAsRead(conversationId, userId);
       
@@ -419,7 +419,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const conversationId = parseInt(req.params.conversationId);
       
       // Utiliser l'ID de l'utilisateur connecté
-      const senderId = (req.user as Express.User).id;
+      const senderId = req.user!.id;
       
       const messageData = insertMessageSchema.parse({
         ...req.body,
@@ -452,7 +452,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get files in a specific folder or root folder
   app.get('/api/files', requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as Express.User).id;
+      const userId = req.user!.id;
       const folderId = req.query.folderId === "null" ? null : req.query.folderId ? parseInt(req.query.folderId as string) : null;
       
       // If folderId is provided, get files in that folder, otherwise get all files for the user
@@ -470,7 +470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all folders for user
   app.get('/api/folders', requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as Express.User).id;
+      const userId = req.user!.id;
       const parentId = req.query.parentId === "null" ? null : req.query.parentId ? parseInt(req.query.parentId as string) : null;
       
       // If parentId is provided, get subfolders, otherwise get all user folders
@@ -488,7 +488,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get storage statistics
   app.get('/api/storage/stats', requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as Express.User).id;
+      const userId = req.user!.id;
       
       // Get all files for the user
       const files = await storage.getFilesForUser(userId);
@@ -517,7 +517,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'No file uploaded' });
       }
       
-      const userId = (req.user as Express.User).id;
+      const userId = req.user!.id;
       const folderId = req.body.folderId === "null" ? null : req.body.folderId ? parseInt(req.body.folderId) : null;
       
       // Get file details
@@ -555,7 +555,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create folder
   app.post('/api/folders', requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as Express.User).id;
+      const userId = req.user!.id;
       const { name, parentId, path } = req.body;
       
       if (!name) {
@@ -658,7 +658,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Share files
   app.post('/api/files/share', requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as Express.User).id;
+      const userId = req.user!.id;
       const { fileIds, recipient, permission } = req.body;
       
       if (!fileIds || !fileIds.length || !recipient) {
@@ -709,7 +709,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get shared files
   app.get('/api/files/shared', requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as Express.User).id;
+      const userId = req.user!.id;
       const sharedFiles = await storage.getSharedFiles(userId);
       res.json(sharedFiles);
     } catch (error) {
@@ -730,7 +730,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Contacts routes
   app.get('/api/contacts', requireAuth, async (req, res) => {
     // Utiliser l'ID de l'utilisateur connecté
-    const userId = (req.user as Express.User).id;
+    const userId = req.user!.id;
     
     const contacts = await storage.getContactsForUser(userId);
     res.json(contacts);
@@ -739,7 +739,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/contacts', requireAuth, async (req, res) => {
     try {
       // Utiliser l'ID de l'utilisateur connecté
-      const userId = (req.user as Express.User).id;
+      const userId = req.user!.id;
       const { username } = req.body;
       
       console.log('POST /api/contacts - Attempting to add contact with username:', username);
@@ -804,7 +804,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'Unauthorized' });
       }
       
-      const userId = (req.user as Express.User).id;
+      const userId = req.user!.id;
       const { displayName, email, phone, title } = req.body;
       
       // Créer un objet avec uniquement les données à mettre à jour
