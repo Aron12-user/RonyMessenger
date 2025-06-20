@@ -365,4 +365,50 @@ export class MemoryStorage implements IStorage {
     this.contacts.set(contact.id, contact);
     return contact;
   }
+
+  async getPaginatedContactsForUser(userId: number, options: PaginationOptions): Promise<PaginatedResult<User>> {
+    const userContacts = Array.from(this.contacts.values()).filter(contact => contact.userId === userId);
+    const contactUsers: User[] = [];
+    for (const contact of userContacts) {
+      const user = await this.getUser(contact.contactId);
+      if (user) {
+        contactUsers.push(user);
+      }
+    }
+
+    // Apply sorting
+    const sortedContacts = contactUsers.sort((a, b) => {
+      const field = options.sortBy as keyof User;
+      const aValue = a[field] || '';
+      const bValue = b[field] || '';
+      
+      if (options.sortOrder === 'desc') {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+    });
+
+    // Apply pagination
+    const start = (options.page - 1) * options.pageSize;
+    const end = start + options.pageSize;
+    const paginatedContacts = sortedContacts.slice(start, end);
+
+    return {
+      data: paginatedContacts,
+      total: contactUsers.length,
+      page: options.page,
+      pageSize: options.pageSize,
+      totalPages: Math.ceil(contactUsers.length / options.pageSize),
+      hasMore: end < contactUsers.length
+    };
+  }
+
+  async removeContact(userId: number, contactId: number): Promise<void> {
+    const contactToRemove = Array.from(this.contacts.values())
+      .find(contact => contact.userId === userId && contact.contactId === contactId);
+    
+    if (contactToRemove) {
+      this.contacts.delete(contactToRemove.id);
+    }
+  }
 }

@@ -1,28 +1,54 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import UserAvatar from "@/components/UserAvatar";
 import StatusIndicator, { UserStatus } from "@/components/StatusIndicator";
 import { API_ENDPOINTS } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { User } from "@shared/schema";
+import { ChevronLeft, ChevronRight, MoreVertical, Trash2, MessageCircle, Phone } from "lucide-react";
 
 export default function Contacts() {
   const [searchQuery, setSearchQuery] = useState("");
   const [username, setUsername] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [contactToDelete, setContactToDelete] = useState<User | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(12);
+  const [sortBy, setSortBy] = useState("displayName");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [location, setLocation] = useLocation();
 
-  // Fetch contacts
-  const { data: contacts = [] as User[] } = useQuery<User[]>({
-    queryKey: [API_ENDPOINTS.CONTACTS],
+  // Type for paginated contacts response
+  type PaginatedContacts = {
+    data: User[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+
+  // Fetch paginated contacts
+  const { data: contactsResponse } = useQuery<PaginatedContacts>({
+    queryKey: [API_ENDPOINTS.CONTACTS, currentPage, pageSize, sortBy, sortOrder],
+    queryFn: async () => {
+      const response = await fetch(`${API_ENDPOINTS.CONTACTS}?page=${currentPage}&pageSize=${pageSize}&sortBy=${sortBy}&sortOrder=${sortOrder}`);
+      if (!response.ok) throw new Error('Failed to fetch contacts');
+      return response.json();
+    },
   });
+
+  const contacts = contactsResponse?.data || [];
 
   // Fetch all users for searching - ensure proper typing with Typescript interface for paginated response
   type PaginatedUsers = {
@@ -104,6 +130,34 @@ export default function Contacts() {
     }
   });
 
+  // Delete contact mutation
+  const deleteContactMutation = useMutation({
+    mutationFn: async (contactId: number) => {
+      const res = await apiRequest("DELETE", `${API_ENDPOINTS.CONTACTS}/${contactId}`);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Erreur lors de la suppression du contact");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.CONTACTS] });
+      setShowDeleteModal(false);
+      setContactToDelete(null);
+      toast({
+        title: "Contact supprimé",
+        description: "Le contact a été supprimé de votre liste"
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erreur de suppression",
+        description: error.message || "Impossible de supprimer ce contact",
+        variant: "destructive"
+      });
+    }
+  });
+
   const handleAddContact = () => {
     setShowAddModal(true);
   };
@@ -175,17 +229,51 @@ export default function Contacts() {
   };
 
   const handleCall = (contact: User) => {
-    toast({
-      title: "Call",
-      description: `Calling ${contact.displayName || contact.username} would be implemented here`,
-    });
+    setLocation(`/calls?contact=${contact.id}`);
   };
 
-  // Filter contacts based on search query
-  const filteredContacts = contacts.filter((contact: User) => {
-    const searchString = `${contact.displayName} ${contact.username} ${contact.email || ''}`.toLowerCase();
-    return searchString.includes(searchQuery.toLowerCase());
-  });
+  const handleDeleteContact = (contact: User) => {
+    setContactToDelete(contact);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteContact = () => {
+    if (contactToDelete) {
+      deleteContactMutation.mutate(contactToDelete.id);
+    }
+  };
+
+  // Filter contacts based on search query - applying to paginated results
+  const filteredContacts = useMemo(() => {
+    if (!searchQuery) return contacts;
+    return contacts.filter((contact: User) => {
+      const displayName = contact.displayName?.toLowerCase() || '';
+      const username = contact.username.toLowerCase();
+      const email = contact.email?.toLowerCase() || '';
+      const query = searchQuery.toLowerCase();
+      
+      return displayName.includes(query) || 
+             username.includes(query) || 
+             email.includes(query);
+    });
+  }, [contacts, searchQuery]);
+
+  // Pagination handlers
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (contactsResponse?.hasMore) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   return (
     <section className="flex-1 p-6 flex flex-col">
@@ -233,9 +321,30 @@ export default function Contacts() {
                       <h3 className="font-medium text-lg">{contact.displayName || contact.username}</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">{contact.title || 'Utilisateur'}</p>
                     </div>
-                    <button className="ml-auto p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                      <span className="material-icons">more_vert</span>
-                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="ml-auto h-8 w-8 p-0">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleMessage(contact)}>
+                          <MessageCircle className="mr-2 h-4 w-4" />
+                          Message
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleCall(contact)}>
+                          <Phone className="mr-2 h-4 w-4" />
+                          Appel
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handleDeleteContact(contact)}
+                          className="text-red-600 focus:text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                   
                   <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
@@ -287,6 +396,53 @@ export default function Contacts() {
               </div>
             )}
           </div>
+          
+          {/* Pagination Controls */}
+          {contactsResponse && contactsResponse.totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-between">
+              <div className="text-sm text-gray-700 dark:text-gray-300">
+                Affichage de {((currentPage - 1) * pageSize) + 1} à {Math.min(currentPage * pageSize, contactsResponse.total)} sur {contactsResponse.total} contacts
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePreviousPage}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Précédent
+                </Button>
+                
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: Math.min(5, contactsResponse.totalPages) }, (_, i) => {
+                    const pageNum = i + 1;
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange(pageNum)}
+                        className="w-8 h-8 p-0"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNextPage}
+                  disabled={!contactsResponse.hasMore}
+                >
+                  Suivant
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -351,6 +507,29 @@ export default function Contacts() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer le contact</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer {contactToDelete?.displayName || contactToDelete?.username} de vos contacts ?
+              Cette action ne peut pas être annulée.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteContact}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
+              disabled={deleteContactMutation.isPending}
+            >
+              {deleteContactMutation.isPending ? "Suppression..." : "Supprimer"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
