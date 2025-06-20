@@ -9,6 +9,8 @@ import { API_ENDPOINTS, WS_EVENTS } from "@/lib/constants";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { fileToDataUrl } from "@/lib/utils";
 import { User, Message } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
+import { encryptFile } from "@/lib/encryption";
 
 export default function Messages() {
   // Obtenir l'ID de conversation depuis les paramètres d'URL s'il existe
@@ -239,7 +241,7 @@ export default function Messages() {
   }, [activeConversationId, queryClient]);
 
   return (
-    <section className="flex-1 flex overflow-hidden">
+    <section className="flex-1 flex overflow-hidden bg-gray-900">
       {/* Contacts/Conversations List */}
       <ConversationList 
         conversations={conversations}
@@ -249,7 +251,7 @@ export default function Messages() {
       />
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900">
+      <div className="flex-1 flex flex-col bg-gray-900">
         {/* Chat Header */}
         <ChatHeader user={activeUser} />
 
@@ -266,11 +268,11 @@ export default function Messages() {
             <MessageInput onSendMessage={handleSendMessage} onStartCall={handleStartCall} onEndCall={handleEndCall} activeCall={activeCall}/>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400 p-6">
+          <div className="flex-1 flex items-center justify-center text-gray-400 p-6">
             <div className="text-center">
-              <span className="material-icons text-6xl mb-4">chat</span>
-              <h3 className="text-xl font-medium mb-2">Sélectionnez une conversation</h3>
-              <p>Choisissez un contact dans la liste pour commencer à échanger</p>
+              <span className="material-icons text-6xl mb-4 text-gray-500">chat</span>
+              <h3 className="text-xl font-medium mb-2 text-gray-300">Sélectionnez une conversation</h3>
+              <p className="text-gray-400">Choisissez un contact dans la liste pour commencer à échanger</p>
             </div>
           </div>
         )}

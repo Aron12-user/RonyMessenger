@@ -45,7 +45,7 @@ export default function MessageList({ messages, currentUserId, users }: MessageL
   }, [messages]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
+    <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin bg-gray-900 text-gray-100">
       {/* Render messages grouped by date */}
       {Object.entries(messagesByDate).map(([date, dateMessages]) => (
         <div key={date}>
