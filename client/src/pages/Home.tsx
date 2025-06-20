@@ -24,6 +24,7 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
   const { getCurrentTheme, applyTheme } = useTheme();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [currentSection, setCurrentSection] = useState("messages");
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const { toast } = useToast();
 
   // Apply theme on component mount and when user theme changes
@@ -69,6 +70,8 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
         setCurrentSection={setCurrentSection}
         isMobileOpen={isMobileOpen}
         setIsMobileOpen={setIsMobileOpen}
+        isCollapsed={isCollapsed}
+        setIsCollapsed={setIsCollapsed}
       />
       
       {/* Main Content Area */}

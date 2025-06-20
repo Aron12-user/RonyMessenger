@@ -187,6 +187,40 @@ export const themes: Theme[] = [
     },
     gradient: 'linear-gradient(135deg, #374151 0%, #111827 100%)',
   },
+  {
+    id: 'pure-white',
+    name: 'Blanc Pur',
+    colors: {
+      primary: '#3B82F6',
+      secondary: '#1E40AF',
+      accent: '#60A5FA',
+      background: '#FFFFFF',
+      surface: '#F8FAFC',
+      text: '#1F2937',
+      textMuted: '#6B7280',
+      border: '#E5E7EB',
+      sidebar: '#FFFFFF',
+      sidebarActive: '#F3F4F6',
+    },
+    gradient: 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%)',
+  },
+  {
+    id: 'sky-blue',
+    name: 'Bleu Ciel',
+    colors: {
+      primary: '#0EA5E9',
+      secondary: '#0284C7',
+      accent: '#38BDF8',
+      background: 'linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)',
+      surface: 'rgba(255, 255, 255, 0.9)',
+      text: '#0F172A',
+      textMuted: '#475569',
+      border: '#CBD5E1',
+      sidebar: 'rgba(255, 255, 255, 0.95)',
+      sidebarActive: 'rgba(14, 165, 233, 0.1)',
+    },
+    gradient: 'linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)',
+  },
 ];
 
 export const getStoredTheme = (): string => {

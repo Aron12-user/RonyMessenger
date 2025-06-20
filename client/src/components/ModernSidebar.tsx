@@ -12,7 +12,10 @@ import {
   LogOut,
   Plus,
   X,
-  Palette
+  Palette,
+  ChevronLeft,
+  ChevronRight,
+  Menu
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -29,13 +32,17 @@ interface ModernSidebarProps {
   setCurrentSection: (section: string) => void;
   isMobileOpen: boolean;
   setIsMobileOpen: (open: boolean) => void;
+  isCollapsed?: boolean;
+  setIsCollapsed?: (collapsed: boolean) => void;
 }
 
 export default function ModernSidebar({ 
   currentSection, 
   setCurrentSection, 
   isMobileOpen, 
-  setIsMobileOpen 
+  setIsMobileOpen,
+  isCollapsed = false,
+  setIsCollapsed
 }: ModernSidebarProps) {
   const { user, logoutMutation } = useAuth();
   const { themes, getCurrentTheme, applyTheme } = useTheme();
@@ -86,9 +93,11 @@ export default function ModernSidebar({
       {/* Sidebar */}
       <div
         className={`
-          fixed md:relative inset-y-0 left-0 z-50 w-80 
-          transform transition-transform duration-300 ease-in-out
+          fixed md:relative inset-y-0 left-0 z-50 
+          transform transition-all duration-300 ease-in-out
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+          ${isCollapsed ? 'md:w-16' : 'md:w-80'}
+          w-80
         `}
         style={{
           background: 'var(--color-sidebar)',
@@ -99,16 +108,34 @@ export default function ModernSidebar({
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: 'var(--color-border)' }}>
-            <div className="flex items-center space-x-3">
+            <div className={`flex items-center space-x-3 ${isCollapsed ? 'justify-center' : ''}`}>
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
                 <span className="text-white font-bold text-sm">R</span>
               </div>
-              <h1 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>
-                Rony
-              </h1>
+              {!isCollapsed && (
+                <h1 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>
+                  Rony
+                </h1>
+              )}
             </div>
             
-            <div className="flex items-center space-x-2">
+            <div className={`flex items-center space-x-2 ${isCollapsed ? 'hidden' : ''}`}>
+              {/* Collapse Toggle Button */}
+              {setIsCollapsed && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="p-2 hover:bg-white/10"
+                  onClick={() => setIsCollapsed(!isCollapsed)}
+                >
+                  {isCollapsed ? (
+                    <ChevronRight className="w-4 h-4" style={{ color: 'var(--color-text)' }} />
+                  ) : (
+                    <ChevronLeft className="w-4 h-4" style={{ color: 'var(--color-text)' }} />
+                  )}
+                </Button>
+              )}
+
               {/* Theme Selector */}
               <DropdownMenu open={showThemeSelector} onOpenChange={setShowThemeSelector}>
                 <DropdownMenuTrigger asChild>
@@ -166,6 +193,21 @@ export default function ModernSidebar({
                 <X className="w-4 h-4" style={{ color: 'var(--color-text)' }} />
               </Button>
             </div>
+            
+            {/* Collapse button when collapsed */}
+            {isCollapsed && setIsCollapsed && (
+              <div className="absolute top-6 -right-3 hidden md:block">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="p-1 w-6 h-6 rounded-full bg-white/90 hover:bg-white shadow-lg border"
+                  onClick={() => setIsCollapsed(false)}
+                  style={{ borderColor: 'var(--color-border)' }}
+                >
+                  <ChevronRight className="w-3 h-3" style={{ color: 'var(--color-text)' }} />
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Navigation Menu */}
@@ -179,7 +221,7 @@ export default function ModernSidebar({
                   key={item.id}
                   onClick={() => handleSectionChange(item.id)}
                   className={`
-                    w-full flex items-center space-x-3 px-4 py-3 rounded-xl
+                    w-full flex items-center ${isCollapsed ? 'justify-center px-2' : 'space-x-3 px-4'} py-3 rounded-xl
                     transition-all duration-200 text-left group
                     ${isActive 
                       ? 'text-white shadow-lg' 
@@ -192,9 +234,11 @@ export default function ModernSidebar({
                   }}
                 >
                   <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'group-hover:text-white/80'}`} />
-                  <span className={`font-medium ${isActive ? 'text-white' : 'group-hover:text-white/80'}`}>
-                    {item.label}
-                  </span>
+                  {!isCollapsed && (
+                    <span className={`font-medium ${isActive ? 'text-white' : 'group-hover:text-white/80'}`}>
+                      {item.label}
+                    </span>
+                  )}
                 </button>
               );
             })}
