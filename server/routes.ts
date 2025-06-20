@@ -981,13 +981,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get shared files with owner information
+  // Get shared files and folders with owner information
   app.get('/api/files/shared', requireAuth, async (req, res) => {
     try {
       const userId = req.user!.id;
       const sharedFiles = await storage.getSharedFiles(userId);
+      const sharedFolders = await storage.getFoldersForUser(userId);
       
-      // Enrichir avec les informations du propriétaire
+      // Enrichir les fichiers avec les informations du propriétaire
       const enrichedFiles = await Promise.all(
         sharedFiles.map(async (file) => {
           const owner = await storage.getUser(file.uploaderId);
@@ -1001,11 +1002,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         })
       );
+
+      // Enrichir les dossiers partagés avec les informations du propriétaire et le nombre de fichiers
+      const enrichedFolders = await Promise.all(
+        sharedFolders.filter(folder => folder.isShared).map(async (folder) => {
+          const owner = await storage.getUser(folder.ownerId);
+          const folderFiles = await storage.getFilesByFolder(folder.id);
+          const totalSize = folderFiles.reduce((sum, file) => sum + file.size, 0);
+          
+          return {
+            id: folder.id,
+            name: folder.name,
+            type: 'folder',
+            fileCount: folderFiles.length,
+            totalSize: totalSize,
+            uploaderId: folder.ownerId,
+            uploadedAt: folder.createdAt.toISOString(),
+            sharedBy: owner ? {
+              id: owner.id,
+              username: owner.username,
+              displayName: owner.displayName || owner.username
+            } : null
+          };
+        })
+      );
       
-      res.json(enrichedFiles);
+      res.json({
+        files: enrichedFiles,
+        folders: enrichedFolders
+      });
     } catch (error) {
-      console.error('Error fetching shared files:', error);
-      res.status(500).json({ message: 'Failed to fetch shared files' });
+      console.error('Error fetching shared content:', error);
+      res.status(500).json({ message: 'Failed to fetch shared content' });
     }
   });
 

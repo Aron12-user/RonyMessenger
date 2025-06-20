@@ -107,18 +107,18 @@ export class SimpleStorage implements IStorage {
   }
 
   private createDemoSharedFiles() {
-    // Créer quelques fichiers partagés pour la démonstration
+    // Créer des fichiers de démonstration pour partage
     const demoFiles = [
       {
-        name: 'Rapport_Projet_Q4.pdf',
+        name: 'Rapport_Analyse_Marche.pdf',
         type: 'application/pdf',
         size: 2457600,
         url: 'http://localhost:5000/uploads/demo-rapport.pdf',
         uploaderId: 1, // admin
-        sharedWithId: 4 // Sera partagé avec les nouveaux utilisateurs
+        sharedWithId: 4
       },
       {
-        name: 'Presentation_Marketing.pptx',
+        name: 'Presentation_Strategie.pptx',
         type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         size: 5242880,
         url: 'http://localhost:5000/uploads/demo-presentation.pptx',
@@ -126,15 +126,54 @@ export class SimpleStorage implements IStorage {
         sharedWithId: 4
       },
       {
-        name: 'Budget_2025.xlsx',
+        name: 'Dashboard_Analytics.xlsx',
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         size: 1048576,
         url: 'http://localhost:5000/uploads/demo-budget.xlsx',
         uploaderId: 3, // sarah
         sharedWithId: 4
+      },
+      {
+        name: 'Design_Guidelines.pdf',
+        type: 'application/pdf',
+        size: 3145728,
+        url: 'http://localhost:5000/uploads/demo-guidelines.pdf',
+        uploaderId: 1,
+        sharedWithId: 4
+      },
+      {
+        name: 'Video_Tutorial.mp4',
+        type: 'video/mp4',
+        size: 52428800,
+        url: 'http://localhost:5000/uploads/demo-video.mp4',
+        uploaderId: 2,
+        sharedWithId: 4
       }
     ];
 
+    // Créer des dossiers de démonstration pour partage
+    const demoFolders = [
+      {
+        name: 'Projet_Marketing_Q1',
+        uploaderId: 1,
+        sharedWithId: 4,
+        description: 'Dossier complet du projet marketing Q1 avec ressources'
+      },
+      {
+        name: 'Documentation_Technique',
+        uploaderId: 2,
+        sharedWithId: 4,
+        description: 'Documentation technique complète avec guides et API'
+      },
+      {
+        name: 'Assets_Design',
+        uploaderId: 3,
+        sharedWithId: 4,
+        description: 'Ressources de design et éléments graphiques'
+      }
+    ];
+
+    // Créer les fichiers
     demoFiles.forEach(fileData => {
       const file: File = {
         id: this.fileId++,
@@ -144,7 +183,7 @@ export class SimpleStorage implements IStorage {
         url: fileData.url,
         uploaderId: fileData.uploaderId,
         folderId: null,
-        uploadedAt: new Date(),
+        uploadedAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000), // Random dans les 7 derniers jours
         updatedAt: new Date(),
         isShared: true,
         sharedWithId: fileData.sharedWithId,
@@ -154,6 +193,44 @@ export class SimpleStorage implements IStorage {
         isPublic: false
       };
       this.files.set(file.id, file);
+    });
+
+    // Créer les dossiers partagés
+    demoFolders.forEach(folderData => {
+      const folder: Folder = {
+        id: this.folderId++,
+        name: folderData.name,
+        path: `/${folderData.name}`,
+        parentId: null,
+        ownerId: folderData.uploaderId,
+        createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date(),
+        iconType: 'folder',
+        isShared: true
+      };
+      this.folders.set(folder.id, folder);
+
+      // Créer quelques fichiers dans chaque dossier
+      for (let i = 0; i < Math.floor(Math.random() * 8) + 3; i++) {
+        const fileInFolder: File = {
+          id: this.fileId++,
+          name: `Document_${i + 1}.pdf`,
+          type: 'application/pdf',
+          size: Math.floor(Math.random() * 5000000) + 100000,
+          url: `http://localhost:5000/uploads/folder-${folder.id}-file-${i}.pdf`,
+          uploaderId: folderData.uploaderId,
+          folderId: folder.id,
+          uploadedAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000),
+          updatedAt: new Date(),
+          isShared: true,
+          sharedWithId: folderData.sharedWithId,
+          expiresAt: null,
+          shareLink: null,
+          shareLinkExpiry: null,
+          isPublic: false
+        };
+        this.files.set(fileInFolder.id, fileInFolder);
+      }
     });
   }
 
