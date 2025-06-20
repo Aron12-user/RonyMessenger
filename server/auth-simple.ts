@@ -2,21 +2,35 @@ import { Express, Request, Response } from "express";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 
+import { User } from "../shared/schema";
+
 declare global {
   namespace Express {
     interface Request {
-      user?: any;
+      user?: User;
     }
   }
 }
 
 export function setupSimpleAuth(app: Express) {
   // Middleware pour vérifier l'authentification
-  const requireAuth = (req: Request, res: Response, next: any) => {
+  const requireAuth = async (req: Request, res: Response, next: any) => {
     if (!req.session?.userId) {
       return res.status(401).json({ message: "Non authentifié" });
     }
-    next();
+    
+    try {
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        return res.status(401).json({ message: "Utilisateur non trouvé" });
+      }
+      
+      req.user = user;
+      next();
+    } catch (error) {
+      console.error("Erreur lors de la vérification de l'authentification:", error);
+      res.status(500).json({ message: "Erreur interne du serveur" });
+    }
   };
 
   // Route de connexion
