@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/lib/themes";
-import CollapsibleSidebar from "@/components/CollapsibleSidebar";
-import DarkHeader from "@/components/DarkHeader";
+import ModernSidebar from "@/components/ModernSidebar";
+import ModernHeader from "@/components/ModernHeader";
+import MainContent from "@/components/MainContent";
 import WelcomeContent from "@/components/WelcomeContent";
 import AIAssistant from "@/pages/AIAssistant";
-import MessagesSimple from "@/pages/MessagesSimple";
+import Messages from "@/pages/Messages";
 import MeetingsNew from "@/pages/MeetingsNew";
 import FilesManager from "@/pages/FilesManager";
 import CloudStorage from "@/pages/CloudStorage";
@@ -22,7 +23,7 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
   const { user } = useAuth();
   const { getCurrentTheme, applyTheme } = useTheme();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [currentSection, setCurrentSection] = useState("home");
+  const [currentSection, setCurrentSection] = useState("messages");
   const { toast } = useToast();
 
   // Apply theme on component mount and when user theme changes
@@ -55,23 +56,31 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
   };
 
   return (
-    <div className="h-screen flex overflow-hidden bg-gray-900">
-      {/* Collapsible Blue Sidebar */}
-      <CollapsibleSidebar
+    <div 
+      className="h-screen flex overflow-hidden"
+      style={{ 
+        background: 'var(--color-background)',
+        minHeight: '100vh',
+      }}
+    >
+      {/* Modern Sidebar */}
+      <ModernSidebar
         currentSection={currentSection}
         setCurrentSection={setCurrentSection}
+        isMobileOpen={isMobileOpen}
+        setIsMobileOpen={setIsMobileOpen}
       />
       
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
-        <DarkHeader 
+        <ModernHeader 
+          setIsMobileOpen={setIsMobileOpen}
           currentSection={currentSection}
-          onMenuToggle={() => setIsMobileOpen(!isMobileOpen)}
         />
         
-        <div className="flex-1 overflow-auto bg-gray-900 text-gray-100">
+        <MainContent>
           {renderSection()}
-        </div>
+        </MainContent>
       </div>
     </div>
   );
