@@ -22,8 +22,8 @@ async function hashPassword(password: string) {
 }
 
 async function comparePasswords(supplied: string, stored: string) {
-  // Pour le stockage en mémoire, utilisation de mots de passe en texte brut
-  return supplied === stored;
+  const bcrypt = require('bcrypt');
+  return await bcrypt.compare(supplied, stored);
 }
 
 export function setupAuth(app: Express) {
@@ -34,12 +34,14 @@ export function setupAuth(app: Express) {
     new LocalStrategy(async (username, password, done) => {
       try {
         const user = await storage.getUserByUsername(username);
+        
         if (!user) {
           return done(null, false, { message: "Nom d'utilisateur incorrect" });
         }
         
         // Vérifier le mot de passe haché
         const isValid = await comparePasswords(password, user.password);
+        
         if (!isValid) {
           return done(null, false, { message: "Mot de passe incorrect" });
         }

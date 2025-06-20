@@ -466,4 +466,6 @@ export class MemStorage implements IStorage {
 import { PgStorage } from './pg-storage';
 
 // Exporter l'instance PgStorage par défaut, avec MemStorage comme fallback si nécessaire
-export const storage = new MemStorage();
+import { SimpleStorage } from './simple-storage';
+
+export const storage = new SimpleStorage();
