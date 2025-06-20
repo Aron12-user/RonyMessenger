@@ -13,7 +13,7 @@ import {
   InsertFileSharing 
 } from "@shared/schema";
 import { z } from "zod";
-import { setupAuth } from "./auth";
+import { setupSimpleAuth } from "./auth-simple";
 import multer from "multer";
 import * as path from "path";
 import * as fs from "fs";
@@ -56,7 +56,7 @@ const onlineUsers = new Map<number, WebSocket>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
-  const { requireAuth } = setupAuth(app);
+  const requireAuth = setupSimpleAuth(app);
   
   // Create HTTP server
   const httpServer = createServer(app);
