@@ -556,7 +556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/folders', requireAuth, async (req, res) => {
     try {
       const userId = req.user!.id;
-      const { name, parentId, path } = req.body;
+      const { name, parentId, path, iconType } = req.body;
       
       if (!name) {
         return res.status(400).json({ message: 'Folder name is required' });
@@ -568,6 +568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         parentId: parentId === "null" ? null : (parentId ? parseInt(parentId) : null),
         path: path || name,
         ownerId: userId,
+        iconType: iconType || 'orange',
         createdAt: new Date(),
         updatedAt: new Date(),
         isShared: false
@@ -587,14 +588,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/folders/:id', requireAuth, async (req, res) => {
     try {
       const folderId = parseInt(req.params.id);
-      const { name } = req.body;
+      const { name, iconType } = req.body;
       
-      if (!name) {
-        return res.status(400).json({ message: 'Folder name is required' });
+      if (name) {
+        const folder = await storage.updateFolder(folderId, name);
+        res.json(folder);
+      } else if (iconType) {
+        // Mise à jour de l'icône du dossier
+        const folder = await storage.getFolderById(folderId);
+        if (!folder) {
+          return res.status(404).json({ message: 'Folder not found' });
+        }
+        
+        // Utiliser une requête SQL directe pour mettre à jour l'icône
+        await storage.updateFolderIcon(folderId, iconType);
+        const updatedFolder = await storage.getFolderById(folderId);
+        res.json(updatedFolder);
+      } else {
+        return res.status(400).json({ message: 'Name or iconType is required' });
       }
-      
-      const folder = await storage.updateFolder(folderId, name);
-      res.json(folder);
     } catch (error) {
       console.error('Error updating folder:', error);
       res.status(500).json({ message: 'Failed to update folder' });

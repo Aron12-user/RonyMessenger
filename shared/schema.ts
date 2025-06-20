@@ -83,6 +83,7 @@ export const folders = pgTable("folders", {
   ownerId: integer("owner_id").notNull().references(() => users.id),
   parentId: integer("parent_id"),
   path: text("path").notNull(),
+  iconType: text("icon_type").default("default"), // "default", "orange", "blue", "archive"
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   isShared: boolean("is_shared").default(false),
