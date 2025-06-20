@@ -47,7 +47,7 @@ export default function ModernSidebar({
     { id: "messages", label: "Messages", icon: MessageCircle, active: true },
     { id: "assistant", label: "Assistant IA", icon: Bot },
     { id: "meetings", label: "Réunions", icon: Video },
-    { id: "files", label: "Fichiers", icon: FolderOpen },
+    { id: "files", label: "Cloud", icon: FolderOpen },
     { id: "contacts", label: "Contacts", icon: Users },
   ];
 

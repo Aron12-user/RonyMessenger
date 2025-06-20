@@ -43,7 +43,7 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
       case "meetings":
         return <MeetingsNew />;
       case "files":
-        return <FilesManager />;
+        return <CloudStorage />;
       case "cloud":
         return <CloudStorage />;
       case "contacts":
