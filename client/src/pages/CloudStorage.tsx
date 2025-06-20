@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Progress } from "@/components/ui/progress";
 import { 
   Upload, 
   FolderPlus, 
@@ -26,7 +27,8 @@ import {
   Music,
   FileText,
   Archive,
-  Edit
+  Edit,
+  CheckCircle
 } from "lucide-react";
 
 // Import des icônes personnalisées et de l'arrière-plan
@@ -92,6 +94,9 @@ export default function CloudStorage() {
   const [itemToShare, setItemToShare] = useState<{ id: number; name: string; isFolder: boolean } | null>(null);
   const [sharePermission, setSharePermission] = useState<"read" | "write" | "admin">("read");
   const [shareEmail, setShareEmail] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadingFiles, setUploadingFiles] = useState(0);
+  const [totalFiles, setTotalFiles] = useState(0);
 
   // Requêtes
   const { data: folders = [] } = useQuery({
@@ -176,21 +181,23 @@ export default function CloudStorage() {
 
   const uploadFolderMutation = useMutation({
     mutationFn: async (files: FileList) => {
+      setTotalFiles(files.length);
+      setUploadingFiles(0);
+      setUploadProgress(0);
+      
       const formData = new FormData();
       const folderStructure: { [key: string]: string[] } = {};
       const filePaths: string[] = [];
       
-      // Traiter chaque fichier et construire la structure des dossiers
+      // Traitement rapide des fichiers
       Array.from(files).forEach((file, index) => {
         const relativePath = file.webkitRelativePath || file.name;
         const pathParts = relativePath.split('/');
         const folderPath = pathParts.slice(0, -1).join('/');
         
-        // Ajouter le fichier au FormData
         formData.append('files', file);
         filePaths.push(relativePath);
         
-        // Construire la structure des dossiers
         if (folderPath && !folderStructure[folderPath]) {
           folderStructure[folderPath] = [];
         }
@@ -199,7 +206,6 @@ export default function CloudStorage() {
         }
       });
       
-      // Ajouter les chemins de fichiers comme un tableau
       filePaths.forEach(path => {
         formData.append('filePaths', path);
       });
@@ -207,36 +213,68 @@ export default function CloudStorage() {
       formData.append('folderId', currentFolderId?.toString() || 'null');
       formData.append('folderStructure', JSON.stringify(folderStructure));
       
-      console.log('Uploading folder with structure:', folderStructure);
-      console.log('File paths:', filePaths);
-      
-      const res = await fetch('/api/upload-folder', {
-        method: 'POST',
-        body: formData
+      // Créer un XMLHttpRequest pour suivre la progression
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded / event.total) * 100);
+            setUploadProgress(progress);
+          }
+        });
+        
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              resolve(data);
+            } catch (e) {
+              reject(new Error('Failed to parse response'));
+            }
+          } else {
+            try {
+              const errorData = JSON.parse(xhr.responseText);
+              reject(new Error(errorData.message || 'Upload failed'));
+            } catch (e) {
+              reject(new Error('Upload failed'));
+            }
+          }
+        });
+        
+        xhr.addEventListener('error', () => {
+          reject(new Error('Network error during upload'));
+        });
+        
+        xhr.open('POST', '/api/upload-folder');
+        xhr.send(formData);
       });
-      
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ message: 'Upload failed' }));
-        throw new Error(errorData.message || 'Folder upload failed');
-      }
-      
-      return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
+      setUploadProgress(100);
       queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
       queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
       
-      const message = `Dossier uploadé avec succès! ${data.foldersCreated || 0} dossier(s) créé(s), ${data.filesUploaded || 0} fichier(s) uploadé(s)`;
+      const message = `Upload terminé! ${data.foldersCreated || 0} dossier(s), ${data.filesUploaded || 0} fichier(s)`;
       toast({ title: message });
       
       if (folderInputRef.current) {
         folderInputRef.current.value = '';
       }
+      
+      // Reset progress après 2 secondes
+      setTimeout(() => {
+        setUploadProgress(0);
+        setTotalFiles(0);
+        setUploadingFiles(0);
+      }, 2000);
     },
     onError: (error: Error) => {
-      console.error('Folder upload error:', error);
+      setUploadProgress(0);
+      setTotalFiles(0);
+      setUploadingFiles(0);
       toast({ 
-        title: "Erreur lors de l'upload du dossier", 
+        title: "Erreur d'upload", 
         description: error.message, 
         variant: "destructive" 
       });
@@ -457,46 +495,62 @@ export default function CloudStorage() {
           {/* Header avec titre et actions principales */}
           <div className="flex flex-wrap justify-between items-center mb-6">
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Cloud</h2>
-            <div className="flex space-x-3">
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileUpload} 
-                className="hidden" 
-                multiple 
-              />
-              <input 
-                type="file" 
-                ref={folderInputRef} 
-                onChange={handleFolderUpload} 
-                className="hidden" 
-                {...({ webkitdirectory: "", directory: "" } as any)}
-                multiple 
-              />
-              <Button
-                onClick={triggerFileInput}
-                variant="outline"
-                className="flex items-center space-x-2"
-              >
-                <Upload className="h-4 w-4" />
-                <span>Upload Files</span>
-              </Button>
-              <Button
-                onClick={triggerFolderInput}
-                variant="outline"
-                className="flex items-center space-x-2"
-                disabled={uploadFolderMutation.isPending}
-              >
-                <Upload className="h-4 w-4" />
-                <span>{uploadFolderMutation.isPending ? 'Uploading...' : 'Upload Folder'}</span>
-              </Button>
-              <Button
-                onClick={() => setIsCreateFolderDialogOpen(true)}
-                className="flex items-center space-x-2"
-              >
-                <FolderPlus className="h-4 w-4" />
-                <span>New Folder</span>
-              </Button>
+            <div className="flex flex-col space-y-3">
+              <div className="flex space-x-3">
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileUpload} 
+                  className="hidden" 
+                  multiple 
+                />
+                <input 
+                  type="file" 
+                  ref={folderInputRef} 
+                  onChange={handleFolderUpload} 
+                  className="hidden" 
+                  {...({ webkitdirectory: "", directory: "" } as any)}
+                  multiple 
+                />
+                <Button
+                  onClick={triggerFileInput}
+                  variant="outline"
+                  className="flex items-center space-x-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  <span>Upload Files</span>
+                </Button>
+                <Button
+                  onClick={triggerFolderInput}
+                  variant="outline"
+                  className="flex items-center space-x-2"
+                  disabled={uploadFolderMutation.isPending}
+                >
+                  <Upload className="h-4 w-4" />
+                  <span>{uploadFolderMutation.isPending ? `Uploading... ${uploadProgress}%` : 'Upload Folder'}</span>
+                </Button>
+                <Button
+                  onClick={() => setIsCreateFolderDialogOpen(true)}
+                  className="flex items-center space-x-2"
+                >
+                  <FolderPlus className="h-4 w-4" />
+                  <span>New Folder</span>
+                </Button>
+              </div>
+              
+              {/* Barre de progression pour l'upload */}
+              {uploadFolderMutation.isPending && totalFiles > 0 && (
+                <div className="w-full max-w-md">
+                  <div className="flex justify-between text-sm text-gray-600 mb-1">
+                    <span>Upload en cours...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-2" />
+                  <div className="text-xs text-gray-500 mt-1">
+                    {totalFiles} fichier(s) à traiter
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
