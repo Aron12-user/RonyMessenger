@@ -16,6 +16,7 @@ import {
   Grid3X3, 
   List, 
   ChevronRight,
+  ChevronLeft,
   Trash2,
   Download,
   Share,
@@ -66,6 +67,7 @@ export default function CloudStorage() {
 
   // États du composant
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
+  const [currentPath, setCurrentPath] = useState<{ id: number; name: string }[]>([]);
   const [folderStack, setFolderStack] = useState<Folder[]>([{ id: 0, name: "Cloud", path: "/", ownerId: user?.id || 0, parentId: null, iconType: null, createdAt: new Date(), updatedAt: new Date(), isShared: false }]);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -278,19 +280,19 @@ export default function CloudStorage() {
   // Handlers
   const handleFolderClick = (folder: Folder) => {
     setCurrentFolderId(folder.id);
-    setCurrentPath([...currentPath, { id: folder.id, name: folder.name }]);
+    setFolderStack([...folderStack, folder]);
   };
 
   const handleBreadcrumbClick = (index: number) => {
-    if (index === -1) {
+    if (index === 0) {
       // Retour à la racine
       setCurrentFolderId(null);
-      setCurrentPath([]);
+      setFolderStack([folderStack[0]]);
     } else {
       // Navigation vers un dossier parent
-      const newPath = currentPath.slice(0, index + 1);
-      setCurrentPath(newPath);
-      setCurrentFolderId(newPath.length > 0 ? newPath[newPath.length - 1].id : null);
+      const newStack = folderStack.slice(0, index + 1);
+      setFolderStack(newStack);
+      setCurrentFolderId(newStack[newStack.length - 1].id === 0 ? null : newStack[newStack.length - 1].id);
     }
   };
 
@@ -410,24 +412,43 @@ export default function CloudStorage() {
             </div>
           </div>
 
-          {/* Navigation breadcrumb */}
+          {/* Navigation breadcrumb avec bouton retour */}
           <div className="mb-6">
-            <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">
-              {folderStack.map((folder, index) => (
-                <div key={index} className="flex items-center">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleBreadcrumbClick(index)}
-                    className="p-1 h-auto font-medium hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    {folder.name}
-                  </Button>
-                  {index < folderStack.length - 1 && (
-                    <ChevronRight className="h-4 w-4 text-gray-400 mx-1" />
-                  )}
-                </div>
-              ))}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">
+                {folderStack.map((folder, index) => (
+                  <div key={index} className="flex items-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleBreadcrumbClick(index)}
+                      className="p-1 h-auto font-medium hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      {folder.name}
+                    </Button>
+                    {index < folderStack.length - 1 && (
+                      <ChevronRight className="h-4 w-4 text-gray-400 mx-1" />
+                    )}
+                  </div>
+                ))}
+              </div>
+              
+              {/* Bouton Retour */}
+              {folderStack.length > 1 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newStack = folderStack.slice(0, -1);
+                    setFolderStack(newStack);
+                    setCurrentFolderId(newStack[newStack.length - 1].id === 0 ? null : newStack[newStack.length - 1].id);
+                  }}
+                  className="flex items-center space-x-2"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span>Retour</span>
+                </Button>
+              )}
             </div>
           </div>
 
