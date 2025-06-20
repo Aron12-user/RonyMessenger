@@ -29,10 +29,11 @@ import {
   Edit
 } from "lucide-react";
 
-// Import des icônes personnalisées
+// Import des icônes personnalisées et de l'arrière-plan
 import folderOrangeIcon from "@assets/icons8-dossier-mac-94_1750386744627.png";
 import folderBlueIcon from "@assets/icons8-dossier-mac-64_1750386753922.png";
 import folderArchiveIcon from "@assets/icons8-dossier-mac-48_1750386762042.png";
+import cloudBackgroundImage from "@assets/image_1750395141900.png";
 
 interface Folder {
   id: number;
@@ -348,8 +349,16 @@ export default function CloudStorage() {
   );
 
   return (
-    <div className="flex-1 p-6 flex flex-col overflow-hidden">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex-1 flex flex-col overflow-hidden">
+    <div 
+      className="flex-1 p-6 flex flex-col overflow-hidden"
+      style={{
+        backgroundImage: `url(${cloudBackgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg shadow p-6 flex-1 flex flex-col overflow-hidden">
         <div className="max-w-7xl mx-auto flex flex-col h-full overflow-hidden">
           {/* Header avec titre et actions principales */}
           <div className="flex flex-wrap justify-between items-center mb-6">
