@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,7 +28,9 @@ import {
   FileText,
   Archive,
   Edit,
-  CheckCircle
+  CheckCircle,
+  RefreshCw,
+  Monitor
 } from "lucide-react";
 
 // Import des icônes personnalisées et de l'arrière-plan
@@ -97,6 +99,22 @@ export default function CloudStorage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadingFiles, setUploadingFiles] = useState(0);
   const [totalFiles, setTotalFiles] = useState(0);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncedFiles, setSyncedFiles] = useState<Set<string>>(new Set());
+
+  // Charger la liste des fichiers synchronisés au démarrage
+  useEffect(() => {
+    const stored = localStorage.getItem('syncedFiles');
+    if (stored) {
+      try {
+        const parsedFiles = JSON.parse(stored);
+        setSyncedFiles(new Set(parsedFiles));
+      } catch (e) {
+        console.error('Error loading synced files:', e);
+      }
+    }
+  }, []);
 
   // Requêtes
   const { data: folders = [] } = useQuery({
@@ -275,6 +293,133 @@ export default function CloudStorage() {
       setUploadingFiles(0);
       toast({ 
         title: "Erreur d'upload", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+    }
+  });
+
+  // Mutation pour la synchronisation du bureau
+  const syncDesktopMutation = useMutation({
+    mutationFn: async () => {
+      setIsSyncing(true);
+      setSyncProgress(0);
+      
+      // Créer un input pour sélectionner les fichiers du bureau
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.multiple = true;
+      input.webkitdirectory = true;
+      
+      return new Promise((resolve, reject) => {
+        input.onchange = async (event) => {
+          const files = (event.target as HTMLInputElement).files;
+          if (!files || files.length === 0) {
+            reject(new Error('Aucun fichier sélectionné'));
+            return;
+          }
+          
+          try {
+            // Récupérer la liste des fichiers déjà synchronisés
+            const existingFilesResponse = await fetch('/api/sync/files');
+            const existingFiles = existingFilesResponse.ok ? await existingFilesResponse.json() : [];
+            
+            // Créer une carte des fichiers existants avec nom et taille pour éviter les doublons
+            const existingFileMap = new Map();
+            existingFiles.forEach((f: any) => {
+              const key = `${f.name}_${f.size}`;
+              existingFileMap.set(key, f);
+            });
+            
+            // Filtrer les nouveaux fichiers uniquement (basé sur nom + taille)
+            const newFiles = Array.from(files).filter(file => {
+              const key = `${file.name}_${file.size}`;
+              return !existingFileMap.has(key) && !syncedFiles.has(file.name);
+            });
+            
+            if (newFiles.length === 0) {
+              toast({ title: "Synchronisation terminée", description: "Aucun nouveau fichier à synchroniser" });
+              resolve({ message: 'No new files', filesUploaded: 0 });
+              return;
+            }
+            
+            // Créer le FormData pour l'upload
+            const formData = new FormData();
+            const filePaths: string[] = [];
+            
+            newFiles.forEach((file) => {
+              const relativePath = file.webkitRelativePath || file.name;
+              formData.append('files', file);
+              filePaths.push(relativePath);
+            });
+            
+            filePaths.forEach(path => {
+              formData.append('filePaths', path);
+            });
+            
+            formData.append('folderId', 'sync');
+            formData.append('isSync', 'true');
+            
+            // Upload avec suivi de progression
+            const xhr = new XMLHttpRequest();
+            
+            xhr.upload.addEventListener('progress', (event) => {
+              if (event.lengthComputable) {
+                const progress = Math.round((event.loaded / event.total) * 100);
+                setSyncProgress(progress);
+              }
+            });
+            
+            xhr.addEventListener('load', () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                  const data = JSON.parse(xhr.responseText);
+                  // Marquer les fichiers comme synchronisés
+                  const newSyncedFiles = new Set([...syncedFiles, ...newFiles.map(f => f.name)]);
+                  setSyncedFiles(newSyncedFiles);
+                  localStorage.setItem('syncedFiles', JSON.stringify([...newSyncedFiles]));
+                  resolve(data);
+                } catch (e) {
+                  reject(new Error('Erreur de parsing de la réponse'));
+                }
+              } else {
+                reject(new Error('Échec de la synchronisation'));
+              }
+            });
+            
+            xhr.addEventListener('error', () => {
+              reject(new Error('Erreur réseau lors de la synchronisation'));
+            });
+            
+            xhr.open('POST', '/api/upload-folder');
+            xhr.send(formData);
+            
+          } catch (error) {
+            reject(error);
+          }
+        };
+        
+        input.click();
+      });
+    },
+    onSuccess: (data: any) => {
+      setSyncProgress(100);
+      setIsSyncing(false);
+      queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
+      queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
+      
+      const message = `Synchronisation terminée! ${data.filesUploaded || 0} nouveau(x) fichier(s) synchronisé(s)`;
+      toast({ title: message });
+      
+      setTimeout(() => {
+        setSyncProgress(0);
+      }, 2000);
+    },
+    onError: (error: Error) => {
+      setSyncProgress(0);
+      setIsSyncing(false);
+      toast({ 
+        title: "Erreur de synchronisation", 
         description: error.message, 
         variant: "destructive" 
       });
@@ -536,6 +681,15 @@ export default function CloudStorage() {
                   <FolderPlus className="h-4 w-4" />
                   <span>New Folder</span>
                 </Button>
+                <Button
+                  onClick={() => syncDesktopMutation.mutate()}
+                  variant="default"
+                  className="flex items-center space-x-2"
+                  disabled={isSyncing}
+                >
+                  {isSyncing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Monitor className="h-4 w-4" />}
+                  <span>{isSyncing ? `Synchronisation... ${syncProgress}%` : 'Sync Bureau'}</span>
+                </Button>
               </div>
               
               {/* Barre de progression pour l'upload */}
@@ -545,9 +699,23 @@ export default function CloudStorage() {
                     <span>Upload en cours...</span>
                     <span>{uploadProgress}%</span>
                   </div>
-                  <Progress value={uploadProgress} className="h-2" />
+                  <Progress value={uploadProgress} className="h-1" />
                   <div className="text-xs text-gray-500 mt-1">
                     {totalFiles} fichier(s) à traiter
+                  </div>
+                </div>
+              )}
+              
+              {/* Barre de progression pour la synchronisation */}
+              {isSyncing && (
+                <div className="w-full max-w-md">
+                  <div className="flex justify-between text-sm text-blue-600 mb-1">
+                    <span>Synchronisation bureau...</span>
+                    <span>{syncProgress}%</span>
+                  </div>
+                  <Progress value={syncProgress} className="h-1" />
+                  <div className="text-xs text-blue-500 mt-1">
+                    Analyse des nouveaux fichiers...
                   </div>
                 </div>
               )}
