@@ -568,7 +568,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const userId = req.user!.id;
-      const parentFolderId = req.body.folderId === "null" ? null : req.body.folderId ? parseInt(req.body.folderId) : null;
+      const isSync = req.body.isSync === 'true';
+      let parentFolderId = req.body.folderId === "null" ? null : req.body.folderId ? parseInt(req.body.folderId) : null;
+      
+      // Si c'est une synchronisation, créer ou utiliser le dossier "Bureau Sync"
+      if (isSync) {
+        const existingFolders = await storage.getFoldersByParent(null, userId);
+        let syncFolder = existingFolders.find(f => f.name === 'Bureau Sync');
+        
+        if (!syncFolder) {
+          syncFolder = await storage.createFolder({
+            name: 'Bureau Sync',
+            parentId: null,
+            path: 'Bureau Sync',
+            ownerId: userId,
+            iconType: 'blue',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            isShared: false
+          });
+        }
+        
+        parentFolderId = syncFolder.id;
+      }
+      
       const filePaths = Array.isArray(req.body.filePaths) ? req.body.filePaths : [req.body.filePaths];
       
       let folderStructure = {};
@@ -967,6 +990,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching shared files:', error);
       res.status(500).json({ message: 'Failed to fetch shared files' });
+    }
+  });
+
+  // Get synchronized files for desktop sync
+  app.get('/api/sync/files', requireAuth, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      // Récupérer tous les fichiers de l'utilisateur pour éviter les doublons
+      const userFiles = await storage.getFilesForUser(userId);
+      res.json(userFiles);
+    } catch (error) {
+      console.error('Error fetching sync files:', error);
+      res.status(500).json({ message: 'Failed to fetch sync files' });
     }
   });
   
