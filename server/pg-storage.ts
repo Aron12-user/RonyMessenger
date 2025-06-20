@@ -480,4 +480,70 @@ export class PgStorage implements IStorage {
       throw error;
     }
   }
+
+  async getPaginatedContactsForUser(userId: number, options: PaginationOptions): Promise<PaginatedResult<User>> {
+    try {
+      // Query pour obtenir les IDs des contacts de l'utilisateur avec pagination
+      const contactRelationships = await db.select()
+        .from(contacts)
+        .where(eq(contacts.userId, userId))
+        .orderBy(options.sortOrder === 'desc' ? desc(contacts.createdAt) : asc(contacts.createdAt))
+        .limit(options.pageSize)
+        .offset((options.page - 1) * options.pageSize);
+
+      // Compter le total de contacts
+      const totalResult = await db.select({ count: sql<number>`count(*)` })
+        .from(contacts)
+        .where(eq(contacts.userId, userId));
+      
+      const total = totalResult[0]?.count || 0;
+
+      // Si l'utilisateur n'a pas de contacts, retourner un résultat vide
+      if (contactRelationships.length === 0) {
+        return {
+          data: [],
+          total,
+          page: options.page,
+          pageSize: options.pageSize,
+          totalPages: Math.ceil(total / options.pageSize),
+          hasMore: false
+        };
+      }
+
+      // Extraire les IDs des contacts
+      const contactIds = contactRelationships.map(contact => contact.contactId);
+
+      // Obtenir les utilisateurs correspondants
+      const contactUsers = await db.select()
+        .from(users)
+        .where(sql`${users.id} IN (${contactIds.join(', ')})`);
+
+      return {
+        data: contactUsers,
+        total,
+        page: options.page,
+        pageSize: options.pageSize,
+        totalPages: Math.ceil(total / options.pageSize),
+        hasMore: (options.page * options.pageSize) < total
+      };
+    } catch (error) {
+      console.error('Error in PgStorage.getPaginatedContactsForUser:', error);
+      throw error;
+    }
+  }
+
+  async removeContact(userId: number, contactId: number): Promise<void> {
+    try {
+      await db.delete(contacts)
+        .where(
+          and(
+            eq(contacts.userId, userId),
+            eq(contacts.contactId, contactId)
+          )
+        );
+    } catch (error) {
+      console.error('Error in PgStorage.removeContact:', error);
+      throw error;
+    }
+  }
 }

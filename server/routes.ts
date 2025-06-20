@@ -729,11 +729,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Contacts routes
   app.get('/api/contacts', requireAuth, async (req, res) => {
-    // Utiliser l'ID de l'utilisateur connecté
-    const userId = req.user!.id;
-    
-    const contacts = await storage.getContactsForUser(userId);
-    res.json(contacts);
+    try {
+      const userId = req.user!.id;
+      
+      // Check if pagination is requested
+      const page = parseInt(req.query.page as string) || 1;
+      const pageSize = parseInt(req.query.pageSize as string) || 20;
+      const sortBy = (req.query.sortBy as string) || 'displayName';
+      const sortOrder = (req.query.sortOrder as string) === 'desc' ? 'desc' : 'asc';
+      
+      // If pagination parameters are provided, use paginated contacts
+      if (req.query.page || req.query.pageSize) {
+        if (page < 1 || pageSize < 1 || pageSize > 100) {
+          return res.status(400).json({ 
+            error: 'Invalid pagination parameters. Page and pageSize must be positive, and pageSize cannot exceed 100.' 
+          });
+        }
+        
+        const result = await storage.getPaginatedContactsForUser(userId, { page, pageSize, sortBy, sortOrder });
+        res.json(result);
+      } else {
+        // Return all contacts for backward compatibility
+        const contacts = await storage.getContactsForUser(userId);
+        res.json(contacts);
+      }
+    } catch (error) {
+      console.error('Error fetching contacts:', error);
+      res.status(500).json({ error: 'Failed to fetch contacts' });
+    }
   });
   
   app.post('/api/contacts', requireAuth, async (req, res) => {
@@ -794,6 +817,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error adding contact:', error);
       res.status(500).json({ message: 'Failed to add contact' });
+    }
+  });
+
+  // Delete contact route
+  app.delete('/api/contacts/:contactId', requireAuth, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const contactId = parseInt(req.params.contactId);
+      
+      if (!contactId || isNaN(contactId)) {
+        return res.status(400).json({ message: 'Invalid contact ID' });
+      }
+      
+      // Remove the contact
+      await storage.removeContact(userId, contactId);
+      
+      res.status(200).json({ message: 'Contact removed successfully' });
+    } catch (error) {
+      console.error('Error removing contact:', error);
+      res.status(500).json({ message: 'Failed to remove contact' });
     }
   });
 
