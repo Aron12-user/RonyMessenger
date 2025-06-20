@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import authBackgroundImage from '@assets/5968949_1750430126500.jpg';
 
 export default function AuthPage() {
   const [loginUsername, setLoginUsername] = useState('');
@@ -60,53 +61,61 @@ export default function AuthPage() {
   };
   
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
+    <div 
+      className="min-h-screen flex flex-col md:flex-row"
+      style={{
+        backgroundImage: `url(${authBackgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
       {/* Colonne d'authentification */}
       <div className="w-full md:w-1/2 p-6 flex items-center justify-center">
-        <div className="max-w-md w-full">
+        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-lg p-8 w-full max-w-md">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold">Rony</h1>
             <p className="text-muted-foreground mt-2">Plateforme de communication et collaboration</p>
           </div>
           
-          <Tabs defaultValue="login" value={tab} onValueChange={setTab} className="w-full">
-            <TabsList className="grid grid-cols-2 mb-4">
+          <Tabs value={tab} onValueChange={setTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Connexion</TabsTrigger>
               <TabsTrigger value="register">Inscription</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="login">
+            <TabsContent value="login" className="space-y-4">
               <form onSubmit={handleLogin} className="space-y-4">
-                <div>
-                  <Label htmlFor="loginUsername">Adresse Rony</Label>
-                  <Input 
-                    id="loginUsername" 
-                    type="email" 
+                <div className="space-y-2">
+                  <Label htmlFor="login-username">Adresse Rony</Label>
+                  <Input
+                    id="login-username"
+                    type="text"
+                    placeholder="votre.nom@rony.com"
                     value={loginUsername}
                     onChange={(e) => setLoginUsername(e.target.value)}
-                    placeholder="exemple@rony.com"
-                    required 
+                    required
                   />
                 </div>
                 
-                <div>
-                  <Label htmlFor="loginPassword">Mot de passe</Label>
-                  <Input 
-                    id="loginPassword" 
-                    type="password" 
+                <div className="space-y-2">
+                  <Label htmlFor="login-password">Mot de passe</Label>
+                  <Input
+                    id="login-password"
+                    type="password"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
-                    required 
+                    required
                   />
                 </div>
                 
                 <div className="flex items-center space-x-2">
                   <Checkbox 
-                    id="remember" 
+                    id="remember-me"
                     checked={rememberMe}
-                    onCheckedChange={(checked) => setRememberMe(!!checked)}
+                    onCheckedChange={(checked) => setRememberMe(checked as boolean)}
                   />
-                  <Label htmlFor="remember" className="text-sm font-normal">Se souvenir de moi</Label>
+                  <Label htmlFor="remember-me" className="text-sm">Se souvenir de moi</Label>
                 </div>
                 
                 <Button 
@@ -119,51 +128,53 @@ export default function AuthPage() {
               </form>
             </TabsContent>
             
-            <TabsContent value="register">
+            <TabsContent value="register" className="space-y-4">
               <form onSubmit={handleRegister} className="space-y-4">
-                <div>
-                  <Label htmlFor="registerUsername">Adresse Rony</Label>
-                  <Input 
-                    id="registerUsername" 
-                    type="email" 
+                <div className="space-y-2">
+                  <Label htmlFor="register-username">Adresse Rony</Label>
+                  <Input
+                    id="register-username"
+                    type="text"
+                    placeholder="votre.nom@rony.com"
                     value={registerUsername}
                     onChange={(e) => setRegisterUsername(e.target.value)}
-                    placeholder="votrenom@rony.com"
-                    required 
+                    required
                   />
-                  <p className="text-xs text-gray-500 mt-1">Doit se terminer par @rony.com</p>
+                  <p className="text-xs text-muted-foreground">
+                    Votre adresse Rony doit se terminer par @rony.com
+                  </p>
                 </div>
                 
-                <div>
-                  <Label htmlFor="registerDisplayName">Nom à afficher</Label>
-                  <Input 
-                    id="registerDisplayName" 
-                    type="text" 
+                <div className="space-y-2">
+                  <Label htmlFor="register-display-name">Nom d'affichage (optionnel)</Label>
+                  <Input
+                    id="register-display-name"
+                    type="text"
+                    placeholder="Votre nom complet"
                     value={registerDisplayName}
                     onChange={(e) => setRegisterDisplayName(e.target.value)}
-                    placeholder="Optionnel"
                   />
                 </div>
                 
-                <div>
-                  <Label htmlFor="registerPassword">Mot de passe</Label>
-                  <Input 
-                    id="registerPassword" 
-                    type="password" 
+                <div className="space-y-2">
+                  <Label htmlFor="register-password">Mot de passe</Label>
+                  <Input
+                    id="register-password"
+                    type="password"
                     value={registerPassword}
                     onChange={(e) => setRegisterPassword(e.target.value)}
-                    required 
+                    required
                   />
                 </div>
                 
-                <div>
-                  <Label htmlFor="registerConfirmPassword">Confirmer le mot de passe</Label>
-                  <Input 
-                    id="registerConfirmPassword" 
-                    type="password" 
+                <div className="space-y-2">
+                  <Label htmlFor="register-confirm-password">Confirmer le mot de passe</Label>
+                  <Input
+                    id="register-confirm-password"
+                    type="password"
                     value={registerConfirmPassword}
                     onChange={(e) => setRegisterConfirmPassword(e.target.value)}
-                    required 
+                    required
                   />
                 </div>
                 
