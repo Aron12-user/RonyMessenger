@@ -248,7 +248,7 @@ export default function ModernSidebar({
           <div className="p-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="w-full flex items-center space-x-3 p-3 rounded-xl hover:bg-white/5 transition-colors">
+                <button className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-3 rounded-xl hover:bg-white/5 transition-colors`}>
                   <Avatar className="w-10 h-10">
                     <AvatarImage src={user?.avatar || undefined} />
                     <AvatarFallback 
@@ -258,14 +258,16 @@ export default function ModernSidebar({
                       {user?.displayName ? getInitials(user.displayName) : user?.username?.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 text-left">
-                    <div className="font-medium" style={{ color: 'var(--color-text)' }}>
-                      {user?.displayName || user?.username}
+                  {!isCollapsed && (
+                    <div className="flex-1 text-left">
+                      <div className="font-medium" style={{ color: 'var(--color-text)' }}>
+                        {user?.displayName || user?.username}
+                      </div>
+                      <div className="text-sm" style={{ color: 'var(--color-textMuted)' }}>
+                        {user?.email}
+                      </div>
                     </div>
-                    <div className="text-sm" style={{ color: 'var(--color-textMuted)' }}>
-                      {user?.email}
-                    </div>
-                  </div>
+                  )}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent 
