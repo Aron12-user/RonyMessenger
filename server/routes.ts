@@ -557,6 +557,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Upload folder with structure
+  app.post('/api/upload-folder', requireAuth, upload.array('files', 100), async (req, res) => {
+    try {
+      if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+        return res.status(400).json({ message: 'No files uploaded' });
+      }
+      
+      const userId = req.user!.id;
+      const parentFolderId = req.body.folderId === "null" ? null : req.body.folderId ? parseInt(req.body.folderId) : null;
+      const filePaths = req.body.filePaths;
+      const folderStructure = JSON.parse(req.body.folderStructure || '{}');
+      
+      const createdFolders: { [key: string]: number } = {};
+      const uploadedFiles = [];
+      
+      // Créer d'abord tous les dossiers nécessaires
+      const folderPaths = Object.keys(folderStructure).filter(path => path !== '').sort();
+      
+      for (const folderPath of folderPaths) {
+        const pathParts = folderPath.split('/');
+        let currentParentId = parentFolderId;
+        let currentPath = '';
+        
+        for (let i = 0; i < pathParts.length; i++) {
+          const folderName = pathParts[i];
+          currentPath = currentPath ? `${currentPath}/${folderName}` : folderName;
+          
+          if (!createdFolders[currentPath]) {
+            // Vérifier si le dossier existe déjà
+            const existingFolders = await storage.getFoldersByParent(currentParentId, userId);
+            const existingFolder = existingFolders.find(f => f.name === folderName);
+            
+            if (existingFolder) {
+              createdFolders[currentPath] = existingFolder.id;
+              currentParentId = existingFolder.id;
+            } else {
+              // Créer le nouveau dossier
+              const newFolder = await storage.createFolder({
+                name: folderName,
+                parentId: currentParentId,
+                path: currentPath,
+                ownerId: userId,
+                iconType: 'orange',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                isShared: false
+              });
+              
+              createdFolders[currentPath] = newFolder.id;
+              currentParentId = newFolder.id;
+            }
+          } else {
+            currentParentId = createdFolders[currentPath];
+          }
+        }
+      }
+      
+      // Maintenant, uploader tous les fichiers dans les bons dossiers
+      for (let i = 0; i < req.files.length; i++) {
+        const file = req.files[i];
+        const relativePath = Array.isArray(filePaths) ? filePaths[i] : filePaths;
+        const pathParts = relativePath.split('/');
+        const fileName = pathParts[pathParts.length - 1];
+        const folderPath = pathParts.slice(0, -1).join('/');
+        
+        let targetFolderId = parentFolderId;
+        if (folderPath && createdFolders[folderPath]) {
+          targetFolderId = createdFolders[folderPath];
+        }
+        
+        const { originalname, path: filepath, mimetype, size } = file;
+        const serverUrl = `http://${req.headers.host}`;
+        const fileUrl = `${serverUrl}/uploads/${path.basename(filepath)}`;
+        
+        const savedFile = await storage.createFile({
+          name: originalname,
+          type: mimetype,
+          size: size,
+          url: fileUrl,
+          uploaderId: userId,
+          folderId: targetFolderId,
+          uploadedAt: new Date(),
+          updatedAt: new Date(),
+          isShared: false,
+          expiresAt: null,
+          sharedWithId: null,
+          shareLink: null,
+          shareLinkExpiry: null,
+          isPublic: false
+        });
+        
+        uploadedFiles.push(savedFile);
+      }
+      
+      res.status(201).json({ 
+        message: 'Folder uploaded successfully',
+        foldersCreated: Object.keys(createdFolders).length,
+        filesUploaded: uploadedFiles.length,
+        folders: createdFolders,
+        files: uploadedFiles
+      });
+    } catch (error) {
+      console.error('Error uploading folder:', error);
+      res.status(500).json({ message: 'Failed to upload folder' });
+    }
+  });
+
   // Upload single file (legacy support)
   app.post('/api/files/upload', requireAuth, upload.single('file'), async (req, res) => {
     try {
