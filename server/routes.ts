@@ -560,22 +560,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Upload folder with structure
   app.post('/api/upload-folder', requireAuth, upload.array('files', 100), async (req, res) => {
     try {
+      console.log('Folder upload request received');
+      
       if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+        console.error('No files in upload request');
         return res.status(400).json({ message: 'No files uploaded' });
       }
       
       const userId = req.user!.id;
       const parentFolderId = req.body.folderId === "null" ? null : req.body.folderId ? parseInt(req.body.folderId) : null;
-      const filePaths = req.body.filePaths;
-      const folderStructure = JSON.parse(req.body.folderStructure || '{}');
+      const filePaths = Array.isArray(req.body.filePaths) ? req.body.filePaths : [req.body.filePaths];
+      
+      let folderStructure = {};
+      try {
+        folderStructure = JSON.parse(req.body.folderStructure || '{}');
+      } catch (e) {
+        console.error('Error parsing folder structure:', e);
+        folderStructure = {};
+      }
+      
+      console.log('Upload params:', {
+        filesCount: req.files.length,
+        parentFolderId,
+        filePathsCount: filePaths.length,
+        folderStructure
+      });
       
       const createdFolders: { [key: string]: number } = {};
       const uploadedFiles = [];
       
-      // Créer d'abord tous les dossiers nécessaires
-      const folderPaths = Object.keys(folderStructure).filter(path => path !== '').sort();
+      // Créer tous les dossiers nécessaires d'abord
+      const uniqueFolderPaths = new Set<string>();
       
-      for (const folderPath of folderPaths) {
+      // Extraire tous les chemins de dossiers uniques
+      filePaths.forEach((filePath: string) => {
+        if (filePath && filePath.includes('/')) {
+          const pathParts = filePath.split('/');
+          // Construire tous les chemins intermédiaires
+          for (let i = 1; i < pathParts.length; i++) {
+            const folderPath = pathParts.slice(0, i).join('/');
+            if (folderPath) {
+              uniqueFolderPaths.add(folderPath);
+            }
+          }
+        }
+      });
+      
+      // Trier les chemins pour créer les parents avant les enfants
+      const sortedFolderPaths = Array.from(uniqueFolderPaths).sort();
+      console.log('Folders to create:', sortedFolderPaths);
+      
+      // Créer chaque dossier
+      for (const folderPath of sortedFolderPaths) {
         const pathParts = folderPath.split('/');
         let currentParentId = parentFolderId;
         let currentPath = '';
@@ -585,28 +621,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currentPath = currentPath ? `${currentPath}/${folderName}` : folderName;
           
           if (!createdFolders[currentPath]) {
-            // Vérifier si le dossier existe déjà
-            const existingFolders = await storage.getFoldersByParent(currentParentId, userId);
-            const existingFolder = existingFolders.find(f => f.name === folderName);
-            
-            if (existingFolder) {
-              createdFolders[currentPath] = existingFolder.id;
-              currentParentId = existingFolder.id;
-            } else {
-              // Créer le nouveau dossier
-              const newFolder = await storage.createFolder({
-                name: folderName,
-                parentId: currentParentId,
-                path: currentPath,
-                ownerId: userId,
-                iconType: 'orange',
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                isShared: false
-              });
+            try {
+              // Vérifier si le dossier existe déjà
+              const existingFolders = await storage.getFoldersByParent(currentParentId, userId);
+              const existingFolder = existingFolders.find(f => f.name === folderName);
               
-              createdFolders[currentPath] = newFolder.id;
-              currentParentId = newFolder.id;
+              if (existingFolder) {
+                console.log(`Using existing folder: ${folderName} (ID: ${existingFolder.id})`);
+                createdFolders[currentPath] = existingFolder.id;
+                currentParentId = existingFolder.id;
+              } else {
+                // Créer le nouveau dossier
+                console.log(`Creating new folder: ${folderName} in parent: ${currentParentId}`);
+                const newFolder = await storage.createFolder({
+                  name: folderName,
+                  parentId: currentParentId,
+                  path: currentPath,
+                  ownerId: userId,
+                  iconType: 'orange',
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                  isShared: false
+                });
+                
+                console.log(`Created folder: ${folderName} (ID: ${newFolder.id})`);
+                createdFolders[currentPath] = newFolder.id;
+                currentParentId = newFolder.id;
+              }
+            } catch (folderError) {
+              console.error(`Error creating folder ${folderName}:`, folderError);
+              throw folderError;
             }
           } else {
             currentParentId = createdFolders[currentPath];
@@ -614,53 +658,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Maintenant, uploader tous les fichiers dans les bons dossiers
+      // Maintenant uploader tous les fichiers
       for (let i = 0; i < req.files.length; i++) {
-        const file = req.files[i];
-        const relativePath = Array.isArray(filePaths) ? filePaths[i] : filePaths;
-        const pathParts = relativePath.split('/');
-        const fileName = pathParts[pathParts.length - 1];
-        const folderPath = pathParts.slice(0, -1).join('/');
+        const file = req.files[i] as Express.Multer.File;
+        const relativePath: string = filePaths[i] || file.originalname;
         
+        console.log(`Processing file ${i + 1}/${req.files.length}: ${relativePath}`);
+        
+        // Déterminer le dossier de destination
         let targetFolderId = parentFolderId;
-        if (folderPath && createdFolders[folderPath]) {
-          targetFolderId = createdFolders[folderPath];
+        if (relativePath.includes('/')) {
+          const pathParts: string[] = relativePath.split('/');
+          const folderPath = pathParts.slice(0, -1).join('/');
+          if (folderPath && createdFolders[folderPath]) {
+            targetFolderId = createdFolders[folderPath];
+          }
         }
         
-        const { originalname, path: filepath, mimetype, size } = file;
-        const serverUrl = `http://${req.headers.host}`;
-        const fileUrl = `${serverUrl}/uploads/${path.basename(filepath)}`;
-        
-        const savedFile = await storage.createFile({
-          name: originalname,
-          type: mimetype,
-          size: size,
-          url: fileUrl,
-          uploaderId: userId,
-          folderId: targetFolderId,
-          uploadedAt: new Date(),
-          updatedAt: new Date(),
-          isShared: false,
-          expiresAt: null,
-          sharedWithId: null,
-          shareLink: null,
-          shareLinkExpiry: null,
-          isPublic: false
-        });
-        
-        uploadedFiles.push(savedFile);
+        try {
+          const { originalname, path: filepath, mimetype, size } = file;
+          const serverUrl = `http://${req.headers.host}`;
+          const fileUrl = `${serverUrl}/uploads/${path.basename(filepath)}`;
+          
+          const savedFile = await storage.createFile({
+            name: originalname,
+            type: mimetype,
+            size: size,
+            url: fileUrl,
+            uploaderId: userId,
+            folderId: targetFolderId,
+            uploadedAt: new Date(),
+            updatedAt: new Date(),
+            isShared: false,
+            expiresAt: null,
+            sharedWithId: null,
+            shareLink: null,
+            shareLinkExpiry: null,
+            isPublic: false
+          });
+          
+          console.log(`File saved: ${originalname} in folder: ${targetFolderId}`);
+          uploadedFiles.push(savedFile);
+        } catch (fileError) {
+          console.error(`Error saving file ${relativePath}:`, fileError);
+          throw fileError;
+        }
       }
       
-      res.status(201).json({ 
+      const result = {
         message: 'Folder uploaded successfully',
         foldersCreated: Object.keys(createdFolders).length,
         filesUploaded: uploadedFiles.length,
         folders: createdFolders,
         files: uploadedFiles
-      });
+      };
+      
+      console.log('Upload completed successfully:', result);
+      res.status(201).json(result);
+      
     } catch (error) {
       console.error('Error uploading folder:', error);
-      res.status(500).json({ message: 'Failed to upload folder' });
+      res.status(500).json({ 
+        message: 'Failed to upload folder',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
