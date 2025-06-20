@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { 
   Upload, 
   FolderPlus, 
@@ -23,7 +24,8 @@ import {
   Video,
   Music,
   FileText,
-  Archive
+  Archive,
+  Edit
 } from "lucide-react";
 
 // Import des icônes personnalisées
@@ -276,13 +278,20 @@ export default function CloudStorage() {
   // Handlers
   const handleFolderClick = (folder: Folder) => {
     setCurrentFolderId(folder.id);
-    setFolderStack([...folderStack, folder]);
+    setCurrentPath([...currentPath, { id: folder.id, name: folder.name }]);
   };
 
   const handleBreadcrumbClick = (index: number) => {
-    const newStack = folderStack.slice(0, index + 1);
-    setFolderStack(newStack);
-    setCurrentFolderId(index === 0 ? null : newStack[newStack.length - 1].id);
+    if (index === -1) {
+      // Retour à la racine
+      setCurrentFolderId(null);
+      setCurrentPath([]);
+    } else {
+      // Navigation vers un dossier parent
+      const newPath = currentPath.slice(0, index + 1);
+      setCurrentPath(newPath);
+      setCurrentFolderId(newPath.length > 0 ? newPath[newPath.length - 1].id : null);
+    }
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -455,43 +464,57 @@ export default function CloudStorage() {
                             {formatDate(folder.updatedAt)}
                           </p>
                         </div>
-                        <div className="flex space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRenameItem(folder.id, folder.name, true);
-                            }}
-                            title="Renommer"
-                          >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleShareItem(folder.id, folder.name, true);
-                            }}
-                            title="Partager"
-                          >
-                            <Share className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteItem(folder.id, folder.name, true);
-                            }}
-                            title="Supprimer"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-8 w-8 p-0"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUpdateFolderIcon(folder.id);
+                              }}
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Changer l'icône
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRenameItem(folder.id, folder.name, true);
+                              }}
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Renommer
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleShareItem(folder.id, folder.name, true);
+                              }}
+                            >
+                              <Share className="mr-2 h-4 w-4" />
+                              Partager
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteItem(folder.id, folder.name, true);
+                              }}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Supprimer
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   ))}
@@ -519,34 +542,44 @@ export default function CloudStorage() {
                       <div className="p-3">
                         <div className="flex justify-between items-start">
                           <h4 className="font-medium truncate flex-1">{file.name}</h4>
-                          <div className="flex space-x-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRenameItem(file.id, file.name, false)}
-                              title="Renommer"
-                            >
-                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleShareItem(file.id, file.name, false)}
-                              title="Partager"
-                            >
-                              <Share className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteItem(file.id, file.name, false)}
-                              title="Supprimer"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => handleRenameItem(file.id, file.name, false)}
+                              >
+                                <Edit className="mr-2 h-4 w-4" />
+                                Renommer
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleShareItem(file.id, file.name, false)}
+                              >
+                                <Share className="mr-2 h-4 w-4" />
+                                Partager
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Download className="mr-2 h-4 w-4" />
+                                <a href={file.url} download={file.name} className="flex-1">
+                                  Télécharger
+                                </a>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleDeleteItem(file.id, file.name, false)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Supprimer
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                         <p className="text-sm text-gray-500 mt-1">
                           {formatFileSize(file.size)} • {formatDate(file.uploadedAt)}
