@@ -981,12 +981,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get shared files
+  // Get shared files with owner information
   app.get('/api/files/shared', requireAuth, async (req, res) => {
     try {
       const userId = req.user!.id;
       const sharedFiles = await storage.getSharedFiles(userId);
-      res.json(sharedFiles);
+      
+      // Enrichir avec les informations du propriétaire
+      const enrichedFiles = await Promise.all(
+        sharedFiles.map(async (file) => {
+          const owner = await storage.getUser(file.uploaderId);
+          return {
+            ...file,
+            sharedBy: owner ? {
+              id: owner.id,
+              username: owner.username,
+              displayName: owner.displayName || owner.username
+            } : null
+          };
+        })
+      );
+      
+      res.json(enrichedFiles);
     } catch (error) {
       console.error('Error fetching shared files:', error);
       res.status(500).json({ message: 'Failed to fetch shared files' });

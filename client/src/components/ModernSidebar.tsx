@@ -15,7 +15,8 @@ import {
   Palette,
   ChevronLeft,
   ChevronRight,
-  Menu
+  Menu,
+  Mail
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -55,6 +56,7 @@ export default function ModernSidebar({
     { id: "assistant", label: "Assistant IA", icon: Bot },
     { id: "meetings", label: "Réunions", icon: Video },
     { id: "files", label: "Cloud", icon: FolderOpen },
+    { id: "mail", label: "Courrier", icon: Mail },
     { id: "contacts", label: "Contacts", icon: Users },
   ];
 

@@ -101,6 +101,60 @@ export class SimpleStorage implements IStorage {
       };
       this.users.set(user.id, user);
     });
+
+    // Créer des fichiers de démonstration partagés
+    this.createDemoSharedFiles();
+  }
+
+  private createDemoSharedFiles() {
+    // Créer quelques fichiers partagés pour la démonstration
+    const demoFiles = [
+      {
+        name: 'Rapport_Projet_Q4.pdf',
+        type: 'application/pdf',
+        size: 2457600,
+        url: 'http://localhost:5000/uploads/demo-rapport.pdf',
+        uploaderId: 1, // admin
+        sharedWithId: 4 // Sera partagé avec les nouveaux utilisateurs
+      },
+      {
+        name: 'Presentation_Marketing.pptx',
+        type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        size: 5242880,
+        url: 'http://localhost:5000/uploads/demo-presentation.pptx',
+        uploaderId: 2, // john
+        sharedWithId: 4
+      },
+      {
+        name: 'Budget_2025.xlsx',
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        size: 1048576,
+        url: 'http://localhost:5000/uploads/demo-budget.xlsx',
+        uploaderId: 3, // sarah
+        sharedWithId: 4
+      }
+    ];
+
+    demoFiles.forEach(fileData => {
+      const file: File = {
+        id: this.fileId++,
+        name: fileData.name,
+        type: fileData.type,
+        size: fileData.size,
+        url: fileData.url,
+        uploaderId: fileData.uploaderId,
+        folderId: null,
+        uploadedAt: new Date(),
+        updatedAt: new Date(),
+        isShared: true,
+        sharedWithId: fileData.sharedWithId,
+        expiresAt: null,
+        shareLink: null,
+        shareLinkExpiry: null,
+        isPublic: false
+      };
+      this.files.set(file.id, file);
+    });
   }
 
   async getUser(id: number): Promise<User | undefined> {
