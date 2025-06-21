@@ -91,6 +91,10 @@ interface EmailItem {
 }
 
 export default function MailPage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
   const [selectedEmail, setSelectedEmail] = useState<EmailItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'files' | 'folders' | 'documents' | 'media'>('all');
@@ -99,9 +103,6 @@ export default function MailPage() {
   const [emailStates, setEmailStates] = useState<Map<number, Partial<EmailItem>>>(new Map());
   const [realtimeEmails, setRealtimeEmails] = useState<EmailItem[]>([]);
   const [persistentEmails, setPersistentEmails] = useState<EmailItem[]>([]);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   const { data: sharedData, isLoading, refetch } = useQuery<{files: SharedFile[], folders: SharedFolder[]}>({
     queryKey: ['/api/files/shared'],
@@ -126,9 +127,10 @@ export default function MailPage() {
         if (data.type === 'courrier_message' && data.data.recipientId === user.id) {
           const messageData = data.data;
           
-          // Créer un nouvel email à partir du message reçu
+          const uniqueId = Date.now() + Math.floor(Math.random() * 1000000);
+          
           const newEmail: EmailItem = {
-            id: messageData.id,
+            id: uniqueId,
             sender: messageData.sender,
             senderEmail: messageData.senderEmail,
             subject: messageData.subject,
@@ -142,7 +144,7 @@ export default function MailPage() {
             isArchived: false,
             isDeleted: false,
             priority: 'high',
-            category: messageData.type === 'folder' ? 'folders' : getFileCategory(messageData.fileType || 'file'),
+            category: messageData.type === 'folder' ? 'folders' : 'files',
             attachment: messageData.type === 'file' ? {
               id: messageData.fileId,
               name: messageData.fileName,
@@ -172,25 +174,32 @@ export default function MailPage() {
             } : undefined
           };
 
-          // Ajouter le nouvel email de manière persistante
           setPersistentEmails(prev => {
-            // Vérifier si l'email existe déjà pour éviter les doublons
-            const exists = prev.some(email => email.id === newEmail.id);
+            const exists = prev.some(email => 
+              email.sender === newEmail.sender && 
+              email.subject === newEmail.subject &&
+              Math.abs(new Date(email.date).getTime() - new Date(newEmail.date).getTime()) < 5000
+            );
+            
             if (exists) return prev;
             
-            // Sauvegarder dans localStorage pour persistance
             const updatedEmails = [newEmail, ...prev];
-            localStorage.setItem(`courrier_${user.id}`, JSON.stringify(updatedEmails));
+            
+            try {
+              localStorage.setItem(`courrier_${user.id}`, JSON.stringify(updatedEmails));
+              console.log(`Email ajouté. Total: ${updatedEmails.length} emails`);
+            } catch (error) {
+              console.error('Erreur lors de la sauvegarde:', error);
+            }
+            
             return updatedEmails;
           });
           
-          // Afficher une notification
           toast({
             title: "Nouveau message reçu",
             description: `${messageData.sender} vous a envoyé ${messageData.type === 'folder' ? 'un dossier' : 'un fichier'}`,
           });
           
-          // Actualiser la liste des fichiers partagés
           queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
         }
       } catch (error) {
@@ -213,9 +222,69 @@ export default function MailPage() {
       try {
         const emails = JSON.parse(savedEmails);
         setPersistentEmails(emails);
+        console.log(`${emails.length} emails chargés depuis localStorage`);
       } catch (error) {
         console.error('Erreur lors du chargement des emails:', error);
       }
+    } else {
+      // Initialiser avec quelques emails de démonstration si aucun email n'existe
+      const demoEmails: EmailItem[] = [
+        {
+          id: Date.now() + 1,
+          sender: 'Marie Dupont',
+          senderEmail: 'marie.dupont@example.com',
+          subject: 'Document partagé: Rapport mensuel',
+          preview: 'Marie Dupont vous a envoyé un fichier. Voici le rapport mensuel que vous aviez demandé...',
+          content: 'Bonjour, Voici le rapport mensuel que vous aviez demandé. Merci de me confirmer sa réception.',
+          date: new Date().toLocaleDateString('fr-FR'),
+          time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+          hasAttachment: true,
+          isRead: false,
+          isStarred: false,
+          isArchived: false,
+          isDeleted: false,
+          priority: 'high',
+          category: 'documents'
+        },
+        {
+          id: Date.now() + 2,
+          sender: 'Jean Martin',
+          senderEmail: 'jean.martin@example.com',
+          subject: 'Photos de vacances',
+          preview: 'Jean Martin vous a envoyé un dossier. Voici les photos de nos dernières vacances...',
+          content: 'Salut ! Voici les photos de nos dernières vacances. J\'espère qu\'elles te plairont !',
+          date: new Date(Date.now() - 86400000).toLocaleDateString('fr-FR'),
+          time: new Date(Date.now() - 86400000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+          hasAttachment: true,
+          isRead: true,
+          isStarred: true,
+          isArchived: false,
+          isDeleted: false,
+          priority: 'medium',
+          category: 'media'
+        },
+        {
+          id: Date.now() + 3,
+          sender: 'Sophie Bernard',
+          senderEmail: 'sophie.bernard@example.com',
+          subject: 'Présentation projet',
+          preview: 'Sophie Bernard vous a envoyé un fichier. La présentation pour la réunion de demain...',
+          content: 'Voici la présentation pour la réunion de demain. Pouvez-vous la relire avant ?',
+          date: new Date(Date.now() - 172800000).toLocaleDateString('fr-FR'),
+          time: new Date(Date.now() - 172800000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+          hasAttachment: true,
+          isRead: false,
+          isStarred: false,
+          isArchived: false,
+          isDeleted: false,
+          priority: 'high',
+          category: 'documents'
+        }
+      ];
+      
+      setPersistentEmails(demoEmails);
+      localStorage.setItem(`courrier_${user.id}`, JSON.stringify(demoEmails));
+      console.log('Emails de démonstration initialisés');
     }
     
     // Charger les états des emails
