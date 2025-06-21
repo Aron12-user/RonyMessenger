@@ -36,9 +36,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface SharedFile {
   id: number;
@@ -96,8 +97,10 @@ export default function MailPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'reading'>('list');
   const [emailStates, setEmailStates] = useState<Map<number, Partial<EmailItem>>>(new Map());
+  const [realtimeEmails, setRealtimeEmails] = useState<EmailItem[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: sharedData, isLoading, refetch } = useQuery<{files: SharedFile[], folders: SharedFolder[]}>({
     queryKey: ['/api/files/shared'],
@@ -106,6 +109,89 @@ export default function MailPage() {
 
   const sharedFiles = sharedData?.files || [];
   const sharedFolders = sharedData?.folders || [];
+
+  // Écouter les messages en temps réel via WebSocket
+  useEffect(() => {
+    if (!user) return;
+
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const socket = new WebSocket(wsUrl);
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'courrier_message' && data.data.recipientId === user.id) {
+          const messageData = data.data;
+          
+          // Créer un nouvel email à partir du message reçu
+          const newEmail: EmailItem = {
+            id: messageData.id,
+            sender: messageData.sender,
+            senderEmail: messageData.senderEmail,
+            subject: messageData.subject,
+            preview: `${messageData.sender} vous a envoyé ${messageData.type === 'folder' ? 'un dossier' : 'un fichier'}. ${messageData.message.substring(0, 100)}...`,
+            content: messageData.message,
+            date: new Date(messageData.timestamp).toLocaleDateString('fr-FR'),
+            time: new Date(messageData.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+            hasAttachment: true,
+            isRead: false,
+            isStarred: false,
+            isArchived: false,
+            isDeleted: false,
+            priority: 'high',
+            category: messageData.type === 'folder' ? 'folders' : getFileCategory(messageData.fileType || 'file'),
+            attachment: messageData.type === 'file' ? {
+              id: messageData.fileId,
+              name: messageData.fileName,
+              type: messageData.fileType,
+              size: messageData.fileSize,
+              url: messageData.fileUrl,
+              uploaderId: 0,
+              uploadedAt: messageData.timestamp,
+              sharedBy: {
+                id: 0,
+                username: messageData.senderEmail,
+                displayName: messageData.sender
+              }
+            } : undefined,
+            folder: messageData.type === 'folder' ? {
+              id: messageData.folderId,
+              name: messageData.folderName,
+              fileCount: messageData.fileCount,
+              totalSize: messageData.totalSize,
+              uploaderId: 0,
+              uploadedAt: messageData.timestamp,
+              sharedBy: {
+                id: 0,
+                username: messageData.senderEmail,
+                displayName: messageData.sender
+              }
+            } : undefined
+          };
+
+          // Ajouter le nouvel email en temps réel
+          setRealtimeEmails(prev => [newEmail, ...prev]);
+          
+          // Afficher une notification
+          toast({
+            title: "Nouveau message reçu",
+            description: `${messageData.sender} vous a envoyé ${messageData.type === 'folder' ? 'un dossier' : 'un fichier'}`,
+          });
+          
+          // Actualiser la liste des fichiers partagés
+          queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
+        }
+      } catch (error) {
+        console.error('Erreur lors du traitement du message WebSocket:', error);
+      }
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, [user, toast, queryClient]);
 
   // Fonctions utilitaires
   const formatFileSize = (bytes: number) => {
@@ -229,7 +315,7 @@ Bien cordialement,`;
     };
   });
 
-  const allEmails = [...fileEmails, ...folderEmails]
+  const allEmails = [...realtimeEmails, ...fileEmails, ...folderEmails]
     .filter(email => !email.isDeleted)
     .sort((a, b) => new Date(b.date + ' ' + b.time).getTime() - new Date(a.date + ' ' + a.time).getTime());
 

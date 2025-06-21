@@ -980,6 +980,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to share files' });
     }
   });
+
+  // Share single file with custom message (new advanced sharing)
+  app.post('/api/files/share-message', requireAuth, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { fileId, recipientEmail, permission, subject, message } = req.body;
+      
+      if (!fileId) {
+        return res.status(400).json({ message: 'File ID is required' });
+      }
+      
+      if (!recipientEmail) {
+        return res.status(400).json({ message: 'Recipient email is required' });
+      }
+      
+      // Find recipient user by email/username
+      const users = await storage.getAllUsers();
+      const recipientUser = users.find(u => 
+        u.username === recipientEmail || 
+        u.email === recipientEmail || 
+        u.displayName === recipientEmail
+      );
+      
+      if (!recipientUser) {
+        return res.status(404).json({ message: 'Adresse Rony introuvable' });
+      }
+      
+      // Check if file exists and belongs to current user
+      const file = await storage.getFileById(fileId);
+      if (!file || file.uploaderId !== userId) {
+        return res.status(404).json({ message: 'File not found or not owned by you' });
+      }
+      
+      // Share file
+      const sharingData: InsertFileSharing = {
+        fileId,
+        ownerId: userId,
+        sharedWithId: recipientUser.id,
+        permission: permission || 'read',
+        createdAt: new Date()
+      };
+      
+      const sharing = await storage.shareFile(sharingData);
+      
+      // Update file to mark as shared
+      await storage.updateFile(fileId, { isShared: true, sharedWithId: recipientUser.id });
+      
+      // Broadcast real-time notification to recipient
+      const senderUser = await storage.getUser(userId);
+      broadcastToAll({
+        type: 'courrier_message',
+        data: {
+          id: Date.now(),
+          type: 'file',
+          fileId,
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          fileUrl: file.url,
+          sender: senderUser?.displayName || senderUser?.username || 'Utilisateur',
+          senderEmail: senderUser?.username || senderUser?.email,
+          recipientId: recipientUser.id,
+          subject: subject || `Partage de fichier : ${file.name}`,
+          message: message || `Nouveau fichier partagé : ${file.name}`,
+          timestamp: new Date().toISOString()
+        }
+      });
+      
+      res.json({ success: true, sharing });
+    } catch (error) {
+      console.error('Error sharing file with message:', error);
+      res.status(500).json({ message: 'Failed to share file with message' });
+    }
+  });
+
+  // Share folder with custom message
+  app.post('/api/folders/share-message', requireAuth, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { folderId, recipientEmail, permission, subject, message } = req.body;
+      
+      if (!folderId) {
+        return res.status(400).json({ message: 'Folder ID is required' });
+      }
+      
+      if (!recipientEmail) {
+        return res.status(400).json({ message: 'Recipient email is required' });
+      }
+      
+      // Find recipient user by email/username
+      const users = await storage.getAllUsers();
+      const recipientUser = users.find(u => 
+        u.username === recipientEmail || 
+        u.email === recipientEmail || 
+        u.displayName === recipientEmail
+      );
+      
+      if (!recipientUser) {
+        return res.status(404).json({ message: 'Adresse Rony introuvable' });
+      }
+      
+      // Check if folder exists and belongs to current user
+      const folder = await storage.getFolderById(folderId);
+      if (!folder || folder.ownerId !== userId) {
+        return res.status(404).json({ message: 'Folder not found or not owned by you' });
+      }
+      
+      // Get folder files for notification
+      const folderFiles = await storage.getFilesByFolder(folderId);
+      const totalSize = folderFiles.reduce((sum, file) => sum + file.size, 0);
+      
+      // Broadcast real-time notification to recipient
+      const senderUser = await storage.getUser(userId);
+      broadcastToAll({
+        type: 'courrier_message',
+        data: {
+          id: Date.now(),
+          type: 'folder',
+          folderId,
+          folderName: folder.name,
+          fileCount: folderFiles.length,
+          totalSize,
+          sender: senderUser?.displayName || senderUser?.username || 'Utilisateur',
+          senderEmail: senderUser?.username || senderUser?.email,
+          recipientId: recipientUser.id,
+          subject: subject || `Partage de dossier : ${folder.name}`,
+          message: message || `Nouveau dossier partagé : ${folder.name}`,
+          timestamp: new Date().toISOString()
+        }
+      });
+      
+      res.json({ success: true, folder });
+    } catch (error) {
+      console.error('Error sharing folder with message:', error);
+      res.status(500).json({ message: 'Failed to share folder with message' });
+    }
+  });
   
   // Get shared files and folders with owner information
   app.get('/api/files/shared', requireAuth, async (req, res) => {

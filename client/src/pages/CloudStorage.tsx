@@ -96,6 +96,8 @@ export default function CloudStorage() {
   const [itemToShare, setItemToShare] = useState<{ id: number; name: string; isFolder: boolean } | null>(null);
   const [sharePermission, setSharePermission] = useState<"read" | "write" | "admin">("read");
   const [shareEmail, setShareEmail] = useState("");
+  const [shareSubject, setShareSubject] = useState("");
+  const [shareMessage, setShareMessage] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadingFiles, setUploadingFiles] = useState(0);
   const [totalFiles, setTotalFiles] = useState(0);
@@ -447,31 +449,46 @@ export default function CloudStorage() {
   });
 
   const shareMutation = useMutation({
-    mutationFn: async ({ fileId, email, permission }: { fileId: number; email: string; permission: string }) => {
-      // First get user by email
+    mutationFn: async ({ fileId, email, permission, subject, message, isFolder }: { 
+      fileId: number; 
+      email: string; 
+      permission: string; 
+      subject: string; 
+      message: string;
+      isFolder: boolean;
+    }) => {
+      // Get user by email/username
       const userRes = await fetch(`/api/users?email=${email}`);
-      if (!userRes.ok) throw new Error("Utilisateur introuvable");
+      if (!userRes.ok) throw new Error("Adresse Rony introuvable");
       const users = await userRes.json();
-      if (!users.data || users.data.length === 0) throw new Error("Utilisateur introuvable");
+      if (!users.data || users.data.length === 0) throw new Error("Adresse Rony introuvable");
       
       const sharedWithId = users.data[0].id;
-      const res = await apiRequest("POST", "/api/files/share", {
-        fileId,
+      
+      // Share the file/folder
+      const endpoint = isFolder ? "/api/folders/share" : "/api/files/share";
+      const res = await apiRequest("POST", endpoint, {
+        [isFolder ? "folderId" : "fileId"]: fileId,
         sharedWithId,
-        permission
+        permission,
+        subject,
+        message
       });
-      if (!res.ok) throw new Error("Failed to share file");
+      if (!res.ok) throw new Error("Échec du partage");
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
+      queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
       setIsShareDialogOpen(false);
       setItemToShare(null);
       setShareEmail("");
-      toast({ title: "Fichier partagé avec succès" });
+      setShareSubject("");
+      setShareMessage("");
+      toast({ title: "Envoyé avec succès dans le Courrier du destinataire" });
     },
     onError: (error: Error) => {
-      toast({ title: "Erreur lors du partage", description: error.message, variant: "destructive" });
+      toast({ title: "Erreur lors de l'envoi", description: error.message, variant: "destructive" });
     }
   });
 
@@ -605,6 +622,8 @@ export default function CloudStorage() {
 
   const handleShareItem = (id: number, name: string, isFolder: boolean) => {
     setItemToShare({ id, name, isFolder });
+    setShareSubject(`Partage ${isFolder ? 'de dossier' : 'de fichier'} : ${name}`);
+    setShareMessage(`Bonjour,\n\nJe partage avec vous ${isFolder ? 'le dossier' : 'le fichier'} "${name}".\n\nCordialement,`);
     setIsShareDialogOpen(true);
   };
 
@@ -1132,55 +1151,173 @@ export default function CloudStorage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialogue de partage */}
+      {/* Dialogue de partage moderne */}
       <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Partager {itemToShare?.name}</DialogTitle>
-          </DialogHeader>
-          <div className="py-4 space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Email de l'utilisateur</label>
-              <Input
-                type="email"
-                value={shareEmail}
-                onChange={(e) => setShareEmail(e.target.value)}
-                placeholder="exemple@email.com"
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Permissions</label>
-              <select 
-                value={sharePermission} 
-                onChange={(e) => setSharePermission(e.target.value as "read" | "write" | "admin")}
-                className="w-full p-2 border rounded-md"
-              >
-                <option value="read">Lecture seule</option>
-                <option value="write">Lecture et écriture</option>
-                <option value="admin">Administration complète</option>
-              </select>
+        <DialogContent className="sm:max-w-2xl">
+          {/* Header moderne avec fond bleu */}
+          <div className="bg-blue-500 text-white px-6 py-4 -mx-6 -mt-6 mb-6 rounded-t-lg">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-medium">New Message</h2>
+              <div className="flex items-center space-x-2">
+                <Button variant="ghost" size="sm" className="text-white hover:bg-blue-600 p-1 rounded-full">
+                  <span className="text-lg">−</span>
+                </Button>
+                <Button variant="ghost" size="sm" className="text-white hover:bg-blue-600 p-1 rounded-full">
+                  <span className="text-lg">□</span>
+                </Button>
+                <Button variant="ghost" size="sm" className="text-white hover:bg-blue-600 p-1 rounded-full" onClick={() => setIsShareDialogOpen(false)}>
+                  <span className="text-lg">✕</span>
+                </Button>
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsShareDialogOpen(false)}>
-              Annuler
-            </Button>
-            <Button
-              onClick={() => {
-                if (shareEmail.trim() && itemToShare) {
-                  shareMutation.mutate({
-                    fileId: itemToShare.id,
-                    email: shareEmail.trim(),
-                    permission: sharePermission
-                  });
-                }
-              }}
-              disabled={!shareEmail.trim() || shareMutation.isPending}
-            >
-              {shareMutation.isPending ? "Partage..." : "Partager"}
-            </Button>
-          </DialogFooter>
+
+          {/* Contenu avec fond sombre */}
+          <div className="bg-gray-700 text-white p-6 -mx-6 rounded-lg space-y-4">
+            {/* Ligne des destinataires */}
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm">To :</span>
+                <div className="bg-gray-600 px-3 py-1 rounded-full flex items-center space-x-2">
+                  <Input
+                    type="text"
+                    value={shareEmail}
+                    onChange={(e) => setShareEmail(e.target.value)}
+                    placeholder="Adresse Rony"
+                    className="bg-transparent border-none text-white placeholder-gray-300 p-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                  {shareEmail && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-gray-300 hover:text-white p-0 h-auto"
+                      onClick={() => setShareEmail("")}
+                    >
+                      ✕
+                    </Button>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <span className="text-sm">cc :</span>
+                <div className="bg-gray-600 px-3 py-1 rounded-full">
+                  <span className="text-gray-300">Name</span>
+                  <span className="ml-2 text-gray-300 cursor-pointer">✕</span>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <span className="text-sm">bcc :</span>
+                <div className="bg-gray-600 px-3 py-1 rounded-full">
+                  <span className="text-gray-300">Name</span>
+                  <span className="ml-2 text-gray-300 cursor-pointer">✕</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Ligne objet */}
+            <div>
+              <Input
+                value={shareSubject}
+                onChange={(e) => setShareSubject(e.target.value)}
+                placeholder="Subject goes to here"
+                className="bg-gray-600 border-gray-500 text-white placeholder-gray-300 focus:border-blue-400"
+              />
+            </div>
+
+            {/* Zone de message */}
+            <div className="min-h-48">
+              <textarea
+                value={shareMessage}
+                onChange={(e) => setShareMessage(e.target.value)}
+                placeholder="Écrivez votre message ici..."
+                className="w-full h-48 bg-transparent border-none text-white placeholder-gray-300 resize-none focus:outline-none p-0"
+              />
+            </div>
+
+            {/* Barre d'outils du bas */}
+            <div className="flex items-center justify-between pt-4 border-t border-gray-600">
+              <div className="flex items-center space-x-4">
+                <Button 
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded flex items-center space-x-2"
+                  onClick={() => {
+                    if (shareEmail.trim() && shareSubject.trim() && itemToShare) {
+                      const endpoint = itemToShare.isFolder ? "/api/folders/share-message" : "/api/files/share-message";
+                      const payload = itemToShare.isFolder ? {
+                        folderId: itemToShare.id,
+                        recipientEmail: shareEmail.trim(),
+                        permission: sharePermission,
+                        subject: shareSubject.trim(),
+                        message: shareMessage.trim()
+                      } : {
+                        fileId: itemToShare.id,
+                        recipientEmail: shareEmail.trim(),
+                        permission: sharePermission,
+                        subject: shareSubject.trim(),
+                        message: shareMessage.trim()
+                      };
+                      
+                      apiRequest("POST", endpoint, payload).then(() => {
+                        queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
+                        queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
+                        setIsShareDialogOpen(false);
+                        setItemToShare(null);
+                        setShareEmail("");
+                        setShareSubject("");
+                        setShareMessage("");
+                        toast({ title: "Message envoyé avec succès dans le Courrier" });
+                      }).catch((error) => {
+                        toast({ title: "Erreur lors de l'envoi", description: error.message, variant: "destructive" });
+                      });
+                    }
+                  }}
+                  disabled={!shareEmail.trim() || !shareSubject.trim() || shareMutation.isPending}
+                >
+                  <span className="text-sm">📅</span>
+                  <span>{shareMutation.isPending ? "Envoi..." : "Send"}</span>
+                </Button>
+                
+                <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white p-1">
+                  <span className="text-lg">🗑</span>
+                </Button>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white p-1">
+                  <span className="text-lg">🔗</span>
+                </Button>
+                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white p-1">
+                  <span className="text-lg">📎</span>
+                </Button>
+                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white p-1">
+                  <span className="text-lg">🖼</span>
+                </Button>
+                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white p-1">
+                  <span className="text-lg">😊</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Information sur la pièce jointe */}
+          {itemToShare && (
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg border">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center">
+                  {itemToShare.isFolder ? "📁" : "📄"}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    {itemToShare.isFolder ? "Dossier" : "Fichier"} joint : {itemToShare.name}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    Sera reçu dans le Courrier du destinataire
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
