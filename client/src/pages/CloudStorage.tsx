@@ -37,7 +37,7 @@ import {
 import folderOrangeIcon from "@assets/icons8-dossier-mac-94_1750386744627.png";
 import folderBlueIcon from "@assets/icons8-dossier-mac-64_1750386753922.png";
 import folderArchiveIcon from "@assets/icons8-dossier-mac-48_1750386762042.png";
-import cloudBackgroundImage from "@assets/image_1750395141900.png";
+import cloudBackgroundImage from "@assets/5590894_1750468773239.jpg";
 
 interface Folder {
   id: number;
