@@ -26,8 +26,7 @@ import {
   Mail,
   MailOpen,
   RotateCcw,
-  Settings,
-  X
+  Settings
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,7 +36,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -102,14 +101,22 @@ export default function MailPage() {
 
   const { data: sharedData, isLoading, refetch } = useQuery<{files: SharedFile[], folders: SharedFolder[]}>({
     queryKey: ['/api/files/shared'],
-    refetchInterval: 30000, // Actualisation automatique toutes les 30 secondes
+    refetchInterval: 30000,
   });
 
   const sharedFiles = sharedData?.files || [];
   const sharedFolders = sharedData?.folders || [];
 
-  // Fonction pour déterminer la catégorie d'un fichier
-  function getFileCategory(type: string): 'files' | 'folders' | 'documents' | 'media' {
+  // Fonctions utilitaires
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'Ko', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getFileCategory = (type: string): 'files' | 'folders' | 'documents' | 'media' => {
     if (type.startsWith('image/') || type.startsWith('video/') || type.startsWith('audio/')) {
       return 'media';
     }
@@ -117,13 +124,22 @@ export default function MailPage() {
       return 'documents';
     }
     return 'files';
-  }
+  };
 
-  // Générer un contenu d'email réaliste
-  function generateEmailContent(file?: SharedFile, folder?: SharedFolder): string {
+  const getFileTypeDescription = (type: string): string => {
+    if (type.includes('pdf')) return 'Document PDF';
+    if (type.includes('word') || type.includes('document')) return 'Document Word';
+    if (type.includes('excel') || type.includes('spreadsheet')) return 'Feuille de calcul Excel';
+    if (type.includes('powerpoint') || type.includes('presentation')) return 'Présentation PowerPoint';
+    if (type.startsWith('image/')) return 'Image';
+    if (type.startsWith('video/')) return 'Vidéo';
+    if (type.startsWith('audio/')) return 'Audio';
+    return 'Fichier';
+  };
+
+  const generateEmailContent = (file?: SharedFile, folder?: SharedFolder): string => {
     if (folder) {
-      return `
-Bonjour,
+      return `Bonjour,
 
 J'ai le plaisir de partager avec vous le dossier "${folder.name}" qui contient ${folder.fileCount} fichiers essentiels pour notre collaboration.
 
@@ -139,12 +155,10 @@ Vous pouvez accéder à l'ensemble des fichiers directement depuis cette interfa
 
 N'hésitez pas à me contacter si vous avez des questions ou besoin d'informations complémentaires.
 
-Cordialement,
-      `;
+Cordialement,`;
     } else if (file) {
       const fileType = getFileTypeDescription(file.type);
-      return `
-Bonjour,
+      return `Bonjour,
 
 Je vous transmets le fichier "${file.name}" dont vous aurez besoin pour la suite de nos travaux.
 
@@ -157,24 +171,12 @@ Ce document contient des informations importantes et mises à jour. Merci de bie
 
 Pour toute question concernant ce fichier ou son contenu, n'hésitez pas à me recontacter.
 
-Bien cordialement,
-      `;
+Bien cordialement,`;
     }
     return 'Contenu du message non disponible.';
-  }
+  };
 
-  function getFileTypeDescription(type: string): string {
-    if (type.includes('pdf')) return 'Document PDF';
-    if (type.includes('word') || type.includes('document')) return 'Document Word';
-    if (type.includes('excel') || type.includes('spreadsheet')) return 'Feuille de calcul Excel';
-    if (type.includes('powerpoint') || type.includes('presentation')) return 'Présentation PowerPoint';
-    if (type.startsWith('image/')) return 'Image';
-    if (type.startsWith('video/')) return 'Vidéo';
-    if (type.startsWith('audio/')) return 'Audio';
-    return 'Fichier';
-  }
-
-  // Transformer les fichiers et dossiers partagés en emails avec état persistant
+  // Transformer les fichiers et dossiers partagés en emails
   const fileEmails: EmailItem[] = sharedFiles?.map((file, index) => {
     const senderName = file.sharedBy?.displayName || 'Utilisateur inconnu';
     const senderEmail = file.sharedBy?.username || 'user@rony.com';
@@ -365,14 +367,6 @@ Bien cordialement,
     return <FileText className="w-5 h-5 text-gray-500" />;
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'Ko', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
   const getPriorityIcon = (priority: string) => {
     switch (priority) {
       case 'high': return <AlertCircle className="w-4 h-4 text-red-500" />;
@@ -469,32 +463,6 @@ Bien cordialement,
                 />
               </div>
               
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Filter className="w-4 h-4 mr-2" />
-                    Filtrer
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => setFilterCategory('all')}>
-                    Tous les éléments
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterCategory('files')}>
-                    Fichiers uniquement
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterCategory('folders')}>
-                    Dossiers uniquement
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterCategory('documents')}>
-                    Documents
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterCategory('media')}>
-                    Médias
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
               <Tabs value={filterCategory} onValueChange={(value) => setFilterCategory(value as any)}>
                 <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="all">Tous</TabsTrigger>
@@ -594,26 +562,6 @@ Bien cordialement,
                           <div className="text-sm text-gray-600 truncate mt-1">
                             {email.preview}
                           </div>
-                          {(email.attachment || email.folder) && (
-                            <div className="mt-2 flex items-center space-x-2">
-                              {email.attachment && (
-                                <div className="flex items-center space-x-1">
-                                  {getItemIcon(email.attachment)}
-                                  <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-                                    {email.attachment.name}
-                                  </span>
-                                </div>
-                              )}
-                              {email.folder && (
-                                <div className="flex items-center space-x-1">
-                                  <FolderOpen className="w-4 h-4 text-blue-500" />
-                                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                    {email.folder.name} ({email.folder.fileCount} fichiers)
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          )}
                         </div>
 
                         {/* Priorité */}
