@@ -1153,7 +1153,7 @@ export default function CloudStorage() {
 
       {/* Dialogue de partage moderne */}
       <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
           {/* Header moderne avec fond bleu */}
           <div className="bg-blue-500 text-white px-4 py-3 -mx-6 -mt-6 mb-4 rounded-t-lg">
             <div className="flex items-center justify-between">
@@ -1165,7 +1165,7 @@ export default function CloudStorage() {
           </div>
 
           {/* Contenu moderne amélioré */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Champ destinataire avec suggestions */}
             <div className="space-y-1">
               <div className="flex items-center space-x-2">
@@ -1190,39 +1190,29 @@ export default function CloudStorage() {
               )}
             </div>
 
-            {/* Options de priorité */}
+            {/* Options de priorité simplifiées */}
             <div className="flex items-center space-x-2">
-              <span className="text-sm font-medium w-8 text-gray-700">Priorité:</span>
-              <div className="flex space-x-2">
+              <span className="text-xs font-medium w-8 text-gray-700">Type:</span>
+              <div className="flex space-x-1">
                 <button
                   onClick={() => setSharePermission("read")}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  className={`px-2 py-1 rounded text-xs transition-colors ${
                     sharePermission === "read" 
-                      ? "bg-blue-100 text-blue-700 border border-blue-300" 
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "bg-blue-100 text-blue-700" 
+                      : "bg-gray-100 text-gray-600"
                   }`}
                 >
-                  🔵 Normale
-                </button>
-                <button
-                  onClick={() => setSharePermission("write")}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                    sharePermission === "write" 
-                      ? "bg-orange-100 text-orange-700 border border-orange-300" 
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  🟠 Importante
+                  Normal
                 </button>
                 <button
                   onClick={() => setSharePermission("admin")}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  className={`px-2 py-1 rounded text-xs transition-colors ${
                     sharePermission === "admin" 
-                      ? "bg-red-100 text-red-700 border border-red-300" 
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "bg-red-100 text-red-700" 
+                      : "bg-gray-100 text-gray-600"
                   }`}
                 >
-                  🔴 Urgente
+                  Urgent
                 </button>
               </div>
             </div>
@@ -1246,125 +1236,71 @@ export default function CloudStorage() {
               </div>
             </div>
 
-            {/* Zone de message avec barre d'outils */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">Message:</span>
-                <div className="flex items-center space-x-1">
-                  <button className="p-1 rounded hover:bg-gray-100 transition-colors" title="Gras">
-                    <strong className="text-xs">B</strong>
-                  </button>
-                  <button className="p-1 rounded hover:bg-gray-100 transition-colors" title="Italique">
-                    <em className="text-xs">I</em>
-                  </button>
-                  <button className="p-1 rounded hover:bg-gray-100 transition-colors" title="Emoji">
-                    <span className="text-xs">😊</span>
-                  </button>
-                </div>
-              </div>
-              <div className="relative">
-                <textarea
-                  value={shareMessage}
-                  onChange={(e) => setShareMessage(e.target.value)}
-                  placeholder="Rédigez votre message ici..."
-                  className="w-full h-28 p-3 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  maxLength={500}
-                />
-                <div className="absolute bottom-2 right-2 text-xs text-gray-400">
-                  {shareMessage.length}/500
-                </div>
-              </div>
+            {/* Zone de message */}
+            <div>
+              <textarea
+                value={shareMessage}
+                onChange={(e) => setShareMessage(e.target.value)}
+                placeholder="Votre message..."
+                className="w-full h-20 p-2 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                maxLength={300}
+              />
+              <div className="text-xs text-gray-400 mt-1">{shareMessage.length}/300</div>
             </div>
 
-            {/* Options avancées */}
-            <div className="flex items-center space-x-4 pt-2 border-t border-gray-100">
-              <label className="flex items-center space-x-2 text-xs text-gray-600">
-                <input type="checkbox" className="rounded" />
-                <span>Demander accusé de réception</span>
-              </label>
-              <label className="flex items-center space-x-2 text-xs text-gray-600">
-                <input type="checkbox" className="rounded" />
-                <span>Envoyer une copie à moi-même</span>
-              </label>
-            </div>
-
-            {/* Boutons d'action améliorés */}
-            <div className="flex items-center justify-between pt-3">
-              <div className="flex items-center space-x-2">
-                <button className="p-2 rounded-full hover:bg-gray-100 transition-colors" title="Programmer l'envoi">
-                  <span className="text-gray-500">🕒</span>
-                </button>
-                <button className="p-2 rounded-full hover:bg-gray-100 transition-colors" title="Ajouter une pièce jointe">
-                  <span className="text-gray-500">📎</span>
-                </button>
-                <button className="p-2 rounded-full hover:bg-gray-100 transition-colors" title="Enregistrer comme brouillon">
-                  <span className="text-gray-500">💾</span>
-                </button>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsShareDialogOpen(false)}
-                  className="text-sm hover:bg-gray-50"
-                >
-                  Annuler
-                </Button>
-                <Button 
-                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm shadow-sm transition-all duration-200"
-                  onClick={() => {
-                    if (shareEmail.trim() && shareSubject.trim() && itemToShare) {
-                      const endpoint = itemToShare.isFolder ? "/api/folders/share-message" : "/api/files/share-message";
-                      const payload = itemToShare.isFolder ? {
-                        folderId: itemToShare.id,
-                        recipientEmail: shareEmail.trim(),
-                        permission: sharePermission,
-                        subject: shareSubject.trim(),
-                        message: shareMessage.trim()
-                      } : {
-                        fileId: itemToShare.id,
-                        recipientEmail: shareEmail.trim(),
-                        permission: sharePermission,
-                        subject: shareSubject.trim(),  
-                        message: shareMessage.trim()
-                      };
-                      
-                      apiRequest("POST", endpoint, payload).then(() => {
-                        queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
-                        queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
-                        setIsShareDialogOpen(false);
-                        setItemToShare(null);
-                        setShareEmail("");
-                        setShareSubject("");
-                        setShareMessage("");
-                        toast({ 
-                          title: "✅ Message envoyé avec succès", 
-                          description: "Le destinataire recevra votre message dans son Courrier"
-                        });
-                      }).catch((error) => {
-                        toast({ 
-                          title: "❌ Erreur lors de l'envoi", 
-                          description: error.message, 
-                          variant: "destructive" 
-                        });
+            {/* Boutons d'action */}
+            <div className="flex items-center justify-end space-x-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsShareDialogOpen(false)}
+                className="text-xs px-3 py-1"
+              >
+                Annuler
+              </Button>
+              <Button 
+                className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1"
+                onClick={() => {
+                  if (shareEmail.trim() && shareSubject.trim() && itemToShare) {
+                    const endpoint = itemToShare.isFolder ? "/api/folders/share-message" : "/api/files/share-message";
+                    const payload = itemToShare.isFolder ? {
+                      folderId: itemToShare.id,
+                      recipientEmail: shareEmail.trim(),
+                      permission: sharePermission,
+                      subject: shareSubject.trim(),
+                      message: shareMessage.trim()
+                    } : {
+                      fileId: itemToShare.id,
+                      recipientEmail: shareEmail.trim(),
+                      permission: sharePermission,
+                      subject: shareSubject.trim(),  
+                      message: shareMessage.trim()
+                    };
+                    
+                    apiRequest("POST", endpoint, payload).then(() => {
+                      queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
+                      queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
+                      setIsShareDialogOpen(false);
+                      setItemToShare(null);
+                      setShareEmail("");
+                      setShareSubject("");
+                      setShareMessage("");
+                      toast({ 
+                        title: "Message envoyé avec succès", 
+                        description: "Le destinataire recevra votre message dans son Courrier"
                       });
-                    }
-                  }}
-                  disabled={!shareEmail.trim() || !shareSubject.trim() || shareMutation.isPending}
-                >
-                  {shareMutation.isPending ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                      Envoi...
-                    </>
-                  ) : (
-                    <>
-                      <span className="mr-2">📤</span>
-                      Envoyer
-                    </>
-                  )}
-                </Button>
-              </div>
+                    }).catch((error) => {
+                      toast({ 
+                        title: "Erreur lors de l'envoi", 
+                        description: error.message, 
+                        variant: "destructive" 
+                      });
+                    });
+                  }
+                }}
+                disabled={!shareEmail.trim() || !shareSubject.trim() || shareMutation.isPending}
+              >
+                {shareMutation.isPending ? "Envoi..." : "Envoyer"}
+              </Button>
             </div>
           </div>
 
