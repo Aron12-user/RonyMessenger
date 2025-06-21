@@ -139,50 +139,95 @@ export default function MailPage() {
           
           const uniqueId = Date.now() + Math.floor(Math.random() * 1000000);
           
-          const newEmail: EmailItem = {
-            id: uniqueId,
-            sender: messageData.sender,
-            senderEmail: messageData.senderEmail,
-            subject: messageData.subject,
-            preview: `${messageData.sender} vous a envoyé ${messageData.type === 'folder' ? 'un dossier' : 'un fichier'}. ${messageData.message.substring(0, 100)}...`,
-            content: messageData.message,
-            date: new Date(messageData.timestamp).toLocaleDateString('fr-FR'),
-            time: new Date(messageData.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-            hasAttachment: true,
-            isRead: false,
-            isStarred: false,
-            isArchived: false,
-            isDeleted: false,
-            priority: 'high',
-            category: messageData.type === 'folder' ? 'folders' : 'files',
-            attachment: messageData.type === 'file' ? {
-              id: messageData.fileId,
-              name: messageData.fileName,
-              type: messageData.fileType,
-              size: messageData.fileSize,
-              url: messageData.fileUrl,
-              uploaderId: 0,
-              uploadedAt: messageData.timestamp,
-              sharedBy: {
-                id: 0,
-                username: messageData.senderEmail,
-                displayName: messageData.sender
-              }
-            } : undefined,
-            folder: messageData.type === 'folder' ? {
-              id: messageData.folderId,
-              name: messageData.folderName,
-              fileCount: messageData.fileCount,
-              totalSize: messageData.totalSize,
-              uploaderId: 0,
-              uploadedAt: messageData.timestamp,
-              sharedBy: {
-                id: 0,
-                username: messageData.senderEmail,
-                displayName: messageData.sender
-              }
-            } : undefined
-          };
+          let newEmail: EmailItem;
+          
+          if (messageData.type === 'reply') {
+            // Message de réponse simple
+            newEmail = {
+              id: uniqueId,
+              sender: messageData.sender,
+              senderEmail: messageData.senderEmail,
+              subject: messageData.subject,
+              preview: `${messageData.sender} a répondu : ${messageData.message.substring(0, 100)}...`,
+              content: messageData.message,
+              date: new Date(messageData.timestamp).toLocaleDateString('fr-FR'),
+              time: new Date(messageData.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+              hasAttachment: false,
+              isRead: false,
+              isStarred: false,
+              isArchived: false,
+              isDeleted: false,
+              priority: messageData.priority || 'medium',
+              category: 'documents'
+            };
+          } else if (messageData.type === 'forward') {
+            // Message transféré avec tout le contenu
+            newEmail = {
+              id: uniqueId,
+              sender: messageData.sender,
+              senderEmail: messageData.senderEmail,
+              subject: messageData.subject,
+              preview: `${messageData.sender} vous a transféré un message avec ${messageData.originalEmail?.attachment ? 'fichier' : messageData.originalEmail?.folder ? 'dossier' : 'contenu'}`,
+              content: `${messageData.message}\n\n--- Message transféré ---\nDe: ${messageData.originalEmail?.sender}\nObjet: ${messageData.originalEmail?.subject}\n\n${messageData.originalEmail?.content}`,
+              date: new Date(messageData.timestamp).toLocaleDateString('fr-FR'),
+              time: new Date(messageData.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+              hasAttachment: !!(messageData.originalEmail?.attachment || messageData.originalEmail?.folder),
+              isRead: false,
+              isStarred: false,
+              isArchived: false,
+              isDeleted: false,
+              priority: messageData.priority || 'medium',
+              category: messageData.originalEmail?.attachment ? 'files' : messageData.originalEmail?.folder ? 'folders' : 'documents',
+              attachment: messageData.originalEmail?.attachment,
+              folder: messageData.originalEmail?.folder
+            };
+          } else {
+            // Message de partage de fichier/dossier (existant)
+            newEmail = {
+              id: uniqueId,
+              sender: messageData.sender,
+              senderEmail: messageData.senderEmail,
+              subject: messageData.subject,
+              preview: `${messageData.sender} vous a envoyé ${messageData.type === 'folder' ? 'un dossier' : 'un fichier'}. ${messageData.message.substring(0, 100)}...`,
+              content: messageData.message,
+              date: new Date(messageData.timestamp).toLocaleDateString('fr-FR'),
+              time: new Date(messageData.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+              hasAttachment: true,
+              isRead: false,
+              isStarred: false,
+              isArchived: false,
+              isDeleted: false,
+              priority: 'high',
+              category: messageData.type === 'folder' ? 'folders' : 'files',
+              attachment: messageData.type === 'file' ? {
+                id: messageData.fileId,
+                name: messageData.fileName,
+                type: messageData.fileType,
+                size: messageData.fileSize,
+                url: messageData.fileUrl,
+                uploaderId: 0,
+                uploadedAt: messageData.timestamp,
+                sharedBy: {
+                  id: 0,
+                  username: messageData.senderEmail,
+                  displayName: messageData.sender
+                }
+              } : undefined,
+              folder: messageData.type === 'folder' ? {
+                id: messageData.folderId,
+                name: messageData.folderName,
+                fileCount: messageData.fileCount,
+                totalSize: messageData.totalSize,
+                uploaderId: 0,
+                uploadedAt: messageData.timestamp,
+                sharedBy: {
+                  id: 0,
+                  username: messageData.senderEmail,
+                  displayName: messageData.sender
+                }
+              } : undefined
+            };
+          }
 
           setPersistentEmails(prev => {
             const exists = prev.some(email => 
@@ -205,16 +250,47 @@ export default function MailPage() {
             return updatedEmails;
           });
           
-          toast({
-            title: "Nouveau message reçu",
-            description: `${messageData.sender} vous a envoyé ${messageData.type === 'folder' ? 'un dossier' : 'un fichier'}`,
-          });
+          // Notification appropriée selon le type de message
+          if (messageData.type === 'reply') {
+            toast({
+              title: "Nouvelle réponse reçue",
+              description: `${messageData.sender} a répondu à votre message`,
+            });
+          } else if (messageData.type === 'forward') {
+            toast({
+              title: "Message transféré reçu",
+              description: `${messageData.sender} vous a transféré un message`,
+            });
+          } else {
+            toast({
+              title: "Nouveau message reçu",
+              description: `${messageData.sender} vous a envoyé ${messageData.type === 'folder' ? 'un dossier' : 'un fichier'}`,
+            });
+          }
           
           queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
         }
       } catch (error) {
         console.error('Erreur lors du traitement du message WebSocket:', error);
       }
+    };
+
+    socket.onopen = () => {
+      console.log('WebSocket connecté pour notifications courrier');
+    };
+
+    socket.onclose = () => {
+      console.log('WebSocket fermé, tentative de reconnection...');
+      setTimeout(() => {
+        if (user) {
+          // Reconnection automatique après 3 secondes
+          console.log('Reconnection WebSocket...');
+        }
+      }, 3000);
+    };
+
+    socket.onerror = (error) => {
+      console.error('Erreur WebSocket:', error);
     };
 
     return () => {
@@ -1178,7 +1254,7 @@ Bien cordialement,`;
 
       {/* Boîte de dialogue pour Répondre */}
       <Dialog open={showReplyDialog} onOpenChange={setShowReplyDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <Reply className="w-5 h-5 text-blue-500" />
@@ -1186,21 +1262,15 @@ Bien cordialement,`;
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-6 py-4">
+          <div className="space-y-4 py-4">
             {/* Informations sur l'email original */}
             {selectedEmail && (
-              <div className="bg-gray-50 p-4 rounded-lg border">
-                <div className="text-sm text-gray-600 mb-2">
-                  <strong>Message original :</strong>
-                </div>
+              <div className="bg-gray-50 p-3 rounded-lg border">
                 <div className="text-sm font-medium text-gray-900 mb-1">
                   Re: {selectedEmail.subject}
                 </div>
-                <div className="text-xs text-gray-500 mb-2">
-                  De: {selectedEmail.sender} &lt;{selectedEmail.senderEmail}&gt;
-                </div>
-                <div className="text-sm text-gray-700 bg-white p-3 rounded border max-h-24 overflow-y-auto">
-                  {selectedEmail.content.substring(0, 200)}...
+                <div className="text-xs text-gray-500">
+                  À: {selectedEmail.sender} &lt;{selectedEmail.senderEmail}&gt;
                 </div>
               </div>
             )}
@@ -1215,10 +1285,10 @@ Bien cordialement,`;
                 placeholder="Tapez votre réponse ici..."
                 value={replyMessage}
                 onChange={(e) => setReplyMessage(e.target.value)}
-                className="min-h-32 resize-none"
+                className="min-h-24 resize-none"
               />
               <div className="text-xs text-gray-500">
-                {replyMessage.length}/1000 caractères
+                {replyMessage.length}/500 caractères
               </div>
             </div>
 
@@ -1257,7 +1327,7 @@ Bien cordialement,`;
 
       {/* Boîte de dialogue pour Transfert */}
       <Dialog open={showForwardDialog} onOpenChange={setShowForwardDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <Forward className="w-5 h-5 text-green-500" />
