@@ -235,24 +235,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
     
-    // Diffusion ciblée renforcée pour messages courrier avec triple garantie
+    // Diffusion ciblée unique pour messages courrier
     if (data.type === 'courrier_message' && data.data.recipientId) {
       const recipientWs = onlineUsers.get(data.data.recipientId);
       if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
         try {
-          // Triple envoi pour garantir la réception
+          // Envoi unique pour éviter les doublons
           recipientWs.send(message);
-          setTimeout(() => {
-            if (recipientWs.readyState === WebSocket.OPEN) {
-              recipientWs.send(message);
-            }
-          }, 100);
-          setTimeout(() => {
-            if (recipientWs.readyState === WebSocket.OPEN) {
-              recipientWs.send(message);
-            }
-          }, 200);
-          console.log(`✓ Message courrier livré instantanément à l'utilisateur ${data.data.recipientId} (triple envoi)`);
+          console.log(`✓ Message courrier livré instantanément à l'utilisateur ${data.data.recipientId}`);
         } catch (error) {
           console.error('Erreur livraison ciblée:', error);
         }
