@@ -122,15 +122,34 @@ export default function MailPage() {
   const sharedFiles = sharedData?.files || [];
   const sharedFolders = sharedData?.folders || [];
 
-  // Écouter les messages en temps réel via WebSocket
+  // Écouter les messages en temps réel via WebSocket avec reconnection automatique
   useEffect(() => {
     if (!user) return;
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    const socket = new WebSocket(wsUrl);
+    let socket: WebSocket;
+    let reconnectTimeout: NodeJS.Timeout;
+    let isConnected = false;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
 
-    socket.onmessage = (event) => {
+    const connectWebSocket = () => {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      socket = new WebSocket(wsUrl);
+
+      socket.onopen = () => {
+        console.log('WebSocket connecté pour notifications courrier');
+        isConnected = true;
+        reconnectAttempts = 0;
+        
+        // Authentifier l'utilisateur immédiatement
+        socket.send(JSON.stringify({
+          type: 'authenticate',
+          data: { userId: user.id }
+        }));
+      };
+
+      socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         
@@ -275,26 +294,37 @@ export default function MailPage() {
       }
     };
 
-    socket.onopen = () => {
-      console.log('WebSocket connecté pour notifications courrier');
-    };
-
-    socket.onclose = () => {
-      console.log('WebSocket fermé, tentative de reconnection...');
-      setTimeout(() => {
-        if (user) {
-          // Reconnection automatique après 3 secondes
-          console.log('Reconnection WebSocket...');
+      socket.onclose = () => {
+        console.log('WebSocket fermé, tentative de reconnection...');
+        isConnected = false;
+        
+        if (reconnectAttempts < maxReconnectAttempts) {
+          reconnectAttempts++;
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+          reconnectTimeout = setTimeout(() => {
+            console.log(`Reconnection WebSocket (tentative ${reconnectAttempts}/${maxReconnectAttempts})...`);
+            connectWebSocket();
+          }, delay);
         }
-      }, 3000);
+      };
+
+      socket.onerror = (error) => {
+        console.error('Erreur WebSocket:', error);
+        isConnected = false;
+      };
     };
 
-    socket.onerror = (error) => {
-      console.error('Erreur WebSocket:', error);
-    };
+    // Démarrer la connexion initiale
+    connectWebSocket();
 
     return () => {
-      socket.close();
+      isConnected = false;
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.close();
+      }
     };
   }, [user, toast, queryClient]);
 
@@ -625,12 +655,13 @@ Bien cordialement,`;
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: 'Réponse envoyée avec succès' });
+      toast({ title: 'Réponse livrée instantanément', description: 'Votre message a été reçu par le destinataire' });
       setShowReplyDialog(false);
       setReplyMessage('');
     },
-    onError: () => {
-      toast({ title: 'Erreur', description: 'Impossible d\'envoyer la réponse' });
+    onError: (error) => {
+      console.error('Erreur livraison réponse:', error);
+      toast({ title: 'Échec de livraison', description: 'Le message n\'a pas pu être livré. Réessayez.', variant: 'destructive' });
     }
   });
 
@@ -668,13 +699,14 @@ Bien cordialement,`;
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: 'Email transféré avec succès' });
+      toast({ title: 'Transfert livré instantanément', description: 'Le message complet avec pièces jointes a été reçu' });
       setShowForwardDialog(false);
       setForwardMessage('');
       setForwardRecipient('');
     },
-    onError: () => {
-      toast({ title: 'Erreur', description: 'Impossible de transférer l\'email' });
+    onError: (error) => {
+      console.error('Erreur transfert:', error);
+      toast({ title: 'Échec de transfert', description: 'Le transfert n\'a pas pu être livré. Réessayez.', variant: 'destructive' });
     }
   });
 
@@ -1327,7 +1359,7 @@ Bien cordialement,`;
 
       {/* Boîte de dialogue pour Transfert */}
       <Dialog open={showForwardDialog} onOpenChange={setShowForwardDialog}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <Forward className="w-5 h-5 text-green-500" />

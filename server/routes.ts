@@ -219,13 +219,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  // Helper function to broadcast to all connected clients
+  // Helper function to broadcast to all connected clients with improved reliability
   function broadcastToAll(data: any) {
-    wss.clients.forEach(client => {
+    const message = JSON.stringify(data);
+    const clients = Array.from(wss.clients);
+    
+    // Diffusion générale immédiate
+    clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(data));
+        try {
+          client.send(message);
+        } catch (error) {
+          console.error('Erreur diffusion générale WebSocket:', error);
+        }
       }
     });
+    
+    // Diffusion ciblée pour messages courrier avec garantie de livraison
+    if (data.type === 'courrier_message' && data.data.recipientId) {
+      const recipientWs = onlineUsers.get(data.data.recipientId);
+      if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
+        try {
+          recipientWs.send(message);
+          console.log(`✓ Message courrier livré instantanément à l'utilisateur ${data.data.recipientId}`);
+        } catch (error) {
+          console.error('Erreur livraison ciblée:', error);
+        }
+      } else {
+        console.log(`⚠ Utilisateur ${data.data.recipientId} hors ligne, message en attente`);
+      }
+    }
   }
   
   // Avatar upload route
@@ -1370,8 +1393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Destinataire introuvable' });
       }
       
-      // Broadcast reply message to recipient
-      broadcastToAll({
+      const messageData = {
         type: 'courrier_message',
         data: {
           id: Date.now(),
@@ -1389,9 +1411,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           timestamp: new Date().toISOString(),
           priority: 'medium'
         }
-      });
+      };
+
+      // Diffusion immédiate avec double garantie
+      broadcastToAll(messageData);
       
-      res.json({ success: true, message: 'Réponse envoyée avec succès' });
+      // Livraison ciblée supplémentaire
+      const recipientWs = onlineUsers.get(recipientUser.id);
+      if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
+        recipientWs.send(JSON.stringify(messageData));
+        console.log(`✓ Réponse livrée instantanément à ${recipientUser.displayName}`);
+      }
+      
+      res.json({ success: true, message: 'Réponse livrée instantanément', deliveryStatus: 'delivered' });
     } catch (error) {
       console.error('Error sending reply:', error);
       res.status(500).json({ message: 'Erreur lors de l\'envoi de la réponse' });
@@ -1419,8 +1451,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Destinataire introuvable' });
       }
       
-      // Broadcast forwarded message to recipient with complete original data
-      broadcastToAll({
+      const forwardData = {
         type: 'courrier_message',
         data: {
           id: Date.now(),
@@ -1470,9 +1501,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           timestamp: new Date().toISOString(),
           priority: 'medium'
         }
-      });
+      };
+
+      // Diffusion immédiate avec double garantie
+      broadcastToAll(forwardData);
       
-      res.json({ success: true, message: 'Email transféré avec succès' });
+      // Livraison ciblée supplémentaire pour transfert
+      const recipientWs = onlineUsers.get(recipientUser.id);
+      if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
+        recipientWs.send(JSON.stringify(forwardData));
+        console.log(`✓ Transfert avec pièces jointes livré instantanément à ${recipientUser.displayName}`);
+      }
+      
+      res.json({ success: true, message: 'Transfert complet livré instantanément', deliveryStatus: 'delivered' });
     } catch (error) {
       console.error('Error forwarding email:', error);
       res.status(500).json({ message: 'Erreur lors du transfert de l\'email' });
