@@ -98,6 +98,7 @@ export default function MailPage() {
   const [viewMode, setViewMode] = useState<'list' | 'reading'>('list');
   const [emailStates, setEmailStates] = useState<Map<number, Partial<EmailItem>>>(new Map());
   const [realtimeEmails, setRealtimeEmails] = useState<EmailItem[]>([]);
+  const [persistentEmails, setPersistentEmails] = useState<EmailItem[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -171,8 +172,17 @@ export default function MailPage() {
             } : undefined
           };
 
-          // Ajouter le nouvel email en temps réel
-          setRealtimeEmails(prev => [newEmail, ...prev]);
+          // Ajouter le nouvel email de manière persistante
+          setPersistentEmails(prev => {
+            // Vérifier si l'email existe déjà pour éviter les doublons
+            const exists = prev.some(email => email.id === newEmail.id);
+            if (exists) return prev;
+            
+            // Sauvegarder dans localStorage pour persistance
+            const updatedEmails = [newEmail, ...prev];
+            localStorage.setItem(`courrier_${user.id}`, JSON.stringify(updatedEmails));
+            return updatedEmails;
+          });
           
           // Afficher une notification
           toast({
@@ -192,6 +202,37 @@ export default function MailPage() {
       socket.close();
     };
   }, [user, toast, queryClient]);
+
+  // Charger les emails persistants depuis localStorage au démarrage
+  useEffect(() => {
+    if (!user) return;
+    
+    // Charger les emails
+    const savedEmails = localStorage.getItem(`courrier_${user.id}`);
+    if (savedEmails) {
+      try {
+        const emails = JSON.parse(savedEmails);
+        setPersistentEmails(emails);
+      } catch (error) {
+        console.error('Erreur lors du chargement des emails:', error);
+      }
+    }
+    
+    // Charger les états des emails
+    const savedStates = localStorage.getItem(`courrier_states_${user.id}`);
+    if (savedStates) {
+      try {
+        const statesObject = JSON.parse(savedStates);
+        const statesMap = new Map<number, Partial<EmailItem>>();
+        Object.entries(statesObject).forEach(([key, value]) => {
+          statesMap.set(parseInt(key), value as Partial<EmailItem>);
+        });
+        setEmailStates(statesMap);
+      } catch (error) {
+        console.error('Erreur lors du chargement des états des emails:', error);
+      }
+    }
+  }, [user]);
 
   // Fonctions utilitaires
   const formatFileSize = (bytes: number) => {
@@ -315,8 +356,8 @@ Bien cordialement,`;
     };
   });
 
-  const allEmails = [...realtimeEmails, ...fileEmails, ...folderEmails]
-    .filter(email => !email.isDeleted)
+  const allEmails = [...persistentEmails, ...fileEmails, ...folderEmails]
+    .filter(email => !emailStates.get(email.id)?.isDeleted && !email.isDeleted)
     .sort((a, b) => new Date(b.date + ' ' + b.time).getTime() - new Date(a.date + ' ' + a.time).getTime());
 
   // Filtrer les emails
@@ -329,13 +370,32 @@ Bien cordialement,`;
     return matchesSearch && matchesCategory && matchesArchived;
   });
 
-  // Fonction pour mettre à jour l'état d'un email
+  // Fonction pour mettre à jour l'état d'un email avec persistance
   const updateEmailState = (emailId: number, updates: Partial<EmailItem>) => {
     setEmailStates(prev => {
       const newStates = new Map(prev);
-      newStates.set(emailId, { ...newStates.get(emailId), ...updates });
+      const currentState = newStates.get(emailId) || {};
+      newStates.set(emailId, { ...currentState, ...updates });
+      
+      // Sauvegarder les états dans localStorage
+      if (user) {
+        const statesObject = Object.fromEntries(newStates);
+        localStorage.setItem(`courrier_states_${user.id}`, JSON.stringify(statesObject));
+      }
+      
       return newStates;
     });
+    
+    // Si c'est une suppression, aussi supprimer de persistentEmails
+    if (updates.isDeleted) {
+      setPersistentEmails(prev => {
+        const filtered = prev.filter(email => email.id !== emailId);
+        if (user) {
+          localStorage.setItem(`courrier_${user.id}`, JSON.stringify(filtered));
+        }
+        return filtered;
+      });
+    }
   };
 
   // Mutations pour les actions réelles
@@ -385,9 +445,10 @@ Bien cordialement,`;
 
   // Actions
   const handleEmailClick = (email: EmailItem) => {
-    setSelectedEmail(email);
+    const currentEmail = getCurrentEmail(email);
+    setSelectedEmail(currentEmail);
     setViewMode('reading');
-    if (!email.isRead) {
+    if (!currentEmail.isRead) {
       markAsReadMutation.mutate(email.id);
     }
   };
