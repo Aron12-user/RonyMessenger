@@ -477,23 +477,23 @@ Bien cordialement,`;
 
           {/* Header avec colonnes */}
           <div className="border-b px-6 py-3 bg-gray-50">
-            <div className="flex items-center text-sm font-medium text-gray-700">
+            <div className="flex items-center text-sm font-medium text-gray-700 min-w-max">
               <div className="w-64 flex-shrink-0">Expéditeur</div>
-              <div className="flex-1">Objet</div>
-              <div className="w-32 text-center">Priorité</div>
-              <div className="w-32 flex items-center justify-end">
+              <div className="flex-1 min-w-0">Objet</div>
+              <div className="w-24 text-center flex-shrink-0">Priorité</div>
+              <div className="w-32 flex items-center justify-end flex-shrink-0">
                 <span>Date</span>
                 <ChevronDown className="w-4 h-4 ml-1" />
               </div>
-              <div className="w-24 text-center">Actions</div>
+              <div className="w-20 text-center flex-shrink-0">Actions</div>
             </div>
           </div>
 
-          {/* Liste des emails avec défilement */}
-          <ScrollArea className="flex-1">
-            <div className="divide-y">
+          {/* Liste des emails avec défilement horizontal et vertical */}
+          <div className="flex-1 overflow-auto">
+            <div className="divide-y min-w-max">
               {filteredEmails.length === 0 ? (
-                <div className="text-center py-16">
+                <div className="text-center py-16 px-6">
                   <Mail className="h-16 w-16 mx-auto mb-4 text-gray-300" />
                   <h3 className="text-xl font-medium text-gray-600 mb-2">
                     Aucun courrier trouvé
@@ -515,7 +515,7 @@ Bien cordialement,`;
                       )}
                       onClick={() => handleEmailClick(email)}
                     >
-                      <div className="flex items-center">
+                      <div className="flex items-center min-w-max">
                         {/* Avatar et expéditeur */}
                         <div className="w-64 flex-shrink-0 flex items-center space-x-3">
                           <div className={cn(
@@ -545,10 +545,10 @@ Bien cordialement,`;
                         </div>
 
                         {/* Objet et aperçu */}
-                        <div className="flex-1 min-w-0 px-4">
+                        <div className="flex-1 min-w-96 px-4">
                           <div className="flex items-center space-x-2">
                             <span className={cn(
-                              "text-sm truncate flex-1",
+                              "text-sm flex-1",
                               !currentEmail.isRead ? "font-semibold text-gray-900" : "text-gray-700"
                             )}>
                               {email.subject}
@@ -559,24 +559,24 @@ Bien cordialement,`;
                               )}
                             </div>
                           </div>
-                          <div className="text-sm text-gray-600 truncate mt-1">
+                          <div className="text-sm text-gray-600 mt-1 line-clamp-1">
                             {email.preview}
                           </div>
                         </div>
 
                         {/* Priorité */}
-                        <div className="w-32 flex justify-center">
+                        <div className="w-24 flex justify-center flex-shrink-0">
                           {getPriorityIcon(email.priority)}
                         </div>
 
                         {/* Date */}
-                        <div className="w-32 text-right">
+                        <div className="w-32 text-right flex-shrink-0">
                           <div className="text-sm text-gray-900">{email.date}</div>
                           <div className="text-xs text-gray-500">{email.time}</div>
                         </div>
 
                         {/* Actions */}
-                        <div className="w-24 flex justify-center">
+                        <div className="w-20 flex justify-center flex-shrink-0">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
@@ -618,7 +618,7 @@ Bien cordialement,`;
                 })
               )}
             </div>
-          </ScrollArea>
+          </div>
         </>
       ) : (
         /* Mode de lecture avec défilement */
