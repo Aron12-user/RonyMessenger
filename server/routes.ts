@@ -1348,6 +1348,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Routes pour les fonctions Répondre et Transfert du courrier
+  app.post('/api/courrier/reply', requireAuth, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { recipientEmail, message, originalSubject, originalSender, originalContent, senderName, senderEmail } = req.body;
+      
+      if (!recipientEmail || !message) {
+        return res.status(400).json({ message: 'Destinataire et message sont requis' });
+      }
+      
+      // Find recipient user by email/username
+      const users = await storage.getAllUsers();
+      const recipientUser = users.find(u => 
+        u.username === recipientEmail || 
+        u.email === recipientEmail || 
+        u.displayName === recipientEmail
+      );
+      
+      if (!recipientUser) {
+        return res.status(404).json({ message: 'Destinataire introuvable' });
+      }
+      
+      // Broadcast reply message to recipient
+      broadcastToAll({
+        type: 'courrier_message',
+        data: {
+          id: Date.now(),
+          type: 'reply',
+          sender: senderName,
+          senderEmail: senderEmail,
+          recipientId: recipientUser.id,
+          subject: `Re: ${originalSubject}`,
+          message: message,
+          originalMessage: {
+            subject: originalSubject,
+            sender: originalSender,
+            content: originalContent
+          },
+          timestamp: new Date().toISOString(),
+          priority: 'medium'
+        }
+      });
+      
+      res.json({ success: true, message: 'Réponse envoyée avec succès' });
+    } catch (error) {
+      console.error('Error sending reply:', error);
+      res.status(500).json({ message: 'Erreur lors de l\'envoi de la réponse' });
+    }
+  });
+
+  app.post('/api/courrier/forward', requireAuth, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { recipientEmail, message, originalEmail, senderName, senderEmail } = req.body;
+      
+      if (!recipientEmail || !originalEmail) {
+        return res.status(400).json({ message: 'Destinataire et email original sont requis' });
+      }
+      
+      // Find recipient user by email/username
+      const users = await storage.getAllUsers();
+      const recipientUser = users.find(u => 
+        u.username === recipientEmail || 
+        u.email === recipientEmail || 
+        u.displayName === recipientEmail
+      );
+      
+      if (!recipientUser) {
+        return res.status(404).json({ message: 'Destinataire introuvable' });
+      }
+      
+      // Broadcast forwarded message to recipient
+      broadcastToAll({
+        type: 'courrier_message',
+        data: {
+          id: Date.now(),
+          type: 'forward',
+          sender: senderName,
+          senderEmail: senderEmail,
+          recipientId: recipientUser.id,
+          subject: `Fwd: ${originalEmail.subject}`,
+          message: message || `Message transféré de ${originalEmail.sender}`,
+          originalEmail: {
+            subject: originalEmail.subject,
+            sender: originalEmail.sender,
+            senderEmail: originalEmail.senderEmail,
+            content: originalEmail.content,
+            date: originalEmail.date,
+            time: originalEmail.time,
+            attachment: originalEmail.attachment,
+            folder: originalEmail.folder
+          },
+          fileId: originalEmail.attachment?.id,
+          fileName: originalEmail.attachment?.name,
+          fileSize: originalEmail.attachment?.size,
+          fileType: originalEmail.attachment?.type,
+          fileUrl: originalEmail.attachment?.url,
+          folderId: originalEmail.folder?.id,
+          folderName: originalEmail.folder?.name,
+          fileCount: originalEmail.folder?.fileCount,
+          totalSize: originalEmail.folder?.totalSize,
+          timestamp: new Date().toISOString(),
+          priority: 'medium'
+        }
+      });
+      
+      res.json({ success: true, message: 'Email transféré avec succès' });
+    } catch (error) {
+      console.error('Error forwarding email:', error);
+      res.status(500).json({ message: 'Erreur lors du transfert de l\'email' });
+    }
+  });
+
   // Enregistrer les routes pour les réunions vidéo Jitsi
   registerJitsiRoutes(app, requireAuth);
 
