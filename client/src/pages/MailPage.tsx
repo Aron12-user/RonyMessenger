@@ -36,6 +36,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -103,6 +106,13 @@ export default function MailPage() {
   const [emailStates, setEmailStates] = useState<Map<number, Partial<EmailItem>>>(new Map());
   const [realtimeEmails, setRealtimeEmails] = useState<EmailItem[]>([]);
   const [persistentEmails, setPersistentEmails] = useState<EmailItem[]>([]);
+  
+  // États pour les boîtes de dialogue
+  const [showReplyDialog, setShowReplyDialog] = useState(false);
+  const [showForwardDialog, setShowForwardDialog] = useState(false);
+  const [replyMessage, setReplyMessage] = useState('');
+  const [forwardMessage, setForwardMessage] = useState('');
+  const [forwardRecipient, setForwardRecipient] = useState('');
 
   const { data: sharedData, isLoading, refetch } = useQuery<{files: SharedFile[], folders: SharedFolder[]}>({
     queryKey: ['/api/files/shared'],
@@ -512,6 +522,86 @@ Bien cordialement,`;
     }
   });
 
+  // Mutation pour envoyer une réponse
+  const replyMutation = useMutation({
+    mutationFn: async ({ recipientEmail, message, originalEmail }: { 
+      recipientEmail: string, 
+      message: string, 
+      originalEmail: EmailItem 
+    }) => {
+      if (!user) throw new Error('Utilisateur non connecté');
+      
+      const response = await fetch('/api/courrier/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientEmail,
+          message,
+          originalSubject: originalEmail.subject,
+          originalSender: originalEmail.sender,
+          originalContent: originalEmail.content,
+          senderName: user.displayName || user.username,
+          senderEmail: user.email || `${user.username}@example.com`
+        })
+      });
+      
+      if (!response.ok) throw new Error('Erreur lors de l\'envoi de la réponse');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Réponse envoyée avec succès' });
+      setShowReplyDialog(false);
+      setReplyMessage('');
+    },
+    onError: () => {
+      toast({ title: 'Erreur', description: 'Impossible d\'envoyer la réponse' });
+    }
+  });
+
+  // Mutation pour transférer un email
+  const forwardMutation = useMutation({
+    mutationFn: async ({ recipientEmail, message, originalEmail }: { 
+      recipientEmail: string, 
+      message: string, 
+      originalEmail: EmailItem 
+    }) => {
+      if (!user) throw new Error('Utilisateur non connecté');
+      
+      const response = await fetch('/api/courrier/forward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientEmail,
+          message,
+          originalEmail: {
+            subject: originalEmail.subject,
+            sender: originalEmail.sender,
+            senderEmail: originalEmail.senderEmail,
+            content: originalEmail.content,
+            date: originalEmail.date,
+            time: originalEmail.time,
+            attachment: originalEmail.attachment,
+            folder: originalEmail.folder
+          },
+          senderName: user.displayName || user.username,
+          senderEmail: user.email || `${user.username}@example.com`
+        })
+      });
+      
+      if (!response.ok) throw new Error('Erreur lors du transfert');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Email transféré avec succès' });
+      setShowForwardDialog(false);
+      setForwardMessage('');
+      setForwardRecipient('');
+    },
+    onError: () => {
+      toast({ title: 'Erreur', description: 'Impossible de transférer l\'email' });
+    }
+  });
+
   // Actions
   const handleEmailClick = (email: EmailItem) => {
     const currentEmail = getCurrentEmail(email);
@@ -542,6 +632,42 @@ Bien cordialement,`;
   const handleRefresh = () => {
     refetch();
     toast({ title: 'Courrier actualisé' });
+  };
+
+  const handleReply = (email: EmailItem) => {
+    setSelectedEmail(email);
+    setShowReplyDialog(true);
+  };
+
+  const handleForward = (email: EmailItem) => {
+    setSelectedEmail(email);
+    setShowForwardDialog(true);
+  };
+
+  const handleSendReply = () => {
+    if (!selectedEmail || !replyMessage.trim()) {
+      toast({ title: 'Erreur', description: 'Veuillez saisir un message' });
+      return;
+    }
+    
+    replyMutation.mutate({
+      recipientEmail: selectedEmail.senderEmail,
+      message: replyMessage,
+      originalEmail: selectedEmail
+    });
+  };
+
+  const handleSendForward = () => {
+    if (!selectedEmail || !forwardMessage.trim() || !forwardRecipient.trim()) {
+      toast({ title: 'Erreur', description: 'Veuillez remplir tous les champs obligatoires' });
+      return;
+    }
+    
+    forwardMutation.mutate({
+      recipientEmail: forwardRecipient,
+      message: forwardMessage,
+      originalEmail: selectedEmail
+    });
   };
 
   const handleDownload = (item: SharedFile | SharedFolder) => {
@@ -1019,11 +1145,11 @@ Bien cordialement,`;
 
                     {/* Actions du message */}
                     <div className="flex items-center space-x-3 pt-6 border-t mt-8">
-                      <Button>
+                      <Button onClick={() => handleReply(selectedEmail)}>
                         <Reply className="w-4 h-4 mr-2" />
                         Répondre
                       </Button>
-                      <Button variant="outline">
+                      <Button variant="outline" onClick={() => handleForward(selectedEmail)}>
                         <Forward className="w-4 h-4 mr-2" />
                         Transférer
                       </Button>
@@ -1049,6 +1175,202 @@ Bien cordialement,`;
           </ScrollArea>
         </div>
       )}
+
+      {/* Boîte de dialogue pour Répondre */}
+      <Dialog open={showReplyDialog} onOpenChange={setShowReplyDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Reply className="w-5 h-5 text-blue-500" />
+              <span>Répondre à {selectedEmail?.sender}</span>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Informations sur l'email original */}
+            {selectedEmail && (
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <div className="text-sm text-gray-600 mb-2">
+                  <strong>Message original :</strong>
+                </div>
+                <div className="text-sm font-medium text-gray-900 mb-1">
+                  Re: {selectedEmail.subject}
+                </div>
+                <div className="text-xs text-gray-500 mb-2">
+                  De: {selectedEmail.sender} &lt;{selectedEmail.senderEmail}&gt;
+                </div>
+                <div className="text-sm text-gray-700 bg-white p-3 rounded border max-h-24 overflow-y-auto">
+                  {selectedEmail.content.substring(0, 200)}...
+                </div>
+              </div>
+            )}
+
+            {/* Zone de saisie du message de réponse */}
+            <div className="space-y-2">
+              <Label htmlFor="reply-message" className="text-sm font-medium">
+                Votre réponse
+              </Label>
+              <Textarea
+                id="reply-message"
+                placeholder="Tapez votre réponse ici..."
+                value={replyMessage}
+                onChange={(e) => setReplyMessage(e.target.value)}
+                className="min-h-32 resize-none"
+              />
+              <div className="text-xs text-gray-500">
+                {replyMessage.length}/1000 caractères
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowReplyDialog(false);
+                  setReplyMessage('');
+                }}
+              >
+                Annuler
+              </Button>
+              <Button 
+                onClick={handleSendReply}
+                disabled={replyMutation.isPending || !replyMessage.trim()}
+                className="min-w-24"
+              >
+                {replyMutation.isPending ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Envoi...</span>
+                  </div>
+                ) : (
+                  <>
+                    <Reply className="w-4 h-4 mr-2" />
+                    Envoyer
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Boîte de dialogue pour Transfert */}
+      <Dialog open={showForwardDialog} onOpenChange={setShowForwardDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Forward className="w-5 h-5 text-green-500" />
+              <span>Transférer le message</span>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Destinataire */}
+            <div className="space-y-2">
+              <Label htmlFor="forward-recipient" className="text-sm font-medium">
+                Destinataire <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="forward-recipient"
+                type="email"
+                placeholder="adresse@exemple.com"
+                value={forwardRecipient}
+                onChange={(e) => setForwardRecipient(e.target.value)}
+                className="w-full"
+              />
+            </div>
+
+            {/* Message personnel */}
+            <div className="space-y-2">
+              <Label htmlFor="forward-message" className="text-sm font-medium">
+                Message personnel (optionnel)
+              </Label>
+              <Textarea
+                id="forward-message"
+                placeholder="Ajoutez un message personnel avant le transfert..."
+                value={forwardMessage}
+                onChange={(e) => setForwardMessage(e.target.value)}
+                className="min-h-24 resize-none"
+              />
+            </div>
+
+            {/* Aperçu du message transféré */}
+            {selectedEmail && (
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <div className="text-sm text-gray-600 mb-2">
+                  <strong>Message transféré :</strong>
+                </div>
+                <div className="bg-white p-4 rounded border">
+                  <div className="text-sm font-medium text-gray-900 mb-2">
+                    Fwd: {selectedEmail.subject}
+                  </div>
+                  <div className="text-xs text-gray-500 space-y-1 mb-3">
+                    <div>De: {selectedEmail.sender} &lt;{selectedEmail.senderEmail}&gt;</div>
+                    <div>Date: {selectedEmail.date} à {selectedEmail.time}</div>
+                  </div>
+                  <Separator className="my-2" />
+                  <div className="text-sm text-gray-700 max-h-32 overflow-y-auto">
+                    {selectedEmail.content}
+                  </div>
+                  {(selectedEmail.attachment || selectedEmail.folder) && (
+                    <div className="mt-3 pt-3 border-t">
+                      <div className="text-xs text-gray-500 mb-2">Pièce jointe :</div>
+                      <div className="flex items-center space-x-2 text-sm">
+                        {selectedEmail.attachment && (
+                          <>
+                            {getItemIcon(selectedEmail.attachment)}
+                            <span>{selectedEmail.attachment.name}</span>
+                            <span className="text-gray-500">({formatFileSize(selectedEmail.attachment.size)})</span>
+                          </>
+                        )}
+                        {selectedEmail.folder && (
+                          <>
+                            <FolderOpen className="w-4 h-4 text-blue-500" />
+                            <span>{selectedEmail.folder.name}</span>
+                            <span className="text-gray-500">({selectedEmail.folder.fileCount} fichiers)</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowForwardDialog(false);
+                  setForwardMessage('');
+                  setForwardRecipient('');
+                }}
+              >
+                Annuler
+              </Button>
+              <Button 
+                onClick={handleSendForward}
+                disabled={forwardMutation.isPending || !forwardRecipient.trim()}
+                className="min-w-24"
+              >
+                {forwardMutation.isPending ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Envoi...</span>
+                  </div>
+                ) : (
+                  <>
+                    <Forward className="w-4 h-4 mr-2" />
+                    Transférer
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
