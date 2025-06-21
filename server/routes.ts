@@ -455,10 +455,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user!.id;
       const folderId = req.query.folderId === "null" ? null : req.query.folderId ? parseInt(req.query.folderId as string) : null;
       
-      // If folderId is provided, get files in that folder, otherwise get all files for the user
+      // Get files that belong to the current user only
+      const userFiles = await storage.getFilesForUser(userId);
+      
+      // Filter by folder if specified
       const files = folderId !== undefined 
-        ? await storage.getFilesByFolder(folderId) 
-        : await storage.getFilesForUser(userId);
+        ? userFiles.filter(file => file.folderId === folderId)
+        : userFiles;
         
       res.json(files);
     } catch (error) {
