@@ -248,25 +248,44 @@ export default function MailPage() {
             };
           }
 
+          // Déduplication robuste basée sur l'ID unique
           setPersistentEmails(prev => {
             const exists = prev.some(email => 
-              email.sender === newEmail.sender && 
-              email.subject === newEmail.subject &&
-              Math.abs(new Date(email.date).getTime() - new Date(newEmail.date).getTime()) < 5000
+              email.id === newEmail.id || 
+              (email.sender === newEmail.sender && 
+               email.subject === newEmail.subject &&
+               Math.abs(new Date(email.date + ' ' + email.time).getTime() - new Date(newEmail.date + ' ' + newEmail.time).getTime()) < 2000)
             );
             
-            if (exists) return prev;
+            if (exists) {
+              console.log('Email déjà reçu, évitement de doublon');
+              return prev;
+            }
             
             const updatedEmails = [newEmail, ...prev];
             
             try {
               localStorage.setItem(`courrier_${user.id}`, JSON.stringify(updatedEmails));
-              console.log(`Email ajouté. Total: ${updatedEmails.length} emails`);
+              console.log(`✓ Email reçu instantanément. Total: ${updatedEmails.length} emails`);
             } catch (error) {
               console.error('Erreur lors de la sauvegarde:', error);
             }
             
             return updatedEmails;
+          });
+
+          // Mise à jour également des emails temps réel pour affichage immédiat
+          setRealtimeEmails(prev => {
+            const exists = prev.some(email => 
+              email.id === newEmail.id ||
+              (email.sender === newEmail.sender && 
+               email.subject === newEmail.subject &&
+               Math.abs(new Date(email.date + ' ' + email.time).getTime() - new Date(newEmail.date + ' ' + newEmail.time).getTime()) < 2000)
+            );
+            
+            if (exists) return prev;
+            
+            return [newEmail, ...prev];
           });
           
           // Notification appropriée selon le type de message
@@ -287,7 +306,14 @@ export default function MailPage() {
             });
           }
           
+          // Forcer la mise à jour immédiate de l'interface
           queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
+          
+          // Forcer un re-rendu immédiat de la liste d'emails
+          setTimeout(() => {
+            setRealtimeEmails(current => [...current]);
+            setPersistentEmails(current => [...current]);
+          }, 50);
         }
       } catch (error) {
         console.error('Erreur lors du traitement du message WebSocket:', error);
