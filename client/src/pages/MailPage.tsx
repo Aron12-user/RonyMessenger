@@ -401,7 +401,7 @@ Bien cordialement,`;
       {viewMode === 'list' ? (
         <>
           {/* Barre d'outils moderne */}
-          <div className="border-b bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4">
+          <div className="border-b bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 flex-shrink-0">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-6">
                 <div className="flex items-center space-x-3">
@@ -476,22 +476,23 @@ Bien cordialement,`;
           </div>
 
           {/* Header avec colonnes */}
-          <div className="border-b px-6 py-3 bg-gray-50">
-            <div className="flex items-center text-sm font-medium text-gray-700 min-w-max">
+          <div className="border-b bg-gray-50 overflow-x-auto flex-shrink-0">
+            <div className="flex items-center text-sm font-medium text-gray-700 px-6 py-3" style={{ minWidth: '1000px' }}>
               <div className="w-64 flex-shrink-0">Expéditeur</div>
-              <div className="flex-1 min-w-0">Objet</div>
+              <div className="w-96 flex-shrink-0">Objet</div>
               <div className="w-24 text-center flex-shrink-0">Priorité</div>
               <div className="w-32 flex items-center justify-end flex-shrink-0">
                 <span>Date</span>
                 <ChevronDown className="w-4 h-4 ml-1" />
               </div>
               <div className="w-20 text-center flex-shrink-0">Actions</div>
+              <div className="w-16 flex-shrink-0"></div>
             </div>
           </div>
 
           {/* Liste des emails avec défilement horizontal et vertical */}
           <div className="flex-1 overflow-auto">
-            <div className="divide-y min-w-max">
+            <div className="divide-y" style={{ minWidth: '1000px' }}>
               {filteredEmails.length === 0 ? (
                 <div className="text-center py-16 px-6">
                   <Mail className="h-16 w-16 mx-auto mb-4 text-gray-300" />
@@ -511,11 +512,12 @@ Bien cordialement,`;
                       className={cn(
                         "px-6 py-4 hover:bg-blue-50 cursor-pointer border-l-4 transition-all duration-200",
                         !currentEmail.isRead ? "bg-blue-50 border-l-blue-500 font-medium" : "border-l-transparent",
-                        currentEmail.isStarred && "bg-yellow-50"
+                        currentEmail.isStarred && "bg-yellow-50",
+                        "px-0 py-0"
                       )}
                       onClick={() => handleEmailClick(email)}
                     >
-                      <div className="flex items-center min-w-max">
+                      <div className="flex items-center px-6 py-4" style={{ minWidth: '1000px' }}>
                         {/* Avatar et expéditeur */}
                         <div className="w-64 flex-shrink-0 flex items-center space-x-3">
                           <div className={cn(
@@ -545,10 +547,10 @@ Bien cordialement,`;
                         </div>
 
                         {/* Objet et aperçu */}
-                        <div className="flex-1 min-w-96 px-4">
+                        <div className="w-96 flex-shrink-0 px-4">
                           <div className="flex items-center space-x-2">
                             <span className={cn(
-                              "text-sm flex-1",
+                              "text-sm truncate",
                               !currentEmail.isRead ? "font-semibold text-gray-900" : "text-gray-700"
                             )}>
                               {email.subject}
@@ -559,7 +561,7 @@ Bien cordialement,`;
                               )}
                             </div>
                           </div>
-                          <div className="text-sm text-gray-600 mt-1 line-clamp-1">
+                          <div className="text-sm text-gray-600 mt-1 truncate">
                             {email.preview}
                           </div>
                         </div>
@@ -612,6 +614,9 @@ Bien cordialement,`;
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
+                        
+                        {/* Espace supplémentaire pour éviter la coupure */}
+                        <div className="w-16 flex-shrink-0"></div>
                       </div>
                     </div>
                   );
