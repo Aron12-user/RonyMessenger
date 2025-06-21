@@ -248,17 +248,18 @@ export default function MailPage() {
             };
           }
 
-          // Déduplication robuste basée sur l'ID unique
+          // Déduplication stricte pour éviter les doublons
           setPersistentEmails(prev => {
             const exists = prev.some(email => 
               email.id === newEmail.id || 
               (email.sender === newEmail.sender && 
                email.subject === newEmail.subject &&
-               Math.abs(new Date(email.date + ' ' + email.time).getTime() - new Date(newEmail.date + ' ' + newEmail.time).getTime()) < 2000)
+               email.date === newEmail.date &&
+               email.time === newEmail.time)
             );
             
             if (exists) {
-              console.log('Email déjà reçu, évitement de doublon');
+              console.log('Email doublon détecté, ignoré');
               return prev;
             }
             
@@ -266,26 +267,12 @@ export default function MailPage() {
             
             try {
               localStorage.setItem(`courrier_${user.id}`, JSON.stringify(updatedEmails));
-              console.log(`✓ Email reçu instantanément. Total: ${updatedEmails.length} emails`);
+              console.log(`✓ Email unique reçu. Total: ${updatedEmails.length} emails`);
             } catch (error) {
               console.error('Erreur lors de la sauvegarde:', error);
             }
             
             return updatedEmails;
-          });
-
-          // Mise à jour également des emails temps réel pour affichage immédiat
-          setRealtimeEmails(prev => {
-            const exists = prev.some(email => 
-              email.id === newEmail.id ||
-              (email.sender === newEmail.sender && 
-               email.subject === newEmail.subject &&
-               Math.abs(new Date(email.date + ' ' + email.time).getTime() - new Date(newEmail.date + ' ' + newEmail.time).getTime()) < 2000)
-            );
-            
-            if (exists) return prev;
-            
-            return [newEmail, ...prev];
           });
           
           // Notification appropriée selon le type de message
@@ -597,7 +584,23 @@ Bien cordialement,`;
       return newStates;
     });
     
-    // Si c'est une suppression, aussi supprimer de persistentEmails
+    // Mise à jour immédiate des emails persistants pour archivage et autres états
+    if (updates.isArchived || updates.isStarred !== undefined || updates.isRead !== undefined) {
+      setPersistentEmails(prev => {
+        const updatedEmails = prev.map(email => 
+          email.id === emailId ? { ...email, ...updates } : email
+        );
+        
+        if (user) {
+          localStorage.setItem(`courrier_${user.id}`, JSON.stringify(updatedEmails));
+          console.log(`Email ${emailId} ${updates.isArchived ? 'archivé' : 'mis à jour'}`);
+        }
+        
+        return updatedEmails;
+      });
+    }
+
+    // Si c'est une suppression, supprimer de persistentEmails
     if (updates.isDeleted) {
       setPersistentEmails(prev => {
         const filtered = prev.filter(email => email.id !== emailId);
@@ -792,14 +795,14 @@ Bien cordialement,`;
   };
 
   const handleSendForward = () => {
-    if (!selectedEmail || !forwardMessage.trim() || !forwardRecipient.trim()) {
-      toast({ title: 'Erreur', description: 'Veuillez remplir tous les champs obligatoires' });
+    if (!selectedEmail || !forwardRecipient.trim()) {
+      toast({ title: 'Erreur', description: 'Veuillez saisir l\'adresse du destinataire' });
       return;
     }
     
     forwardMutation.mutate({
       recipientEmail: forwardRecipient,
-      message: forwardMessage,
+      message: forwardMessage || `Message transféré de ${selectedEmail.sender}`,
       originalEmail: selectedEmail
     });
   };
