@@ -54,6 +54,9 @@ const avatarUpload = multer({
 // Map of online users
 const onlineUsers = new Map<number, WebSocket>();
 
+// Map to store pending messages for offline users
+const pendingMessages = new Map<number, any[]>();
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
   const requireAuth = setupSimpleAuth(app);
@@ -138,6 +141,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (userId) {
               await storage.updateUserStatus(userId, 'online');
               
+              // Deliver pending messages
+              if (pendingMessages.has(userId)) {
+                const pending = pendingMessages.get(userId)!;
+                pending.forEach(message => {
+                  try {
+                    ws.send(JSON.stringify(message));
+                    console.log(`✓ Message en attente livré à l'utilisateur ${userId}`);
+                  } catch (error) {
+                    console.error('Erreur livraison message en attente:', error);
+                  }
+                });
+                pendingMessages.delete(userId);
+              }
+              
               // Broadcast status update to all clients
               broadcastToAll({
                 type: 'user_status',
@@ -219,37 +236,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  // Helper function to broadcast to all connected clients with improved reliability
+  // Helper function to broadcast to all connected clients
   function broadcastToAll(data: any) {
     const message = JSON.stringify(data);
-    const clients = Array.from(wss.clients);
     
-    // Diffusion générale immédiate
+    // Pour les messages courrier, envoyer seulement au destinataire spécifique
+    if (data.type === 'courrier_message' && data.data.recipientId) {
+      const recipientWs = onlineUsers.get(data.data.recipientId);
+      if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
+        try {
+          recipientWs.send(message);
+          console.log(`✓ Message courrier livré à l'utilisateur ${data.data.recipientId}`);
+        } catch (error) {
+          console.error('Erreur livraison courrier:', error);
+        }
+      } else {
+        // Sauvegarder le message pour livraison ultérieure
+        const userId = data.data.recipientId;
+        if (!pendingMessages.has(userId)) {
+          pendingMessages.set(userId, []);
+        }
+        pendingMessages.get(userId)!.push(data);
+        console.log(`⚠ Utilisateur ${userId} hors ligne, message en attente`);
+      }
+      return; // Ne pas diffuser à tous pour les courriers
+    }
+    
+    // Pour les autres types de messages, diffuser à tous
+    const clients = Array.from(wss.clients);
     clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
         try {
           client.send(message);
         } catch (error) {
-          console.error('Erreur diffusion générale WebSocket:', error);
+          console.error('Erreur diffusion WebSocket:', error);
         }
       }
     });
-    
-    // Diffusion ciblée unique pour messages courrier
-    if (data.type === 'courrier_message' && data.data.recipientId) {
-      const recipientWs = onlineUsers.get(data.data.recipientId);
-      if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
-        try {
-          // Envoi unique pour éviter les doublons
-          recipientWs.send(message);
-          console.log(`✓ Message courrier livré instantanément à l'utilisateur ${data.data.recipientId}`);
-        } catch (error) {
-          console.error('Erreur livraison ciblée:', error);
-        }
-      } else {
-        console.log(`⚠ Utilisateur ${data.data.recipientId} hors ligne, message en attente`);
-      }
-    }
   }
   
   // Avatar upload route
