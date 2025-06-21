@@ -1419,7 +1419,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Destinataire introuvable' });
       }
       
-      // Broadcast forwarded message to recipient
+      // Broadcast forwarded message to recipient with complete original data
       broadcastToAll({
         type: 'courrier_message',
         data: {
@@ -1437,9 +1437,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
             content: originalEmail.content,
             date: originalEmail.date,
             time: originalEmail.time,
-            attachment: originalEmail.attachment,
-            folder: originalEmail.folder
+            attachment: originalEmail.attachment ? {
+              id: originalEmail.attachment.id,
+              name: originalEmail.attachment.name,
+              type: originalEmail.attachment.type,
+              size: originalEmail.attachment.size,
+              url: originalEmail.attachment.url,
+              uploaderId: originalEmail.attachment.uploaderId,
+              uploadedAt: originalEmail.attachment.uploadedAt,
+              sharedBy: originalEmail.attachment.sharedBy
+            } : undefined,
+            folder: originalEmail.folder ? {
+              id: originalEmail.folder.id,
+              name: originalEmail.folder.name,
+              fileCount: originalEmail.folder.fileCount,
+              totalSize: originalEmail.folder.totalSize,
+              uploaderId: originalEmail.folder.uploaderId,
+              uploadedAt: originalEmail.folder.uploadedAt,
+              sharedBy: originalEmail.folder.sharedBy
+            } : undefined
           },
+          // Dupliquer les informations pour compatibilité
           fileId: originalEmail.attachment?.id,
           fileName: originalEmail.attachment?.name,
           fileSize: originalEmail.attachment?.size,
