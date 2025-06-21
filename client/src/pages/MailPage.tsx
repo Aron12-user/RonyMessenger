@@ -855,10 +855,25 @@ Bien cordialement,`;
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-6">
                 <div className="flex items-center space-x-3">
+                  {showArchived && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowArchived(false)}
+                      className="mr-2"
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-1" />
+                      Retour
+                    </Button>
+                  )}
                   <Mail className="h-8 w-8 text-blue-600" />
                   <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Courrier</h1>
-                    <p className="text-sm text-gray-600">Gestion des fichiers et dossiers partagés</p>
+                    <h1 className="text-2xl font-bold text-gray-900">
+                      {showArchived ? 'Archives du courrier' : 'Courrier'}
+                    </h1>
+                    <p className="text-sm text-gray-600">
+                      {showArchived ? 'Messages archivés' : 'Gestion des fichiers et dossiers partagés'}
+                    </p>
                   </div>
                 </div>
                 
@@ -1359,7 +1374,7 @@ Bien cordialement,`;
 
       {/* Boîte de dialogue pour Transfert */}
       <Dialog open={showForwardDialog} onOpenChange={setShowForwardDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-sm max-h-[70vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <Forward className="w-5 h-5 text-green-500" />
@@ -1367,7 +1382,7 @@ Bien cordialement,`;
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-6 py-4">
+          <div className="space-y-4 py-3">
             {/* Destinataire */}
             <div className="space-y-2">
               <Label htmlFor="forward-recipient" className="text-sm font-medium">
@@ -1390,10 +1405,10 @@ Bien cordialement,`;
               </Label>
               <Textarea
                 id="forward-message"
-                placeholder="Ajoutez un message personnel avant le transfert..."
+                placeholder="Message personnel..."
                 value={forwardMessage}
                 onChange={(e) => setForwardMessage(e.target.value)}
-                className="min-h-24 resize-none"
+                className="min-h-16 resize-none text-sm"
               />
             </div>
 
