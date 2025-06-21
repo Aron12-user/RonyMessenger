@@ -50,7 +50,7 @@ export class MemoryStorage implements IStorage {
   private contactId: number = 1;
 
   constructor() {
-    this.seedData();
+    // Environnement vide pour tests réels - pas de données fictives
   }
 
   private async seedData() {

@@ -50,7 +50,7 @@ export class SimpleStorage implements IStorage {
   private contactId = 1;
 
   constructor() {
-    this.seedData();
+    // Environnement vide pour tests réels - pas de données fictives
   }
 
   private seedData() {
