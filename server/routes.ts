@@ -206,32 +206,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[Meeting] Message from ${userId}:`, data.type);
         
         switch (data.type) {
+          case 'join-room':
+            // Notifier les participants existants du nouveau participant
+            broadcastToRoom(roomCode, {
+              type: 'participant-joined',
+              participant: data.participant
+            }, ws);
+            
+            // Envoyer la liste des participants existants au nouveau participant
+            const existingParticipants: any[] = [];
+            room.participants.forEach((participantWs, id) => {
+              if (id !== userId) {
+                existingParticipants.push({ id });
+              }
+            });
+
+            ws.send(JSON.stringify({
+              type: 'room-joined',
+              roomCode: roomCode,
+              participantId: userId,
+              existingParticipants
+            }));
+            break;
+
           case 'offer':
+            // Transférer l'offre WebRTC au participant cible
+            const offerTargetWs = room.participants.get(data.to);
+            if (offerTargetWs && offerTargetWs.readyState === WebSocket.OPEN) {
+              offerTargetWs.send(JSON.stringify({
+                type: 'offer',
+                offer: data.offer,
+                from: userId
+              }));
+            }
+            break;
+
           case 'answer':
+            // Transférer la réponse WebRTC au participant cible
+            const answerTargetWs = room.participants.get(data.to);
+            if (answerTargetWs && answerTargetWs.readyState === WebSocket.OPEN) {
+              answerTargetWs.send(JSON.stringify({
+                type: 'answer',
+                answer: data.answer,
+                from: userId
+              }));
+            }
+            break;
+
           case 'ice-candidate':
-            // Forward WebRTC signaling to target participant
-            const targetWs = room.participants.get(data.targetId);
-            if (targetWs && targetWs.readyState === WebSocket.OPEN) {
-              targetWs.send(JSON.stringify({
-                ...data,
-                userId
+            // Transférer le candidat ICE au participant cible
+            const candidateTargetWs = room.participants.get(data.to);
+            if (candidateTargetWs && candidateTargetWs.readyState === WebSocket.OPEN) {
+              candidateTargetWs.send(JSON.stringify({
+                type: 'ice-candidate',
+                candidate: data.candidate,
+                from: userId
               }));
             }
             break;
             
           case 'participant-update':
-            // Broadcast participant updates
+            // Diffuser les mises à jour des participants
             broadcastToRoom(roomCode, {
               type: 'participant-update',
-              userId,
-              updates: data.updates
+              participant: {
+                ...data.participant,
+                id: userId
+              }
+            }, ws);
+            break;
+
+          case 'chat-message':
+            // Diffuser les messages de chat
+            broadcastToRoom(roomCode, {
+              type: 'chat-message',
+              message: {
+                ...data.message,
+                id: `${Date.now()}_${userId}`,
+                timestamp: new Date()
+              }
+            });
+            break;
+
+          case 'screen-share-start':
+            // Notifier le début du partage d'écran
+            broadcastToRoom(roomCode, {
+              type: 'screen-share-started',
+              participantId: userId
+            }, ws);
+            break;
+
+          case 'screen-share-stop':
+            // Notifier l'arrêt du partage d'écran
+            broadcastToRoom(roomCode, {
+              type: 'screen-share-stopped',
+              participantId: userId
+            }, ws);
+            break;
+
+          case 'hand-raise':
+            // Gestion des mains levées
+            broadcastToRoom(roomCode, {
+              type: 'hand-raised',
+              participantId: userId,
+              raised: data.raised
             }, ws);
             break;
             
           case 'user-info':
-            // Update user info
+            // Mise à jour des informations utilisateur
             userInfo = { ...userInfo, ...data.info };
-            console.log(`[Meeting] Updated user info for ${userId}:`, userInfo);
+            console.log(`[Meeting] Info utilisateur mise à jour pour ${userId}:`, userInfo);
             break;
         }
       } catch (error: any) {
