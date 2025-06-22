@@ -237,7 +237,7 @@ export default function Messages() {
   }, [activeConversationId, queryClient]);
 
   return (
-    <section className="flex-1 flex overflow-hidden bg-gray-900" style={{ paddingBottom: '8px' }}>
+    <section className="flex-1 flex overflow-hidden bg-gray-900" style={{ padding: '4px', paddingBottom: '2px' }}>
       {/* Contacts/Conversations List */}
       <ConversationList 
         conversations={conversations}

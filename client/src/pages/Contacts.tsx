@@ -276,8 +276,8 @@ export default function Contacts() {
   };
 
   return (
-    <section className="flex-1 p-4 pb-2 flex flex-col">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex-1">
+    <section className="flex-1 p-2 pb-1 flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 flex-1">
         <div className="max-w-4xl mx-auto">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold">Contacts</h2>

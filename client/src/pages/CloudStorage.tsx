@@ -646,7 +646,7 @@ export default function CloudStorage() {
 
   return (
     <div 
-      className="flex-1 p-4 pb-2 flex flex-col overflow-hidden"
+      className="flex-1 p-2 pb-1 flex flex-col overflow-hidden"
       style={{
         backgroundImage: `url(${cloudBackgroundImage})`,
         backgroundSize: 'cover',
@@ -654,7 +654,7 @@ export default function CloudStorage() {
         backgroundRepeat: 'no-repeat'
       }}
     >
-      <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg shadow p-6 flex-1 flex flex-col overflow-hidden">
+      <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg shadow p-3 flex-1 flex flex-col overflow-hidden">
         <div className="max-w-7xl mx-auto flex flex-col h-full overflow-hidden">
           {/* Header avec titre et actions principales */}
           <div className="flex flex-wrap justify-between items-center mb-6">
