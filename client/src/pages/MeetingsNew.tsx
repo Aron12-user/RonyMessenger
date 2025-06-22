@@ -46,7 +46,9 @@ import {
   Edit,
   Trash2,
   Share,
-  Plus
+  Plus,
+  Shield,
+  Repeat
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -81,6 +83,7 @@ export default function MeetingsNew() {
   const [joinCode, setJoinCode] = useState<string>('');
   const [isValidatingCode, setIsValidatingCode] = useState<boolean>(false);
   const [validationError, setValidationError] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>("active");
   const joinInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -298,21 +301,25 @@ export default function MeetingsNew() {
         <div className="flex-1 overflow-hidden p-2">
           <div className="max-w-4xl mx-auto h-full">
 
-            <Tabs defaultValue="active" className="w-full h-full flex flex-col">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
               <div className="flex-shrink-0 bg-white dark:bg-gray-800 pb-2 border-b border-gray-200 dark:border-gray-700 mb-4">
-                <TabsList className="mb-2">
-                  <TabsTrigger value="active" className="flex items-center">
+                <TabsList className="mb-2 grid grid-cols-3 w-full">
+                  <TabsTrigger value="active" className="flex items-center justify-center">
                     <Video className="h-4 w-4 mr-2" />
                     <span>Réunions actives</span>
                   </TabsTrigger>
-                  <TabsTrigger value="scheduled" className="flex items-center">
+                  <TabsTrigger value="create" className="flex items-center justify-center">
+                    <Plus className="h-4 w-4 mr-2" />
+                    <span>Programmer une Réunion</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="scheduled" className="flex items-center justify-center">
                     <Calendar className="h-4 w-4 mr-2" />
                     <span>Réunions programmées</span>
                   </TabsTrigger>
                 </TabsList>
               </div>
 
-            <TabsContent value="active" className="flex-1 overflow-y-auto space-y-4 pb-4">
+            <TabsContent value="active" className="flex-1 overflow-y-auto space-y-4 pb-4 max-h-[calc(100vh-200px)]">
               {(isLoadingMeetings || isLoadingScheduled) ? (
                 <div className="flex justify-center py-6">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -537,7 +544,7 @@ export default function MeetingsNew() {
 
             </TabsContent>
 
-            <TabsContent value="scheduled" className="flex-1 overflow-y-auto space-y-4 pb-4">
+            <TabsContent value="create" className="flex-1 overflow-y-auto space-y-4 pb-4 max-h-[calc(100vh-200px)]">
               <div className="space-y-6">
                 <Card>
                   <CardHeader>
@@ -706,6 +713,169 @@ export default function MeetingsNew() {
                       </Button>
                     </div>
                   </CardFooter>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="scheduled" className="flex-1 overflow-y-auto space-y-4 pb-4 max-h-[calc(100vh-200px)]">
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span>Réunions programmées</span>
+                      <span className="px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded-md">
+                        {scheduledMeetings?.meetings?.length || 0} réunion(s)
+                      </span>
+                    </CardTitle>
+                    <CardDescription>
+                      Gérez vos réunions planifiées
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="max-h-[calc(100vh-300px)] overflow-y-auto px-6 pb-6">
+                      {isLoadingScheduled ? (
+                        <div className="flex justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        </div>
+                      ) : !scheduledMeetings?.meetings || scheduledMeetings.meetings.length === 0 ? (
+                        <div className="text-center py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                          <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                          <h3 className="text-lg font-medium mb-2">Aucune réunion programmée</h3>
+                          <p className="text-sm text-gray-500 mb-4">
+                            Créez votre première réunion programmée
+                          </p>
+                          <Button onClick={() => setActiveTab('create')} variant="outline">
+                            <Plus className="h-4 w-4 mr-2" />
+                            Programmer une réunion
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {scheduledMeetings.meetings.map((meeting, index) => (
+                            <div key={meeting.id} className={`border rounded-lg p-4 transition-all hover:shadow-md ${
+                              index % 2 === 0 
+                                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' 
+                                : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                            }`}>
+                              <div className="flex justify-between items-start mb-3">
+                                <div className="flex-1">
+                                  <h4 className="font-semibold text-base">{meeting.title}</h4>
+                                  {meeting.description && (
+                                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{meeting.description}</p>
+                                  )}
+                                </div>
+                                <div className="flex gap-2 ml-4">
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                                    onClick={async () => {
+                                      try {
+                                        removeMeetingFromCache(meeting.id);
+                                        await apiRequest('DELETE', `/api/meetings/scheduled/${meeting.id}`);
+                                        toast({
+                                          title: "Réunion supprimée",
+                                          description: "La réunion a été supprimée avec succès"
+                                        });
+                                        queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
+                                      } catch (error) {
+                                        queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
+                                        toast({
+                                          title: "Erreur",
+                                          description: "Impossible de supprimer la réunion",
+                                          variant: "destructive"
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                              
+                              <div className="flex justify-between items-center text-sm mb-3">
+                                <span className={`flex items-center font-medium ${
+                                  index % 2 === 0 ? 'text-blue-700 dark:text-blue-300' : 'text-green-700 dark:text-green-300'
+                                }`}>
+                                  <Calendar className="h-4 w-4 mr-2" />
+                                  {new Date(meeting.startTime).toLocaleDateString('fr-FR', {
+                                    weekday: 'long',
+                                    day: 'numeric',
+                                    month: 'long',
+                                    year: 'numeric'
+                                  })}
+                                </span>
+                                <span className={`flex items-center font-medium ${
+                                  index % 2 === 0 ? 'text-blue-700 dark:text-blue-300' : 'text-green-700 dark:text-green-300'
+                                }`}>
+                                  <Clock className="h-4 w-4 mr-2" />
+                                  {new Date(meeting.startTime).toLocaleTimeString('fr-FR', {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })} - {new Date(meeting.endTime).toLocaleTimeString('fr-FR', {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                              </div>
+
+                              {/* Options de la réunion */}
+                              <div className="flex flex-wrap gap-2 mb-3">
+                                {meeting.isRecurring && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    <Repeat className="h-3 w-3 mr-1" />
+                                    Récurrente
+                                  </Badge>
+                                )}
+                                {meeting.waitingRoom && (
+                                  <Badge variant="outline" className="text-xs bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300">
+                                    <Shield className="h-3 w-3 mr-1" />
+                                    Salle d'attente
+                                  </Badge>
+                                )}
+                                {meeting.recordMeeting && (
+                                  <Badge variant="outline" className="text-xs bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300">
+                                    <Video className="h-3 w-3 mr-1" />
+                                    Enregistrement
+                                  </Badge>
+                                )}
+                              </div>
+
+                              {/* Actions */}
+                              <div className="flex gap-2">
+                                <Button 
+                                  size="sm" 
+                                  className="flex-1"
+                                  onClick={() => handleJoinMeeting(meeting.roomName)}
+                                >
+                                  <Video className="h-4 w-4 mr-2" />
+                                  Démarrer la réunion
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => {
+                                    const meetingLink = `${window.location.origin}/meeting/${meeting.roomName}`;
+                                    navigator.clipboard.writeText(meetingLink);
+                                    toast({
+                                      title: "Lien copié",
+                                      description: "Le lien de la réunion a été copié dans le presse-papiers"
+                                    });
+                                  }}
+                                >
+                                  <Share className="h-4 w-4 mr-2" />
+                                  Partager
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
                 </Card>
               </div>
             </TabsContent>
