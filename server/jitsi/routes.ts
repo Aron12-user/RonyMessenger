@@ -208,5 +208,69 @@ export function registerJitsiRoutes(app: Express, requireAuth: any) {
     }
   });
   
+  // Programmer une nouvelle réunion
+  app.post('/api/meetings/schedule', requireAuth, async (req, res) => {
+    try {
+      const { title, description, startTime, endTime, isRecurring, waitingRoom, recordMeeting } = req.body;
+      const userId = (req.user as Express.User).id;
+      
+      if (!title || !startTime || !endTime) {
+        return res.status(400).json({
+          success: false,
+          message: 'Title, start time, and end time are required'
+        });
+      }
+      
+      // Générer un nom de salle unique pour la réunion programmée
+      const roomName = `scheduled-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Créer la réunion programmée (simulation - dans une vraie app, cela serait sauvé en base)
+      const scheduledMeeting = {
+        id: Date.now(),
+        title,
+        description: description || '',
+        startTime: new Date(startTime),
+        endTime: new Date(endTime),
+        organizerId: userId,
+        roomName,
+        isRecurring: isRecurring || false,
+        waitingRoom: waitingRoom || false,
+        recordMeeting: recordMeeting || false,
+        createdAt: new Date()
+      };
+      
+      res.status(201).json({
+        success: true,
+        meeting: scheduledMeeting,
+        message: 'Meeting scheduled successfully'
+      });
+    } catch (error) {
+      console.error('Error scheduling meeting:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to schedule meeting' 
+      });
+    }
+  });
+  
+  // Obtenir les réunions programmées
+  app.get('/api/meetings/scheduled', requireAuth, (req, res) => {
+    try {
+      // Simulation - dans une vraie app, cela viendrait de la base de données
+      const scheduledMeetings: any[] = [];
+      
+      res.json({
+        success: true,
+        meetings: scheduledMeetings
+      });
+    } catch (error) {
+      console.error('Error fetching scheduled meetings:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to fetch scheduled meetings' 
+      });
+    }
+  });
+
   console.log('Jitsi meeting routes registered');
 }

@@ -226,16 +226,18 @@ export default function MeetingsNew() {
           </div>
 
           <Tabs defaultValue="active" className="w-full">
-            <TabsList className="mb-6">
-              <TabsTrigger value="active" className="flex items-center">
-                <Video className="h-4 w-4 mr-2" />
-                <span>Réunions actives</span>
-              </TabsTrigger>
-              <TabsTrigger value="scheduled" className="flex items-center">
-                <Calendar className="h-4 w-4 mr-2" />
-                <span>Réunions programmées</span>
-              </TabsTrigger>
-            </TabsList>
+            <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 pb-2 border-b border-gray-200 dark:border-gray-700 mb-4">
+              <TabsList className="mb-2">
+                <TabsTrigger value="active" className="flex items-center">
+                  <Video className="h-4 w-4 mr-2" />
+                  <span>Réunions actives</span>
+                </TabsTrigger>
+                <TabsTrigger value="scheduled" className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  <span>Réunions programmées</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="active" className="space-y-4 max-h-[70vh] overflow-y-auto">
               {isLoadingMeetings ? (
@@ -423,29 +425,70 @@ export default function MeetingsNew() {
                       <Button 
                         onClick={async () => {
                           try {
-                            const formData = new FormData(document.querySelector('form')!);
+                            const form = document.querySelector('form') as HTMLFormElement;
+                            const formData = new FormData(form);
+                            
+                            const title = formData.get('title') as string;
+                            const startTime = formData.get('startTime') as string;
+                            const endTime = formData.get('endTime') as string;
+                            
+                            // Validation côté client
+                            if (!title?.trim()) {
+                              toast({
+                                title: "Erreur de validation",
+                                description: "Le titre de la réunion est requis",
+                                variant: "destructive"
+                              });
+                              return;
+                            }
+                            
+                            if (!startTime || !endTime) {
+                              toast({
+                                title: "Erreur de validation",
+                                description: "Les heures de début et fin sont requises",
+                                variant: "destructive"
+                              });
+                              return;
+                            }
+                            
+                            if (new Date(startTime) >= new Date(endTime)) {
+                              toast({
+                                title: "Erreur de validation",
+                                description: "L'heure de fin doit être après l'heure de début",
+                                variant: "destructive"
+                              });
+                              return;
+                            }
+                            
                             const response = await apiRequest('POST', '/api/meetings/schedule', {
-                              title: formData.get('title'),
-                              description: formData.get('description'),
-                              startTime: formData.get('startTime'),
-                              endTime: formData.get('endTime'),
+                              title: title.trim(),
+                              description: (formData.get('description') as string) || '',
+                              startTime,
+                              endTime,
                               isRecurring: formData.get('recurring') === 'on',
                               waitingRoom: formData.get('waitingRoom') === 'on',
                               recordMeeting: formData.get('recordMeeting') === 'on'
                             });
+
+                            if (!response.ok) {
+                              const errorData = await response.json();
+                              throw new Error(errorData.message || 'Erreur lors de la programmation');
+                            }
 
                             const data = await response.json();
                             toast({
                               title: "Réunion programmée",
                               description: "La réunion a été programmée avec succès"
                             });
+                            
                             // Reset form
-                            (document.querySelector('form') as HTMLFormElement)?.reset();
+                            form.reset();
                             queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
-                          } catch (error) {
+                          } catch (error: any) {
+                            console.error('Error scheduling meeting:', error);
                             toast({
                               title: "Erreur",
-                              description: "Impossible de programmer la réunion",
+                              description: error.message || "Impossible de programmer la réunion",
                               variant: "destructive"
                             });
                           }
