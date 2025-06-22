@@ -326,14 +326,82 @@ export default function MeetingsNew() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {/* Afficher les réunions programmées */}
-                  {scheduledMeetings?.meetings && scheduledMeetings.meetings.length > 0 && (
+                  {/* Réunions actives seulement */}
+                  {activeMeetings?.rooms && activeMeetings.rooms.length > 0 && (
                     <div className="space-y-4">
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 border-b pb-2">
-                        Réunions programmées
+                        Réunions en cours
+                      </h4>
+                      <div className="grid gap-4">
+                        {activeMeetings.rooms.map((room) => (
+                          <Card key={room.roomName} className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10">
+                            <CardHeader className="pb-3">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <CardTitle className="text-base font-medium">
+                                    Salle: {room.friendlyCode}
+                                  </CardTitle>
+                                  <CardDescription className="text-xs mt-1">
+                                    Réunion active
+                                  </CardDescription>
+                                </div>
+                                <div className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                                  En cours
+                                </div>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="p-4">
+                              <div className="space-y-3">
+                                <div className="text-sm">
+                                  <div className="flex items-center text-gray-600 dark:text-gray-400">
+                                    <Users className="h-4 w-4 mr-2" />
+                                    <span>{room.participantsCount} participant(s)</span>
+                                  </div>
+                                  <div className="flex items-center text-gray-600 dark:text-gray-400 mt-1">
+                                    <Clock className="h-4 w-4 mr-2" />
+                                    <span>Créée: {formatDate(room.createdAt)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 mt-4">
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => handleJoinMeeting(room.roomName)}
+                                  className="flex-1 bg-green-600 hover:bg-green-700"
+                                >
+                                  <Video className="h-4 w-4 mr-2" />
+                                  Rejoindre
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Réunions programmées qui commencent dans 5 minutes ou moins */}
+                  {scheduledMeetings?.meetings && scheduledMeetings.meetings.filter(meeting => {
+                    const startTime = new Date(meeting.startTime);
+                    const now = new Date();
+                    const timeDiff = startTime.getTime() - now.getTime();
+                    const minutesDiff = Math.floor(timeDiff / (1000 * 60));
+                    return minutesDiff <= 5 && minutesDiff >= 0;
+                  }).length > 0 && (
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 border-b pb-2">
+                        Réunions imminentes (moins de 5 minutes)
                       </h4>
                       <div className="grid md:grid-cols-2 gap-4">
-                        {scheduledMeetings.meetings.map((meeting, index) => (
+                        {scheduledMeetings.meetings
+                          .filter(meeting => {
+                            const startTime = new Date(meeting.startTime);
+                            const now = new Date();
+                            const timeDiff = startTime.getTime() - now.getTime();
+                            const minutesDiff = Math.floor(timeDiff / (1000 * 60));
+                            return minutesDiff <= 5 && minutesDiff >= 0;
+                          })
+                          .map((meeting, index) => (
                           <Card key={meeting.id} className={`overflow-hidden border ${
                             index % 2 === 0 
                               ? 'border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10' 
@@ -375,11 +443,21 @@ export default function MeetingsNew() {
                                       })}
                                     </span>
                                   </div>
-                                  <div className="flex items-center text-gray-600 dark:text-gray-400 mt-1">
-                                    <Clock className="h-4 w-4 mr-2" />
-                                    <span>
-                                      Durée: {Math.round((new Date(meeting.endTime).getTime() - new Date(meeting.startTime).getTime()) / (1000 * 60))} min
-                                    </span>
+                                  <div className="flex items-center justify-between mt-2">
+                                    <div className="flex items-center text-gray-600 dark:text-gray-400">
+                                      <Clock className="h-4 w-4 mr-2" />
+                                      <span>
+                                        {(() => {
+                                          const startTime = new Date(meeting.startTime);
+                                          const now = new Date();
+                                          const minutesDiff = Math.floor((startTime.getTime() - now.getTime()) / (1000 * 60));
+                                          return minutesDiff <= 0 ? "Maintenant" : `Dans ${minutesDiff} min`;
+                                        })()}
+                                      </span>
+                                    </div>
+                                    <div className="text-xs font-mono font-bold text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/20 px-2 py-1 rounded">
+                                      Code: {meeting.roomName.split('-').pop()?.toUpperCase() || 'N/A'}
+                                    </div>
                                   </div>
                                 </div>
                                 
@@ -413,11 +491,11 @@ export default function MeetingsNew() {
                                   variant="outline" 
                                   size="sm"
                                   onClick={() => {
-                                    const meetingLink = `${window.location.origin}/meeting/${meeting.roomName}`;
-                                    navigator.clipboard.writeText(meetingLink);
+                                    const meetingCode = meeting.roomName.split('-').pop()?.toUpperCase() || meeting.roomName;
+                                    navigator.clipboard.writeText(meetingCode);
                                     toast({
-                                      title: "Lien copié",
-                                      description: "Le lien de la réunion a été copié"
+                                      title: "Code copié",
+                                      description: `Code de réunion "${meetingCode}" copié`
                                     });
                                   }}
                                 >
@@ -822,6 +900,16 @@ export default function MeetingsNew() {
                                 </span>
                               </div>
 
+                              {/* Code de salle unique */}
+                              <div className="flex justify-center mb-3">
+                                <div className="bg-gray-100 dark:bg-gray-700 px-4 py-2 rounded-lg border">
+                                  <div className="text-xs text-gray-500 dark:text-gray-400 text-center">Code de salle</div>
+                                  <div className="text-lg font-mono font-bold text-gray-800 dark:text-gray-200 text-center">
+                                    {meeting.roomName.split('-').pop()?.toUpperCase() || 'N/A'}
+                                  </div>
+                                </div>
+                              </div>
+
                               {/* Options de la réunion */}
                               <div className="flex flex-wrap gap-2 mb-3">
                                 {meeting.isRecurring && (
@@ -858,16 +946,16 @@ export default function MeetingsNew() {
                                   variant="outline" 
                                   size="sm"
                                   onClick={() => {
-                                    const meetingLink = `${window.location.origin}/meeting/${meeting.roomName}`;
-                                    navigator.clipboard.writeText(meetingLink);
+                                    const meetingCode = meeting.roomName.split('-').pop()?.toUpperCase() || meeting.roomName;
+                                    navigator.clipboard.writeText(meetingCode);
                                     toast({
-                                      title: "Lien copié",
-                                      description: "Le lien de la réunion a été copié dans le presse-papiers"
+                                      title: "Code copié",
+                                      description: `Code de réunion "${meetingCode}" copié dans le presse-papiers`
                                     });
                                   }}
                                 >
                                   <Share className="h-4 w-4 mr-2" />
-                                  Partager
+                                  Copier code
                                 </Button>
                               </div>
                             </div>
