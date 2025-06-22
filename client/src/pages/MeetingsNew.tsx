@@ -11,7 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { API_ENDPOINTS } from "@/lib/constants";
 import { User } from "@shared/schema";
-import MeetingRoom from "@/components/MeetingRoom";
+
 import {
   Dialog,
   DialogContent,
@@ -246,12 +246,23 @@ export default function MeetingsNew() {
 
   // Démarrer une nouvelle réunion
   const handleStartMeeting = () => {
-    setActiveCode(''); // Code vide indique une nouvelle réunion
+    const instantMeetingCode = `instant-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+    const meetingUrl = `/meeting/${instantMeetingCode}`;
+    window.open(meetingUrl, '_blank');
+    toast({
+      title: "Réunion instantanée lancée",
+      description: "La vidéoconférence s'ouvre dans un nouvel onglet"
+    });
   };
 
   // Rejoindre une réunion existante
   const handleJoinMeeting = (code: string) => {
-    setActiveCode(code);
+    const meetingUrl = `/meeting/${code}`;
+    window.open(meetingUrl, '_blank');
+    toast({
+      title: "Réunion lancée",
+      description: "La vidéoconférence s'ouvre dans un nouvel onglet"
+    });
   };
 
   // Quitter une réunion
@@ -297,17 +308,7 @@ export default function MeetingsNew() {
     );
   }
 
-  // Afficher la réunion si active
-  if (activeCode !== null) {
-    return (
-      <MeetingRoom
-        roomCode={activeCode || undefined}
-        userName={currentUser.displayName || currentUser.username}
-        userId={currentUser.id}
-        onClose={handleEndMeeting}
-      />
-    );
-  }
+  // Note: Les réunions s'ouvrent maintenant dans de nouveaux onglets
 
   return (
     <section className="flex-1 p-1 flex flex-col h-screen overflow-hidden">
@@ -407,7 +408,14 @@ export default function MeetingsNew() {
                               <div className="flex gap-2 mt-4">
                                 <Button 
                                   size="sm" 
-                                  onClick={() => handleJoinMeeting(room.roomName)}
+                                  onClick={() => {
+                                    const meetingUrl = `/meeting/${room.roomName}`;
+                                    window.open(meetingUrl, '_blank');
+                                    toast({
+                                      title: "Réunion lancée",
+                                      description: "La vidéoconférence s'ouvre dans un nouvel onglet"
+                                    });
+                                  }}
                                   className="flex-1 bg-green-600 hover:bg-green-700"
                                 >
                                   <Video className="h-4 w-4 mr-2" />
@@ -521,7 +529,14 @@ export default function MeetingsNew() {
                             <CardFooter className="bg-gray-50 dark:bg-gray-700 px-4 py-3">
                               <div className="flex gap-2 w-full">
                                 <Button 
-                                  onClick={() => handleJoinMeeting(meeting.roomName)}
+                                  onClick={() => {
+                                    const meetingUrl = `/meeting/${meeting.roomName}`;
+                                    window.open(meetingUrl, '_blank');
+                                    toast({
+                                      title: "Réunion lancée",
+                                      description: "La vidéoconférence s'ouvre dans un nouvel onglet"
+                                    });
+                                  }}
                                   className="flex-1 bg-primary hover:bg-primary/90"
                                   size="sm"
                                 >
@@ -1040,7 +1055,14 @@ export default function MeetingsNew() {
                                 <Button 
                                   size="sm" 
                                   className="flex-1"
-                                  onClick={() => handleJoinMeeting(meeting.roomName)}
+                                  onClick={() => {
+                                    const meetingUrl = `/meeting/${meeting.roomName}`;
+                                    window.open(meetingUrl, '_blank');
+                                    toast({
+                                      title: "Réunion lancée",
+                                      description: "La vidéoconférence s'ouvre dans un nouvel onglet"
+                                    });
+                                  }}
                                 >
                                   <Video className="h-4 w-4 mr-2" />
                                   Démarrer la réunion
@@ -1113,21 +1135,23 @@ export default function MeetingsNew() {
               Annuler
             </Button>
             <Button 
-              onClick={handleJoinWithCode} 
-              disabled={isValidatingCode || !joinCode.trim()}
+              onClick={() => {
+                if (joinCode.trim()) {
+                  const meetingUrl = `/meeting/${joinCode.trim()}`;
+                  window.open(meetingUrl, '_blank');
+                  toast({
+                    title: "Réunion lancée",
+                    description: "La vidéoconférence s'ouvre dans un nouvel onglet"
+                  });
+                  setJoinCode('');
+                  closeJoinDialog();
+                }
+              }}
+              disabled={!joinCode.trim()}
               className="relative"
             >
-              {isValidatingCode ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  <span>Vérification...</span>
-                </>
-              ) : (
-                <>
-                  <Video className="h-4 w-4 mr-2" />
-                  <span>Rejoindre la réunion</span>
-                </>
-              )}
+              <Video className="h-4 w-4 mr-2" />
+              <span>Rejoindre la réunion</span>
             </Button>
           </DialogFooter>
         </DialogContent>
