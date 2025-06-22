@@ -350,50 +350,50 @@ export default function MeetingsNew() {
                       Planifiez une réunion et invitez des participants
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="max-h-[65vh] overflow-y-auto">
-                      <form className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="title">Titre de la réunion</Label>
-                        <Input id="title" name="title" placeholder="Réunion hebdomadaire" />
+                  <CardContent className="max-h-[45vh] overflow-y-auto">
+                      <form className="space-y-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="title" className="text-sm">Titre de la réunion</Label>
+                        <Input id="title" name="title" placeholder="Réunion hebdomadaire" className="h-8" />
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="description">Description</Label>
-                        <Textarea id="description" name="description" placeholder="Ordre du jour..." />
+                      <div className="space-y-1">
+                        <Label htmlFor="description" className="text-sm">Description</Label>
+                        <Textarea id="description" name="description" placeholder="Ordre du jour..." className="h-16 text-sm" />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Date et heure de début</Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-sm">Date et heure de début</Label>
                           <input
                             type="datetime-local"
                             name="startTime"
-                            className="w-full rounded-md border border-gray-200 p-2"
+                            className="w-full rounded-md border border-gray-200 p-1.5 h-8 text-sm"
                           />
                         </div>
-                        <div className="space-y-2">
-                          <Label>Date et heure de fin</Label>
+                        <div className="space-y-1">
+                          <Label className="text-sm">Date et heure de fin</Label>
                           <input
                             type="datetime-local"
                             name="endTime"
-                            className="w-full rounded-md border border-gray-200 p-2"
+                            className="w-full rounded-md border border-gray-200 p-1.5 h-8 text-sm"
                           />
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label>Participants</Label>
+                      <div className="space-y-1">
+                        <Label className="text-sm">Participants</Label>
                         <div className="flex flex-wrap gap-2">
-                          <Button variant="outline" className="h-8">
-                            <Users className="h-4 w-4 mr-2" />
+                          <Button variant="outline" className="h-7 text-xs px-2">
+                            <Users className="h-3 w-3 mr-1" />
                             Ajouter des participants
                           </Button>
                         </div>
                       </div>
 
-                      <div className="flex space-x-2">
-                        <Switch id="recurring" name="recurring"/>
-                        <Label htmlFor="recurring">Réunion récurrente</Label>
+                      <div className="flex space-x-2 items-center">
+                        <Switch id="recurring" name="recurring" className="scale-75"/>
+                        <Label htmlFor="recurring" className="text-sm">Réunion récurrente</Label>
                       </div>
                     </form>
                   </CardContent>
