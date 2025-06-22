@@ -43,6 +43,7 @@ const VideoConference: React.FC = () => {
   const [showSidebar, setShowSidebar] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [hasAudioDevice, setHasAudioDevice] = useState(true);
   
   // Refs
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -53,30 +54,65 @@ const VideoConference: React.FC = () => {
   // Initialisation des médias
   const initMedia = async () => {
     try {
-      console.log('Demande accès caméra/micro...');
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720 },
-        audio: true
-      });
-
-      console.log('Accès accordé:', stream.getTracks().map(t => t.kind));
-      setLocalStream(stream);
+      console.log('Tentative accès caméra + micro...');
       
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
+      // Essayer d'abord caméra + micro
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 1280, height: 720 },
+          audio: true
+        });
+        
+        console.log('Accès accordé (vidéo + audio):', stream.getTracks().map(t => t.kind));
+        setLocalStream(stream);
+        
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+        
+        return true;
+      } catch (audioError) {
+        console.log('Échec audio, essai caméra seule...');
+        
+        // Si échec avec audio, essayer seulement la caméra
+        try {
+          const videoStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 1280, height: 720 },
+            audio: false
+          });
+          
+          console.log('Accès accordé (vidéo seulement):', videoStream.getTracks().map(t => t.kind));
+          setLocalStream(videoStream);
+          setIsMuted(true); // Forcer mute puisque pas d'audio
+          setHasAudioDevice(false); // Marquer qu'il n'y a pas d'audio
+          
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = videoStream;
+          }
+          
+          toast({
+            title: "Caméra activée",
+            description: "Micro non disponible - vous êtes en mode muet",
+            variant: "default"
+          });
+          
+          return true;
+        } catch (videoError) {
+          throw videoError; // Relancer l'erreur vidéo
+        }
       }
-      
-      return true;
     } catch (err: any) {
-      console.error('Erreur média:', err);
-      let msg = 'Erreur accès caméra/microphone';
+      console.error('Erreur média complète:', err);
+      let msg = 'Impossible d\'accéder à la caméra';
       
       if (err.name === 'NotAllowedError') {
-        msg = 'Accès refusé. Autorisez la caméra et le microphone.';
+        msg = 'Accès refusé. Veuillez autoriser l\'accès à la caméra.';
       } else if (err.name === 'NotFoundError') {
-        msg = 'Aucune caméra/microphone trouvé.';
+        msg = 'Aucune caméra détectée sur cet appareil.';
       } else if (err.name === 'NotReadableError') {
-        msg = 'Caméra/microphone utilisé par une autre app.';
+        msg = 'Caméra utilisée par une autre application.';
+      } else if (err.name === 'OverconstrainedError') {
+        msg = 'Résolution caméra non supportée.';
       }
       
       setErrorMsg(msg);
@@ -151,7 +187,14 @@ const VideoConference: React.FC = () => {
 
   // Actions
   const toggleMute = () => {
-    if (!localStream) return;
+    if (!localStream || !hasAudioDevice) {
+      toast({
+        title: "Micro non disponible",
+        description: "Aucun microphone détecté",
+        variant: "destructive"
+      });
+      return;
+    }
     
     localStream.getAudioTracks().forEach(track => {
       track.enabled = isMuted;
@@ -212,6 +255,34 @@ const VideoConference: React.FC = () => {
   const copyRoomCode = () => {
     navigator.clipboard.writeText(roomCode || '');
     toast({ title: "Code copié" });
+  };
+
+  const retryAudio = async () => {
+    if (hasAudioDevice || !localStream) return;
+    
+    try {
+      console.log('Tentative ajout audio...');
+      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Ajouter les pistes audio au flux existant
+      audioStream.getAudioTracks().forEach(track => {
+        localStream.addTrack(track);
+      });
+      
+      setHasAudioDevice(true);
+      setIsMuted(false);
+      
+      toast({
+        title: "Microphone activé",
+        description: "Audio ajouté avec succès"
+      });
+    } catch (err) {
+      toast({
+        title: "Microphone non disponible",
+        description: "Impossible d'ajouter l'audio",
+        variant: "destructive"
+      });
+    }
   };
 
   const leaveRoom = () => {
@@ -354,9 +425,25 @@ const VideoConference: React.FC = () => {
           <Badge variant="secondary" className="bg-blue-600">
             {participants.length + 1} participant{participants.length > 0 ? 's' : ''}
           </Badge>
+          
+          {!hasAudioDevice && (
+            <Badge variant="outline" className="bg-yellow-600/20 border-yellow-600 text-yellow-200">
+              Caméra seulement
+            </Badge>
+          )}
         </div>
         
         <div className="flex items-center space-x-2">
+          {!hasAudioDevice && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={retryAudio}
+              className="text-xs border-yellow-600 hover:bg-yellow-600/20 text-yellow-200"
+            >
+              Réessayer micro
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
             {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </Button>
@@ -439,12 +526,13 @@ const VideoConference: React.FC = () => {
             <div className="flex items-center justify-center space-x-4">
               
               <Button
-                variant={isMuted ? "destructive" : "secondary"}
+                variant={isMuted || !hasAudioDevice ? "destructive" : "secondary"}
                 size="lg"
                 onClick={toggleMute}
-                className="rounded-full w-14 h-14"
+                className={`rounded-full w-14 h-14 ${!hasAudioDevice ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={!hasAudioDevice}
               >
-                {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+                {isMuted || !hasAudioDevice ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
               </Button>
               
               <Button
