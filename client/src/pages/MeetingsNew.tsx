@@ -270,112 +270,219 @@ export default function MeetingsNew() {
               </div>
 
             <TabsContent value="active" className="space-y-4 max-h-[70vh] overflow-y-auto">
-              {isLoadingMeetings ? (
+              {(isLoadingMeetings || isLoadingScheduled) ? (
                 <div className="flex justify-center py-6">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 </div>
-              ) : !activeMeetings?.rooms || activeMeetings.rooms.length === 0 ? (
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 text-center border border-gray-200 dark:border-gray-600">
-                  <Users className="h-10 w-10 mx-auto text-gray-400 mb-3" />
-                  <h3 className="text-base font-semibold mb-2">Aucune réunion active</h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md mx-auto text-sm">
-                    Il n'y a actuellement aucune réunion en cours. Démarrez une nouvelle réunion ou rejoignez-en une avec un code.
-                  </p>
-                  <Button onClick={handleStartMeeting} className="mx-auto h-8 text-sm">
-                    <Video className="h-3 w-3 mr-2" />
-                    <span>Démarrer une réunion</span>
-                  </Button>
-                </div>
               ) : (
-                <div className="grid md:grid-cols-2 gap-4">
-                  {activeMeetings.rooms.map((meeting) => (
-                    <Card key={meeting.friendlyCode} className="overflow-hidden border border-gray-200 dark:border-gray-600">
-                      <CardHeader className="bg-gray-50 dark:bg-gray-700 pb-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <CardTitle className="text-lg">Réunion en cours</CardTitle>
-                            <CardDescription className="flex items-center mt-1">
-                              <Clock className="h-3.5 w-3.5 mr-1 text-gray-500" />
-                              <span>Début: {formatDate(meeting.createdAt)}</span>
-                            </CardDescription>
-                          </div>
-                          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 flex items-center">
-                            <span className="h-2 w-2 rounded-full bg-green-500 mr-1.5"></span>
-                            Active
-                          </span>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pt-4">
-                        <div className="flex justify-between items-center mb-4">
-                          <div>
-                            <p className="text-sm font-medium">Code d'accès</p>
-                            <p className="text-lg font-mono bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded mt-1">
-                              {meeting.friendlyCode}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-medium">Participants</p>
-                            <p className="text-lg font-semibold flex items-center justify-end mt-1">
-                              <Users className="h-4 w-4 mr-2 text-gray-500" />
-                              {meeting.participantsCount}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-sm text-gray-500 flex items-center">
-                          <CalendarClock className="h-4 w-4 mr-2" />
-                          <span>Expire le: {formatDate(meeting.expiresAt)}</span>
-                        </div>
-                      </CardContent>
-                      <CardFooter className="bg-gray-50 dark:bg-gray-700 px-6 py-4">
-                        <Button 
-                          onClick={() => handleJoinMeeting(meeting.friendlyCode)}
-                          className="w-full bg-primary hover:bg-primary/90"
-                        >
-                          <Video className="h-4 w-4 mr-2" />
-                          <span>Rejoindre la réunion</span>
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))}
+                <div className="space-y-6">
+                  {/* Afficher les réunions programmées */}
+                  {scheduledMeetings?.meetings && scheduledMeetings.meetings.length > 0 && (
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 border-b pb-2">
+                        Réunions programmées
+                      </h4>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        {scheduledMeetings.meetings.map((meeting, index) => (
+                          <Card key={meeting.id} className={`overflow-hidden border ${
+                            index % 2 === 0 
+                              ? 'border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10' 
+                              : 'border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10'
+                          }`}>
+                            <CardHeader className="pb-3">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <CardTitle className="text-base font-medium">
+                                    {meeting.title}
+                                  </CardTitle>
+                                  {meeting.description && (
+                                    <CardDescription className="text-xs mt-1">
+                                      {meeting.description}
+                                    </CardDescription>
+                                  )}
+                                </div>
+                                <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  index % 2 === 0 
+                                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                    : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                                }`}>
+                                  Programmée
+                                </div>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="p-4">
+                              <div className="space-y-3">
+                                <div className="text-sm">
+                                  <div className="flex items-center text-gray-600 dark:text-gray-400">
+                                    <Calendar className="h-4 w-4 mr-2" />
+                                    <span>
+                                      {new Date(meeting.startTime).toLocaleDateString('fr-FR', {
+                                        weekday: 'long',
+                                        day: 'numeric',
+                                        month: 'long',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center text-gray-600 dark:text-gray-400 mt-1">
+                                    <Clock className="h-4 w-4 mr-2" />
+                                    <span>
+                                      Durée: {Math.round((new Date(meeting.endTime).getTime() - new Date(meeting.startTime).getTime()) / (1000 * 60))} min
+                                    </span>
+                                  </div>
+                                </div>
+                                
+                                {(meeting.waitingRoom || meeting.recordMeeting) && (
+                                  <div className="flex items-center gap-2">
+                                    {meeting.waitingRoom && (
+                                      <span className="text-xs bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 px-2 py-1 rounded">
+                                        Salle d'attente
+                                      </span>
+                                    )}
+                                    {meeting.recordMeeting && (
+                                      <span className="text-xs bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300 px-2 py-1 rounded">
+                                        Enregistrement
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                            <CardFooter className="bg-gray-50 dark:bg-gray-700 px-4 py-3">
+                              <div className="flex gap-2 w-full">
+                                <Button 
+                                  onClick={() => handleJoinMeeting(meeting.roomName)}
+                                  className="flex-1 bg-primary hover:bg-primary/90"
+                                  size="sm"
+                                >
+                                  <Video className="h-4 w-4 mr-2" />
+                                  <span>Démarrer</span>
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => {
+                                    const meetingLink = `${window.location.origin}/meeting/${meeting.roomName}`;
+                                    navigator.clipboard.writeText(meetingLink);
+                                    toast({
+                                      title: "Lien copié",
+                                      description: "Le lien de la réunion a été copié"
+                                    });
+                                  }}
+                                >
+                                  <Share className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700"
+                                  onClick={async () => {
+                                    try {
+                                      await apiRequest('DELETE', `/api/meetings/scheduled/${meeting.id}`);
+                                      toast({
+                                        title: "Réunion supprimée",
+                                        description: "La réunion a été supprimée avec succès"
+                                      });
+                                      queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
+                                    } catch (error) {
+                                      toast({
+                                        title: "Erreur",
+                                        description: "Impossible de supprimer la réunion",
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </CardFooter>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Afficher les réunions instantanées actives */}
+                  {activeMeetings?.rooms && activeMeetings.rooms.length > 0 && (
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 border-b pb-2">
+                        Réunions instantanées en cours
+                      </h4>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        {activeMeetings.rooms.map((meeting) => (
+                          <Card key={meeting.friendlyCode} className="overflow-hidden border border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-900/10">
+                            <CardHeader className="pb-3">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <CardTitle className="text-base font-medium">
+                                    Réunion #{meeting.friendlyCode}
+                                  </CardTitle>
+                                  <CardDescription className="text-xs mt-1">
+                                    Créée le {formatDate(meeting.createdAt)}
+                                  </CardDescription>
+                                </div>
+                                <div className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-1 rounded-full text-xs font-medium">
+                                  En cours
+                                </div>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="p-4">
+                              <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="text-center">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Code</p>
+                                  <p className="text-sm font-mono font-bold tracking-wider bg-gray-100 dark:bg-gray-700 p-2 rounded">
+                                    {meeting.friendlyCode}
+                                  </p>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Participants</p>
+                                  <p className="text-lg font-semibold flex items-center justify-end mt-1">
+                                    <Users className="h-4 w-4 mr-2 text-gray-500" />
+                                    {meeting.participantsCount}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-sm text-gray-500 flex items-center">
+                                <CalendarClock className="h-4 w-4 mr-2" />
+                                <span>Expire le: {formatDate(meeting.expiresAt)}</span>
+                              </div>
+                            </CardContent>
+                            <CardFooter className="bg-gray-50 dark:bg-gray-700 px-6 py-4">
+                              <Button 
+                                onClick={() => handleJoinMeeting(meeting.friendlyCode)}
+                                className="w-full bg-primary hover:bg-primary/90"
+                              >
+                                <Video className="h-4 w-4 mr-2" />
+                                <span>Rejoindre la réunion</span>
+                              </Button>
+                            </CardFooter>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Message quand aucune réunion */}
+                  {(!scheduledMeetings?.meetings || scheduledMeetings.meetings.length === 0) && 
+                   (!activeMeetings?.rooms || activeMeetings.rooms.length === 0) && (
+                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 text-center border border-gray-200 dark:border-gray-600">
+                      <Users className="h-10 w-10 mx-auto text-gray-400 mb-3" />
+                      <h3 className="text-base font-semibold mb-2">Aucune réunion active</h3>
+                      <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md mx-auto text-sm">
+                        Programmez une réunion ou démarrez une réunion instantanée pour commencer.
+                      </p>
+                      <Button onClick={handleStartMeeting} className="mx-auto h-8 text-sm">
+                        <Video className="h-3 w-3 mr-2" />
+                        <span>Démarrer une réunion</span>
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
 
-              <div className="mt-8 bg-gray-50 dark:bg-gray-700 rounded-lg p-6 border border-gray-200 dark:border-gray-600">
-                <h3 className="font-bold text-lg mb-4">Réunion Instantanée</h3>
-                <p className="text-gray-600 dark:text-gray-300 mb-6">
-                  Démarrez une réunion vidéo instantanée pour collaborer en temps réel avec votre équipe. Les réunions sont sécurisées avec un accès par code unique.
-                </p>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="flex items-center space-x-4 bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                    <div className="flex-shrink-0 h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                      <Video className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium">Vidéo et audio HD</h4>
-                      <p className="text-sm text-gray-500">Communication fluide et claire</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-4 bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                    <div className="flex-shrink-0 h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                      <Users className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium">Réunions illimitées</h4>
-                      <p className="text-sm text-gray-500">Sans restriction de durée</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-6">
-                  <Button
-                    onClick={handleStartMeeting}
-                    size="lg"
-                    className="w-full md:w-auto bg-primary hover:bg-primary/90"
-                  >
-                    <Video className="h-4 w-4 mr-2" />
-                    <span>Démarrer une nouvelle réunion</span>
-                  </Button>
-                </div>
-              </div>
+
             </TabsContent>
 
             <TabsContent value="scheduled">
