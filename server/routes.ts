@@ -20,6 +20,7 @@ import * as fs from "fs";
 import { v4 as uuidv4 } from "uuid";
 import { registerJitsiRoutes } from "./jitsi/routes";
 import { handleAIChat } from "./ai-assistant";
+import { liveKitService } from "./livekit-config";
 
 // Configure multer for avatar uploads
 const avatarStorage = multer.diskStorage({
@@ -1709,6 +1710,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Enregistrer les routes pour les réunions vidéo Jitsi
   registerJitsiRoutes(app, requireAuth);
+
+  // LiveKit routes for autonomous video conferencing
+  app.post('/api/livekit/token', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { roomName, isAdmin } = req.body;
+      const user = req.user!;
+      const participantName = user.displayName || user.username || 'Utilisateur';
+      
+      if (!roomName) {
+        return res.status(400).json({ error: 'Room name required' });
+      }
+
+      // Créer la salle si elle n'existe pas
+      await liveKitService.createRoom(`RonyApp_${roomName}`);
+      
+      // Générer le token
+      const token = await liveKitService.generateAccessToken(`RonyApp_${roomName}`, participantName, isAdmin);
+      
+      res.json({ 
+        token, 
+        wsUrl: process.env.LIVEKIT_WS_URL || 'wss://livekit.rony.app',
+        roomName: `RonyApp_${roomName}`,
+        participantName
+      });
+    } catch (error: any) {
+      console.error('[LiveKit] Token generation error:', error);
+      res.status(500).json({ error: 'Failed to generate access token' });
+    }
+  });
+
+  app.get('/api/livekit/room/:roomCode', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { roomCode } = req.params;
+      const roomName = `RonyApp_${roomCode}`;
+      const stats = await liveKitService.getRoomStats(roomName);
+      
+      if (!stats) {
+        return res.status(404).json({ error: 'Room not found' });
+      }
+      
+      res.json(stats);
+    } catch (error: any) {
+      console.error('[LiveKit] Room info error:', error);
+      res.status(500).json({ error: 'Failed to get room info' });
+    }
+  });
 
   return httpServer;
 }
