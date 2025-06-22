@@ -48,7 +48,7 @@ const VideoConferenceWebRTC: React.FC = () => {
   // États de l'interface
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Démarrage instantané
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'failed'>('connecting');
   
   // États des participants
@@ -177,53 +177,49 @@ const VideoConferenceWebRTC: React.FC = () => {
     }
   };
 
-  // Initialisation du stream local
+  // Initialisation du stream local (optionnel)
   const initializeLocalStream = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 30 }
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      });
-
-      localStreamRef.current = stream;
-      
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
-
-      // Créer le participant local
+      // Créer le participant local même sans stream
       const local: Participant = {
         id: authUser?.id.toString() || 'local',
         name: authUser?.displayName || authUser?.username || 'Vous',
-        stream,
-        audioEnabled: isAudioEnabled,
-        videoEnabled: isVideoEnabled,
+        stream: undefined, // Pas de stream au départ
+        audioEnabled: false, // Désactivé par défaut
+        videoEnabled: false, // Désactivé par défaut
         isLocal: true
       };
 
       setLocalParticipant(local);
-      setIsLoading(false);
+      setIsAudioEnabled(false);
+      setIsVideoEnabled(false);
 
       toast({
-        title: "Média initialisé",
-        description: "Caméra et microphone configurés"
+        title: "Vidéoconférence prête",
+        description: "Cliquez sur les boutons pour activer micro/caméra"
       });
 
+      console.log('Participant local créé sans stream initial');
+
     } catch (error) {
-      console.error('Erreur média:', error);
-      setConnectionStatus('failed');
+      console.error('Erreur initialisation:', error);
+      // Même en cas d'erreur, on continue sans média
+      const local: Participant = {
+        id: authUser?.id.toString() || 'local',
+        name: authUser?.displayName || authUser?.username || 'Vous',
+        stream: undefined,
+        audioEnabled: false,
+        videoEnabled: false,
+        isLocal: true
+      };
+
+      setLocalParticipant(local);
+      setIsAudioEnabled(false);
+      setIsVideoEnabled(false);
+
       toast({
-        title: "Erreur d'accès média",
-        description: "Impossible d'accéder à la caméra/microphone",
-        variant: "destructive"
+        title: "Mode sans média",
+        description: "Rejoignez la réunion et activez les médias si nécessaire"
       });
     }
   };
@@ -235,7 +231,7 @@ const VideoConferenceWebRTC: React.FC = () => {
     const peerConnection = new RTCPeerConnection(rtcConfig);
     peerConnectionsRef.current.set(participant.id, peerConnection);
 
-    // Ajouter le stream local
+    // Ajouter le stream local s'il existe
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => {
         peerConnection.addTrack(track, localStreamRef.current!);
@@ -245,11 +241,16 @@ const VideoConferenceWebRTC: React.FC = () => {
     // Gestion des tracks distants
     peerConnection.ontrack = (event) => {
       const [remoteStream] = event.streams;
+      console.log('Stream distant reçu de:', participant.id);
       setParticipants(prev => {
         const newParticipants = new Map(prev);
         newParticipants.set(participant.id, {
-          ...participant,
+          id: participant.id,
+          name: participant.name || `Utilisateur ${participant.id}`,
           stream: remoteStream,
+          audioEnabled: true,
+          videoEnabled: true,
+          isLocal: false,
           connection: peerConnection
         });
         return newParticipants;
@@ -267,15 +268,30 @@ const VideoConferenceWebRTC: React.FC = () => {
       }
     };
 
-    // Créer une offre
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
+    // Gestion de l'état de connexion
+    peerConnection.onconnectionstatechange = () => {
+      console.log(`Connexion avec ${participant.id}:`, peerConnection.connectionState);
+      if (peerConnection.connectionState === 'connected') {
+        toast({ title: `Connecté à ${participant.name || participant.id}` });
+      }
+    };
 
-    wsRef.current?.send(JSON.stringify({
-      type: 'offer',
-      offer,
-      to: participant.id
-    }));
+    try {
+      // Créer une offre
+      const offer = await peerConnection.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true
+      });
+      await peerConnection.setLocalDescription(offer);
+
+      wsRef.current?.send(JSON.stringify({
+        type: 'offer',
+        offer,
+        to: participant.id
+      }));
+    } catch (error) {
+      console.error('Erreur création offre:', error);
+    }
   };
 
   // Gestion participant quitté
@@ -351,41 +367,145 @@ const VideoConferenceWebRTC: React.FC = () => {
   };
 
   // Contrôles audio/vidéo
-  const toggleAudio = () => {
-    if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsAudioEnabled(audioTrack.enabled);
-        
-        // Notifier les autres participants
-        wsRef.current?.send(JSON.stringify({
-          type: 'participant-update',
-          participant: {
-            id: authUser?.id.toString(),
-            audioEnabled: audioTrack.enabled
+  const toggleAudio = async () => {
+    try {
+      if (!localStreamRef.current) {
+        // Créer un nouveau stream audio
+        const audioStream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
           }
-        }));
+        });
+        
+        if (!localStreamRef.current) {
+          localStreamRef.current = audioStream;
+        } else {
+          // Ajouter la piste audio au stream existant
+          audioStream.getAudioTracks().forEach(track => {
+            localStreamRef.current?.addTrack(track);
+          });
+        }
+        
+        setIsAudioEnabled(true);
+        
+        // Ajouter aux connexions existantes
+        peerConnectionsRef.current.forEach(pc => {
+          audioStream.getAudioTracks().forEach(track => {
+            pc.addTrack(track, localStreamRef.current!);
+          });
+        });
+        
+        toast({ title: "Microphone activé" });
+      } else {
+        const audioTrack = localStreamRef.current.getAudioTracks()[0];
+        if (audioTrack) {
+          audioTrack.enabled = !audioTrack.enabled;
+          setIsAudioEnabled(audioTrack.enabled);
+          toast({ title: audioTrack.enabled ? "Microphone activé" : "Microphone désactivé" });
+        } else {
+          // Pas de piste audio, en créer une
+          const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioStream.getAudioTracks().forEach(track => {
+            localStreamRef.current?.addTrack(track);
+            peerConnectionsRef.current.forEach(pc => {
+              pc.addTrack(track, localStreamRef.current!);
+            });
+          });
+          setIsAudioEnabled(true);
+          toast({ title: "Microphone activé" });
+        }
       }
+      
+      // Notifier les autres participants
+      wsRef.current?.send(JSON.stringify({
+        type: 'participant-update',
+        participant: {
+          id: authUser?.id.toString(),
+          audioEnabled: isAudioEnabled
+        }
+      }));
+      
+    } catch (error) {
+      console.error('Erreur toggle audio:', error);
+      toast({
+        title: "Erreur microphone",
+        description: "Impossible d'accéder au microphone",
+        variant: "destructive"
+      });
     }
   };
 
-  const toggleVideo = () => {
-    if (localStreamRef.current) {
-      const videoTrack = localStreamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsVideoEnabled(videoTrack.enabled);
-        
-        // Notifier les autres participants
-        wsRef.current?.send(JSON.stringify({
-          type: 'participant-update',
-          participant: {
-            id: authUser?.id.toString(),
-            videoEnabled: videoTrack.enabled
+  const toggleVideo = async () => {
+    try {
+      if (!localStreamRef.current) {
+        // Créer un nouveau stream vidéo
+        const videoStream = await navigator.mediaDevices.getUserMedia({ 
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30 }
           }
-        }));
+        });
+        
+        localStreamRef.current = videoStream;
+        
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = localStreamRef.current;
+        }
+        
+        setIsVideoEnabled(true);
+        
+        // Ajouter aux connexions existantes
+        peerConnectionsRef.current.forEach(pc => {
+          videoStream.getVideoTracks().forEach(track => {
+            pc.addTrack(track, localStreamRef.current!);
+          });
+        });
+        
+        toast({ title: "Caméra activée" });
+      } else {
+        const videoTrack = localStreamRef.current.getVideoTracks()[0];
+        if (videoTrack) {
+          videoTrack.enabled = !videoTrack.enabled;
+          setIsVideoEnabled(videoTrack.enabled);
+          toast({ title: videoTrack.enabled ? "Caméra activée" : "Caméra désactivée" });
+        } else {
+          // Pas de piste vidéo, en créer une
+          const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          videoStream.getVideoTracks().forEach(track => {
+            localStreamRef.current?.addTrack(track);
+            peerConnectionsRef.current.forEach(pc => {
+              pc.addTrack(track, localStreamRef.current!);
+            });
+          });
+          
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = localStreamRef.current;
+          }
+          
+          setIsVideoEnabled(true);
+          toast({ title: "Caméra activée" });
+        }
       }
+      
+      // Notifier les autres participants
+      wsRef.current?.send(JSON.stringify({
+        type: 'participant-update',
+        participant: {
+          id: authUser?.id.toString(),
+          videoEnabled: isVideoEnabled
+        }
+      }));
+      
+    } catch (error) {
+      console.error('Erreur toggle vidéo:', error);
+      toast({
+        title: "Erreur caméra",
+        description: "Impossible d'accéder à la caméra",
+        variant: "destructive"
+      });
     }
   };
 
@@ -514,9 +634,10 @@ const VideoConferenceWebRTC: React.FC = () => {
     toast({ title: "Code de réunion copié" });
   };
 
-  // Initialisation
+  // Initialisation immédiate
   useEffect(() => {
-    if (roomCode && authUser && connectionStatus === 'connecting') {
+    if (roomCode && authUser) {
+      // Démarrer immédiatement sans attendre les autorisations média
       initializeLocalStream();
       initializeWebSocket();
     }
@@ -529,7 +650,7 @@ const VideoConferenceWebRTC: React.FC = () => {
       }
       wsRef.current?.close();
     };
-  }, [roomCode, authUser, initializeWebSocket]);
+  }, [roomCode, authUser]);
 
   if (!roomCode) {
     return (
