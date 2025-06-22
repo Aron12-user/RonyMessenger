@@ -21,6 +21,7 @@ import { v4 as uuidv4 } from "uuid";
 import { registerJitsiRoutes } from "./jitsi/routes";
 import { handleAIChat } from "./ai-assistant";
 import { liveKitService } from "./livekit-config";
+import { bbbService } from "./bigbluebutton-config";
 
 // Configure multer for avatar uploads
 const avatarStorage = multer.diskStorage({
@@ -1754,6 +1755,146 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('[LiveKit] Room info error:', error);
       res.status(500).json({ error: 'Failed to get room info' });
+    }
+  });
+
+  // BigBlueButton routes for autonomous video conferencing
+  app.post('/api/bbb/create', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { roomCode, meetingName } = req.body;
+      const user = req.user!;
+      const moderatorName = user.displayName || user.username || 'Moderateur';
+      
+      if (!roomCode) {
+        return res.status(400).json({ error: 'Room code required' });
+      }
+
+      const meetingID = `RonyApp_${roomCode}`;
+      const finalMeetingName = meetingName || `Réunion ${roomCode}`;
+      
+      // Créer la réunion BBB
+      const meetingInfo = await bbbService.createMeeting(
+        meetingID,
+        finalMeetingName,
+        moderatorName,
+        {
+          maxParticipants: 1000,
+          duration: 0, // Illimité
+          welcome: `Bienvenue ${moderatorName} ! Cette réunion RonyApp est autonome et sans limitation de temps.`,
+          record: false
+        }
+      );
+      
+      console.log(`[BBB] Réunion créée: ${meetingID}`);
+      
+      res.json({
+        success: true,
+        meeting: meetingInfo,
+        roomCode
+      });
+    } catch (error: any) {
+      console.error('[BBB] Create meeting error:', error);
+      res.status(500).json({ error: 'Failed to create BBB meeting' });
+    }
+  });
+
+  app.post('/api/bbb/join', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { roomCode, isModerator } = req.body;
+      const user = req.user!;
+      const fullName = user.displayName || user.username || 'Utilisateur';
+      
+      if (!roomCode) {
+        return res.status(400).json({ error: 'Room code required' });
+      }
+
+      const meetingID = `RonyApp_${roomCode}`;
+      const password = isModerator ? 'mp' : 'ap';
+      
+      // Générer l'URL de participation
+      const joinUrl = bbbService.getJoinUrl(
+        meetingID,
+        fullName,
+        password,
+        `user_${user.id}`,
+        {
+          configOverride: {
+            // Configuration pour une interface épurée
+            'bbb.client.showUserList': true,
+            'bbb.client.showChat': true,
+            'bbb.client.showPublicChatOnLogin': false,
+            'bbb.client.showParticipantsOnLogin': true,
+            'bbb.client.autoJoinVideo': true,
+            'bbb.client.autoJoinAudio': true,
+            'bbb.client.forceListenOnly': false,
+            'bbb.client.skipVideoPreview': false,
+            'bbb.client.skipAudioCheck': false
+          }
+        }
+      );
+      
+      console.log(`[BBB] URL participation générée pour ${fullName} dans ${roomCode}`);
+      
+      res.json({
+        success: true,
+        joinUrl,
+        meetingID,
+        fullName,
+        isModerator
+      });
+    } catch (error: any) {
+      console.error('[BBB] Join meeting error:', error);
+      res.status(500).json({ error: 'Failed to generate join URL' });
+    }
+  });
+
+  app.get('/api/bbb/meeting/:roomCode', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { roomCode } = req.params;
+      const meetingID = `RonyApp_${roomCode}`;
+      
+      // Vérifier si la réunion est active
+      const isRunning = await bbbService.isMeetingRunning(meetingID);
+      
+      if (!isRunning) {
+        return res.status(404).json({ error: 'Meeting not found or not running' });
+      }
+      
+      // Obtenir les infos de la réunion
+      const meetingInfo = await bbbService.getMeetingInfo(meetingID, 'mp');
+      
+      res.json({
+        success: true,
+        meeting: meetingInfo,
+        isRunning
+      });
+    } catch (error: any) {
+      console.error('[BBB] Meeting info error:', error);
+      res.status(500).json({ error: 'Failed to get meeting info' });
+    }
+  });
+
+  app.delete('/api/bbb/meeting/:roomCode', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { roomCode } = req.params;
+      const meetingID = `RonyApp_${roomCode}`;
+      
+      // Terminer la réunion
+      const success = await bbbService.endMeeting(meetingID, 'mp');
+      
+      if (!success) {
+        return res.status(500).json({ error: 'Failed to end meeting' });
+      }
+      
+      console.log(`[BBB] Réunion terminée: ${meetingID}`);
+      
+      res.json({
+        success: true,
+        message: 'Meeting ended successfully'
+      });
+    } catch (error: any) {
+      console.error('[BBB] End meeting error:', error);
+      res.status(500).json({ error: 'Failed to end meeting' });
     }
   });
 
