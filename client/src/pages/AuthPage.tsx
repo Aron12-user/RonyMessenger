@@ -72,10 +72,10 @@ export default function AuthPage() {
     >
       {/* Colonne d'authentification */}
       <div className="w-full md:w-1/2 p-6 flex items-center justify-center">
-        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-lg p-8 w-full max-w-md">
+        <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl shadow-xl p-8 w-full max-w-md border border-white/20 transition-all duration-500 ease-out hover:bg-white/95 hover:shadow-2xl">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold">Rony</h1>
-            <p className="text-muted-foreground mt-2">Plateforme de communication et collaboration</p>
+            <h1 className="text-3xl font-light tracking-wide text-gray-800">Rony</h1>
+            <p className="text-gray-600 mt-2 font-light">Plateforme de communication et collaboration</p>
           </div>
           
           <Tabs value={tab} onValueChange={setTab} className="w-full">

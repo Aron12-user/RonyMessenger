@@ -96,15 +96,16 @@ export default function ModernSidebar({
       <div
         className={`
           fixed md:relative inset-y-0 left-0 z-50 
-          transform transition-all duration-300 ease-in-out
+          transform transition-all duration-500 ease-out
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
           ${isCollapsed ? 'md:w-16' : 'md:w-80'}
           w-80
         `}
         style={{
-          background: 'var(--color-sidebar)',
+          background: 'rgba(255, 255, 255, 0.85)',
           backdropFilter: 'blur(20px)',
-          borderRight: '1px solid var(--color-border)',
+          borderRight: '1px solid rgba(0, 0, 0, 0.08)',
+          boxShadow: '0 0 20px rgba(0, 0, 0, 0.04)',
         }}
       >
         <div className="flex flex-col h-full">
@@ -224,20 +225,21 @@ export default function ModernSidebar({
                   onClick={() => handleSectionChange(item.id)}
                   className={`
                     w-full flex items-center ${isCollapsed ? 'justify-center px-2' : 'space-x-3 px-4'} py-3 rounded-xl
-                    transition-all duration-200 text-left group
+                    transition-all duration-300 ease-out text-left group
                     ${isActive 
-                      ? 'text-white shadow-lg' 
-                      : 'hover:bg-white/5'
+                      ? 'text-white shadow-lg transform scale-[1.02]' 
+                      : 'hover:bg-white/10 hover:backdrop-blur-sm hover:transform hover:scale-[1.01]'
                     }
                   `}
                   style={{
-                    background: isActive ? 'var(--color-sidebarActive)' : 'transparent',
-                    color: isActive ? 'var(--color-text)' : 'var(--color-textMuted)',
+                    background: isActive ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(147, 51, 234, 0.9))' : 'transparent',
+                    color: isActive ? '#ffffff' : 'rgba(0, 0, 0, 0.7)',
+                    fontWeight: isActive ? '500' : '300',
                   }}
                 >
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'group-hover:text-white/80'}`} />
+                  <Icon className={`w-5 h-5 transition-all duration-300 ${isActive ? 'text-white' : 'text-gray-600 group-hover:text-gray-800'}`} />
                   {!isCollapsed && (
-                    <span className={`font-medium ${isActive ? 'text-white' : 'group-hover:text-white/80'}`}>
+                    <span className={`font-light transition-all duration-300 ${isActive ? 'text-white font-medium' : 'text-gray-700 group-hover:text-gray-900'}`}>
                       {item.label}
                     </span>
                   )}
