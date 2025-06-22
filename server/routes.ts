@@ -109,14 +109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Configure WebSocket server for video conferencing
   const meetingWss = new WebSocketServer({ 
-    server: httpServer, 
-    path: '/ws/meeting',
-    verifyClient: (info: any) => {
-      // Extract room code from URL path
-      const url = new URL(info.req.url!, `ws://${info.req.headers.host}`);
-      const pathParts = url.pathname.split('/');
-      return pathParts.length >= 4 && pathParts[3]; // /ws/meeting/:roomCode
-    }
+    noServer: true
   });
 
   function broadcastToRoom(roomCode: string, data: any, excludeWs?: WebSocket) {
@@ -130,12 +123,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  // Handle video conferencing WebSocket connections
-  meetingWss.on('connection', (ws, req) => {
-    const url = new URL(req.url!, `ws://${req.headers.host}`);
-    const pathParts = url.pathname.split('/');
-    const roomCode = pathParts[3];
+  // Handle HTTP upgrade for meeting WebSockets
+  httpServer.on('upgrade', (request, socket, head) => {
+    const pathname = new URL(request.url!, `http://${request.headers.host}`).pathname;
     
+    if (pathname.startsWith('/ws/meeting/')) {
+      const roomCode = pathname.split('/')[3];
+      if (roomCode) {
+        meetingWss.handleUpgrade(request, socket, head, (ws) => {
+          meetingWss.emit('connection', ws, request, roomCode);
+        });
+      } else {
+        socket.destroy();
+      }
+    }
+  });
+
+  // Handle video conferencing WebSocket connections
+  meetingWss.on('connection', (ws: any, req: any, roomCode: string) => {
     if (!roomCode) {
       ws.close(1008, 'Room code required');
       return;
@@ -144,6 +149,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     let userInfo = { name: 'Anonymous', isAdmin: false };
 
+    console.log(`[Meeting] User ${userId} joining room ${roomCode}`);
+
     // Get or create room
     if (!activeMeetingRooms.has(roomCode)) {
       activeMeetingRooms.set(roomCode, {
@@ -151,6 +158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         participants: new Map(),
         createdAt: new Date()
       });
+      console.log(`[Meeting] Created new room: ${roomCode}`);
     }
 
     const room = activeMeetingRooms.get(roomCode)!;
@@ -159,6 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (room.participants.size === 0) {
       room.adminId = userId;
       userInfo.isAdmin = true;
+      console.log(`[Meeting] User ${userId} is now admin of room ${roomCode}`);
     }
 
     room.participants.set(userId, ws);
@@ -168,7 +177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       type: 'room-info',
       room: {
         id: roomCode,
-        title: room.title,
+        title: room.title || `Réunion ${roomCode}`,
         participantCount: room.participants.size,
         isAdmin: userInfo.isAdmin
       }
@@ -181,9 +190,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       userInfo
     }, ws);
 
-    ws.on('message', (message) => {
+    ws.on('message', (message: any) => {
       try {
         const data = JSON.parse(message.toString());
+        console.log(`[Meeting] Message from ${userId}:`, data.type);
         
         switch (data.type) {
           case 'offer':
@@ -211,14 +221,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case 'user-info':
             // Update user info
             userInfo = { ...userInfo, ...data.info };
+            console.log(`[Meeting] Updated user info for ${userId}:`, userInfo);
             break;
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error processing WebSocket message:', error);
       }
     });
 
     ws.on('close', () => {
+      console.log(`[Meeting] User ${userId} left room ${roomCode}`);
       room.participants.delete(userId);
       
       // Notify other participants
@@ -230,11 +242,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clean up empty rooms
       if (room.participants.size === 0) {
         activeMeetingRooms.delete(roomCode);
+        console.log(`[Meeting] Deleted empty room: ${roomCode}`);
       }
     });
 
-    ws.on('error', (error) => {
-      console.error('WebSocket error:', error);
+    ws.on('error', (error: any) => {
+      console.error(`[Meeting] WebSocket error for user ${userId}:`, error);
     });
   });
   
