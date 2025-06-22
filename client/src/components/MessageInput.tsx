@@ -5,8 +5,16 @@ import { compressImage } from "@/lib/utils";
 import { encryptFile } from "@/lib/encryption";
 
 interface MessageInputProps {
-  onSendMessage: (text: string, file?: File | null) => void;
+  onSendMessage: (text: string, file?: File | null) => Promise<void>;
   onStartCall: (type: "audio" | "video") => void;
+  activeCall?: { 
+    type: "audio" | "video"; 
+    user: { 
+      id: number; 
+      displayName: string | null; 
+      username: string; 
+    }; 
+  } | null;
 }
 
 export default function MessageInput({ onSendMessage, onStartCall }: MessageInputProps) {

@@ -114,7 +114,7 @@ export default function Messages() {
 
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: async ({ text, file, conversationId }: { text: string, file: File | null, conversationId: number }) => {
+    mutationFn: async ({ text, file, conversationId }: { text: string, file: any, conversationId: number }) => {
       let fileUrl = null;
 
       if (file) {
@@ -192,7 +192,7 @@ export default function Messages() {
 
       sendMessageMutation.mutate({
         text,
-        file: fileData,
+        file: fileData as any,
         conversationId: activeConversationId,
       });
     } catch (error) {
@@ -237,7 +237,7 @@ export default function Messages() {
   }, [activeConversationId, queryClient]);
 
   return (
-    <section className="flex-1 flex overflow-hidden bg-gray-900">
+    <section className="flex-1 flex overflow-hidden bg-gray-900" style={{ paddingBottom: '8px' }}>
       {/* Contacts/Conversations List */}
       <ConversationList 
         conversations={conversations}

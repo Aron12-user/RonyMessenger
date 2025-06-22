@@ -646,7 +646,7 @@ export default function CloudStorage() {
 
   return (
     <div 
-      className="flex-1 p-6 flex flex-col overflow-hidden"
+      className="flex-1 p-4 pb-2 flex flex-col overflow-hidden"
       style={{
         backgroundImage: `url(${cloudBackgroundImage})`,
         backgroundSize: 'cover',
