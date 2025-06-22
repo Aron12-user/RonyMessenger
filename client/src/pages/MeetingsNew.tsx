@@ -28,6 +28,7 @@ import {
   CardTitle,
   CardFooter,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Tabs,
   TabsContent,
@@ -41,7 +42,11 @@ import {
   ClipboardCheck,
   Clock,
   CalendarClock,
-  Loader2
+  Loader2,
+  Edit,
+  Trash2,
+  Share,
+  Plus
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -232,25 +237,25 @@ export default function MeetingsNew() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="active" className="space-y-6">
+            <TabsContent value="active" className="space-y-4 max-h-[70vh] overflow-y-auto">
               {isLoadingMeetings ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div className="flex justify-center py-6">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 </div>
               ) : !activeMeetings?.rooms || activeMeetings.rooms.length === 0 ? (
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-8 text-center border border-gray-200 dark:border-gray-600">
-                  <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Aucune réunion active</h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 text-center border border-gray-200 dark:border-gray-600">
+                  <Users className="h-10 w-10 mx-auto text-gray-400 mb-3" />
+                  <h3 className="text-base font-semibold mb-2">Aucune réunion active</h3>
+                  <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md mx-auto text-sm">
                     Il n'y a actuellement aucune réunion en cours. Démarrez une nouvelle réunion ou rejoignez-en une avec un code.
                   </p>
-                  <Button onClick={handleStartMeeting} className="mx-auto">
-                    <Video className="h-4 w-4 mr-2" />
+                  <Button onClick={handleStartMeeting} className="mx-auto h-8 text-sm">
+                    <Video className="h-3 w-3 mr-2" />
                     <span>Démarrer une réunion</span>
                   </Button>
                 </div>
               ) : (
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid md:grid-cols-2 gap-4">
                   {activeMeetings.rooms.map((meeting) => (
                     <Card key={meeting.friendlyCode} className="overflow-hidden border border-gray-200 dark:border-gray-600">
                       <CardHeader className="bg-gray-50 dark:bg-gray-700 pb-4">
@@ -350,104 +355,214 @@ export default function MeetingsNew() {
                       Planifiez une réunion et invitez des participants
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="max-h-[45vh] overflow-y-auto">
-                      <form className="space-y-3">
+                  <CardContent className="max-h-[35vh] overflow-y-auto">
+                      <form className="space-y-2">
                       <div className="space-y-1">
                         <Label htmlFor="title" className="text-sm">Titre de la réunion</Label>
                         <Input id="title" name="title" placeholder="Réunion hebdomadaire" className="h-8" />
                       </div>
 
                       <div className="space-y-1">
-                        <Label htmlFor="description" className="text-sm">Description</Label>
-                        <Textarea id="description" name="description" placeholder="Ordre du jour..." className="h-16 text-sm" />
+                        <Label htmlFor="description" className="text-xs">Description (optionnel)</Label>
+                        <Textarea id="description" name="description" placeholder="Ordre du jour..." className="h-12 text-xs" />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
-                          <Label className="text-sm">Date et heure de début</Label>
+                          <Label className="text-xs">Début</Label>
                           <input
                             type="datetime-local"
                             name="startTime"
-                            className="w-full rounded-md border border-gray-200 p-1.5 h-8 text-sm"
+                            className="w-full rounded-md border border-gray-200 p-1 h-7 text-xs"
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-sm">Date et heure de fin</Label>
+                          <Label className="text-xs">Fin</Label>
                           <input
                             type="datetime-local"
                             name="endTime"
-                            className="w-full rounded-md border border-gray-200 p-1.5 h-8 text-sm"
+                            className="w-full rounded-md border border-gray-200 p-1 h-7 text-xs"
                           />
                         </div>
                       </div>
 
                       <div className="space-y-1">
-                        <Label className="text-sm">Participants</Label>
-                        <div className="flex flex-wrap gap-2">
-                          <Button variant="outline" className="h-7 text-xs px-2">
-                            <Users className="h-3 w-3 mr-1" />
-                            Ajouter des participants
-                          </Button>
+                        <Label className="text-xs">Paramètres</Label>
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <Switch id="recurring" name="recurring" className="scale-75"/>
+                            <Label htmlFor="recurring" className="text-xs">Récurrente</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Switch id="waitingRoom" name="waitingRoom" className="scale-75"/>
+                            <Label htmlFor="waitingRoom" className="text-xs">Salle d'attente</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Switch id="recordMeeting" name="recordMeeting" className="scale-75"/>
+                            <Label htmlFor="recordMeeting" className="text-xs">Enregistrer</Label>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex space-x-2 items-center">
-                        <Switch id="recurring" name="recurring" className="scale-75"/>
-                        <Label htmlFor="recurring" className="text-sm">Réunion récurrente</Label>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Inviter</Label>
+                        <div className="flex gap-1">
+                          <Button variant="outline" className="h-6 text-xs px-2 flex-1">
+                            <Users className="h-2 w-2 mr-1" />
+                            Contacts
+                          </Button>
+                          <Button variant="outline" className="h-6 text-xs px-2 flex-1">
+                            Email
+                          </Button>
+                        </div>
                       </div>
                     </form>
                   </CardContent>
                   <CardFooter>
-                    <Button 
-                      onClick={async () => {
-                        try {
-                          const formData = new FormData(document.querySelector('form')!);
-                          const response = await apiRequest('POST', '/api/meetings/schedule', {
-                            title: formData.get('title'),
-                            description: formData.get('description'),
-                            startTime: formData.get('startTime'),
-                            endTime: formData.get('endTime'),
-                            isRecurring: formData.get('recurring') === 'on'
-                          });
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={async () => {
+                          try {
+                            const formData = new FormData(document.querySelector('form')!);
+                            const response = await apiRequest('POST', '/api/meetings/schedule', {
+                              title: formData.get('title'),
+                              description: formData.get('description'),
+                              startTime: formData.get('startTime'),
+                              endTime: formData.get('endTime'),
+                              isRecurring: formData.get('recurring') === 'on',
+                              waitingRoom: formData.get('waitingRoom') === 'on',
+                              recordMeeting: formData.get('recordMeeting') === 'on'
+                            });
 
-                          const data = await response.json();
-                          if (data.success) {
+                            const data = await response.json();
                             toast({
                               title: "Réunion programmée",
                               description: "La réunion a été programmée avec succès"
                             });
-                            // Rafraîchir la liste des réunions
+                            // Reset form
+                            (document.querySelector('form') as HTMLFormElement)?.reset();
                             queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
-                          } else {
-                            throw new Error(data.message);
+                          } catch (error) {
+                            toast({
+                              title: "Erreur",
+                              description: "Impossible de programmer la réunion",
+                              variant: "destructive"
+                            });
                           }
-                        } catch (error) {
-                          toast({
-                            title: "Erreur",
-                            description: "Impossible de programmer la réunion",
-                            variant: "destructive"
-                          });
-                        }
-                      }}
-                      className="w-full"
-                    >
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Programmer la réunion
-                    </Button>
+                        }}
+                        className="flex-1 h-8 text-xs"
+                      >
+                        <Calendar className="h-3 w-3 mr-1" />
+                        Programmer
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        onClick={() => {
+                          (document.querySelector('form') as HTMLFormElement)?.reset();
+                        }}
+                        className="h-8 text-xs px-3"
+                      >
+                        Effacer
+                      </Button>
+                    </div>
                   </CardFooter>
                 </Card>
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Réunions programmées</CardTitle>
+                    <CardTitle className="flex items-center justify-between">
+                      <span>Réunions programmées</span>
+                      <span className="px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded-md">
+                        Prochaines
+                      </span>
+                    </CardTitle>
                     <CardDescription>
-                      Vos prochaines réunions planifiées
+                      Gérez vos réunions planifiées
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {/* Liste des réunions programmées */}
-                      <EmptyState />
+                  <CardContent className="max-h-[40vh] overflow-y-auto">
+                    <div className="space-y-3">
+                      {/* Exemple de réunions programmées */}
+                      <div className="border rounded-lg p-3 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h4 className="font-medium text-sm">Réunion équipe marketing</h4>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">Révision campagne Q1</p>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-600">
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="flex items-center text-blue-600">
+                            <Calendar className="h-3 w-3 mr-1" />
+                            Demain 14:00 - 15:30
+                          </span>
+                          <span className="flex items-center text-gray-500">
+                            <Users className="h-3 w-3 mr-1" />
+                            5 invités
+                          </span>
+                        </div>
+                        <div className="mt-2 flex gap-1">
+                          <Button size="sm" className="h-6 text-xs flex-1">
+                            <Video className="h-3 w-3 mr-1" />
+                            Démarrer
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-6 text-xs">
+                            <Share className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="border rounded-lg p-3 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h4 className="font-medium text-sm">Stand-up développement</h4>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">Point quotidien équipe tech</p>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-600">
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="flex items-center text-green-600">
+                            <Calendar className="h-3 w-3 mr-1" />
+                            Lundi-Vendredi 09:00
+                          </span>
+                          <span className="flex items-center text-gray-500">
+                            <Users className="h-3 w-3 mr-1" />
+                            8 invités
+                          </span>
+                        </div>
+                        <div className="mt-2 flex gap-1">
+                          <Button size="sm" className="h-6 text-xs flex-1">
+                            <Video className="h-3 w-3 mr-1" />
+                            Démarrer
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-6 text-xs">
+                            <Share className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="text-center py-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                        <Calendar className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                        <p className="text-sm text-gray-500">Aucune autre réunion programmée</p>
+                        <Button variant="ghost" size="sm" className="mt-2 text-xs">
+                          <Plus className="h-3 w-3 mr-1" />
+                          Programmer une réunion
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
