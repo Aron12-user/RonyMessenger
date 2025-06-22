@@ -99,9 +99,52 @@ export default function MeetingsNew() {
   // Récupérer les réunions programmées
   const { data: scheduledMeetings, isLoading: isLoadingScheduled } = useQuery<{success: boolean, meetings: ScheduledMeeting[]}>({
     queryKey: ['/api/meetings/scheduled'],
-    // Rafraîchir toutes les 30 secondes
-    refetchInterval: 30000,
+    // Pas de refetch automatique, on gère manuellement
+    refetchInterval: false,
   });
+
+  // Fonction pour mettre à jour instantanément le cache
+  const updateScheduledMeetingsCache = (updater: (old: any) => any) => {
+    queryClient.setQueryData(['/api/meetings/scheduled'], updater);
+  };
+
+  // Fonction pour ajouter une réunion instantanément
+  const addMeetingToCache = (meetingData: any) => {
+    const tempMeeting = {
+      id: Date.now(),
+      title: meetingData.title,
+      description: meetingData.description || '',
+      startTime: meetingData.startTime,
+      endTime: meetingData.endTime,
+      organizerId: currentUser?.id || 1,
+      roomName: `scheduled-${Date.now()}`,
+      isRecurring: meetingData.isRecurring || false,
+      waitingRoom: meetingData.waitingRoom || false,
+      recordMeeting: meetingData.recordMeeting || false,
+      createdAt: new Date().toISOString()
+    };
+
+    updateScheduledMeetingsCache((old: any) => {
+      if (!old) return { success: true, meetings: [tempMeeting] };
+      return {
+        ...old,
+        meetings: [...old.meetings, tempMeeting]
+      };
+    });
+
+    return tempMeeting;
+  };
+
+  // Fonction pour supprimer une réunion instantanément
+  const removeMeetingFromCache = (meetingId: number) => {
+    updateScheduledMeetingsCache((old: any) => {
+      if (!old) return old;
+      return {
+        ...old,
+        meetings: old.meetings.filter((m: any) => m.id !== meetingId)
+      };
+    });
+  };
 
   // Ouvrir la boîte de dialogue pour rejoindre une réunion
   const openJoinDialog = () => {
@@ -223,10 +266,10 @@ export default function MeetingsNew() {
   }
 
   return (
-    <section className="flex-1 p-1 flex flex-col overflow-hidden">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow flex-1 flex flex-col">
+    <section className="flex-1 p-1 flex flex-col h-screen overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow flex-1 flex flex-col h-full">
         {/* Header fixe */}
-        <div className="sticky top-0 z-20 bg-white dark:bg-gray-800 p-2 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex-shrink-0 bg-white dark:bg-gray-800 p-2 border-b border-gray-200 dark:border-gray-700">
           <div className="max-w-4xl mx-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">Réunions Vidéo</h2>
@@ -252,11 +295,11 @@ export default function MeetingsNew() {
         </div>
         
         {/* Contenu scrollable */}
-        <div className="flex-1 overflow-y-auto p-2" style={{ height: 'calc(100vh - 120px)' }}>
-          <div className="max-w-4xl mx-auto">
+        <div className="flex-1 overflow-hidden p-2">
+          <div className="max-w-4xl mx-auto h-full">
 
-            <Tabs defaultValue="active" className="w-full">
-              <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 pb-2 border-b border-gray-200 dark:border-gray-700 mb-4">
+            <Tabs defaultValue="active" className="w-full h-full flex flex-col">
+              <div className="flex-shrink-0 bg-white dark:bg-gray-800 pb-2 border-b border-gray-200 dark:border-gray-700 mb-4">
                 <TabsList className="mb-2">
                   <TabsTrigger value="active" className="flex items-center">
                     <Video className="h-4 w-4 mr-2" />
@@ -269,7 +312,7 @@ export default function MeetingsNew() {
                 </TabsList>
               </div>
 
-            <TabsContent value="active" className="space-y-4 h-full overflow-y-auto pb-4">
+            <TabsContent value="active" className="flex-1 overflow-y-auto space-y-4 pb-4">
               {(isLoadingMeetings || isLoadingScheduled) ? (
                 <div className="flex justify-center py-6">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -379,20 +422,19 @@ export default function MeetingsNew() {
                                   className="text-red-600 hover:text-red-700"
                                   onClick={async () => {
                                     try {
-                                      // Mise à jour optimistique
-                                      queryClient.setQueryData(['/api/meetings/scheduled'], (oldData: any) => {
-                                        if (!oldData) return oldData;
-                                        return {
-                                          ...oldData,
-                                          meetings: oldData.meetings.filter((m: any) => m.id !== meeting.id)
-                                        };
-                                      });
+                                      // Suppression instantanée de l'interface
+                                      removeMeetingFromCache(meeting.id);
                                       
+                                      // Appel API en arrière-plan
                                       await apiRequest('DELETE', `/api/meetings/scheduled/${meeting.id}`);
+                                      
                                       toast({
                                         title: "Réunion supprimée",
                                         description: "La réunion a été supprimée avec succès"
                                       });
+                                      
+                                      // Synchronisation avec le serveur
+                                      queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
                                     } catch (error) {
                                       // Restaurer en cas d'erreur
                                       queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
@@ -495,7 +537,7 @@ export default function MeetingsNew() {
 
             </TabsContent>
 
-            <TabsContent value="scheduled">
+            <TabsContent value="scheduled" className="flex-1 overflow-y-auto space-y-4 pb-4">
               <div className="space-y-6">
                 <Card>
                   <CardHeader>
@@ -607,31 +649,7 @@ export default function MeetingsNew() {
                               return;
                             }
                             
-                            // Créer une réunion temporaire pour l'affichage optimistique
-                            const tempMeeting = {
-                              id: Date.now(), // ID temporaire
-                              title: title.trim(),
-                              description: (formData.get('description') as string) || '',
-                              startTime,
-                              endTime,
-                              organizerId: currentUser?.id || 1,
-                              roomName: `scheduled-${Date.now()}`,
-                              isRecurring: formData.get('recurring') === 'on',
-                              waitingRoom: formData.get('waitingRoom') === 'on',
-                              recordMeeting: formData.get('recordMeeting') === 'on',
-                              createdAt: new Date().toISOString()
-                            };
-
-                            // Mise à jour optimistique
-                            queryClient.setQueryData(['/api/meetings/scheduled'], (oldData: any) => {
-                              if (!oldData) return { success: true, meetings: [tempMeeting] };
-                              return {
-                                ...oldData,
-                                meetings: [...oldData.meetings, tempMeeting]
-                              };
-                            });
-
-                            const response = await apiRequest('POST', '/api/meetings/schedule', {
+                            const meetingData = {
                               title: title.trim(),
                               description: (formData.get('description') as string) || '',
                               startTime,
@@ -639,11 +657,16 @@ export default function MeetingsNew() {
                               isRecurring: formData.get('recurring') === 'on',
                               waitingRoom: formData.get('waitingRoom') === 'on',
                               recordMeeting: formData.get('recordMeeting') === 'on'
-                            });
+                            };
+
+                            // Ajout instantané à l'interface
+                            addMeetingToCache(meetingData);
+
+                            const response = await apiRequest('POST', '/api/meetings/schedule', meetingData);
 
                             if (!response.ok) {
                               const errorData = await response.json();
-                              // Restaurer l'état en cas d'erreur
+                              // Restaurer en cas d'erreur
                               queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
                               throw new Error(errorData.message || 'Erreur lors de la programmation');
                             }
@@ -656,7 +679,7 @@ export default function MeetingsNew() {
                             
                             // Reset form
                             form.reset();
-                            // Mettre à jour avec les vraies données du serveur
+                            // Synchronisation avec le serveur
                             queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
                           } catch (error: any) {
                             console.error('Error scheduling meeting:', error);
