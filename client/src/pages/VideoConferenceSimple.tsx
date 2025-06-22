@@ -28,43 +28,40 @@ const VideoConferenceSimple: React.FC = () => {
   
   const roomCode = params?.roomCode;
 
-  // URL Jitsi optimisée pour production
+  // URL Jitsi avec JWT professionnel pour fonctionnalités avancées
   const buildJitsiUrl = () => {
     if (!roomCode) return '';
     
-    const baseUrl = 'https://meet.jit.si';
-    const roomName = `RonyPro_${roomCode}`;
+    const baseUrl = 'https://8x8.vc';
+    const roomName = `vpaas-magic-cookie-88f50549590945171b704d41a1680c16c/${roomCode}`;
     const displayName = encodeURIComponent(authUser?.displayName || authUser?.username || 'Utilisateur');
     
-    // Configuration pour usage professionnel sans limitations
-    const config = [
-      `config.startWithAudioMuted=false`,
-      `config.startWithVideoMuted=false`,
-      `config.enableWelcomePage=false`,
-      `config.prejoinPageEnabled=false`,
-      `config.requireDisplayName=false`,
-      `config.disableInviteFunctions=false`,
-      `config.enableEmailInStats=false`,
-      `config.enableInsecureRoomNameWarning=false`,
-      `config.toolbarButtons=["microphone","camera","closedcaptions","desktop","fullscreen","fodeviceselection","hangup","profile","chat","recording","livestreaming","etherpad","sharedvideo","settings","raisehand","videoquality","filmstrip","invite","feedback","stats","shortcuts","tileview","videobackgroundblur","download","help","mute-everyone","mute-video-everyone","security"]`,
-      `interfaceConfig.SHOW_JITSI_WATERMARK=false`,
-      `interfaceConfig.SHOW_WATERMARK_FOR_GUESTS=false`,
-      `interfaceConfig.SHOW_POWERED_BY=false`,
-      `interfaceConfig.SHOW_PROMOTIONAL_CLOSE_PAGE=false`,
-      `interfaceConfig.SHOW_CHROME_EXTENSION_BANNER=false`,
-      `interfaceConfig.MOBILE_APP_PROMO=false`,
-      `interfaceConfig.LANG_DETECTION=false`,
-      `interfaceConfig.CONNECTION_INDICATOR_AUTO_HIDE_ENABLED=false`,
-      `interfaceConfig.CONNECTION_INDICATOR_AUTO_HIDE_TIMEOUT=5000`,
-      `interfaceConfig.DISABLE_VIDEO_BACKGROUND=false`,
-      `interfaceConfig.DISABLE_FOCUS_INDICATOR=false`,
-      `interfaceConfig.DISABLE_DOMINANT_SPEAKER_INDICATOR=false`,
-      `interfaceConfig.HIDE_INVITE_MORE_HEADER=false`,
-      `interfaceConfig.VIDEO_LAYOUT_FIT='both'`,
-      `userInfo.displayName=${displayName}`
-    ].join('&');
+    // JWT professionnel avec toutes les fonctionnalités activées
+    const jwt = 'eyJraWQiOiJ2cGFhcy1tYWdpYy1jb29raWUtODhmNTA1NDk1OTA5NDUxN2I3MDRkNDFhMTY4MGMxNmMvODVhOWNiLVNBTVBMRV9BUFAiLCJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiJqaXRzaSIsImlzcyI6ImNoYXQiLCJpYXQiOjE3NTA2MzE1ODcsImV4cCI6MTc1MDYzODc4NywibmJmIjoxNzUwNjMxNTgyLCJzdWIiOiJ2cGFhcy1tYWdpYy1jb29raWUtODhmNTA1NDk1OTA5NDUxN2I3MDRkNDFhMTY4MGMxNmMiLCJjb250ZXh0Ijp7ImZlYXR1cmVzIjp7ImxpdmVzdHJlYW1pbmciOnRydWUsIm91dGJvdW5kLWNhbGwiOnRydWUsInNpcC1vdXRib3VuZC1jYWxsIjpmYWxzZSwidHJhbnNjcmlwdGlvbiI6dHJ1ZSwicmVjb3JkaW5nIjp0cnVlLCJmbGlwIjpmYWxzZX0sInVzZXIiOnsiaGlkZGVuLWZyb20tcmVjb3JkZXIiOmZhbHNlLCJtb2RlcmF0b3IiOnRydWUsIm5hbWUiOiJhcm9uZGkzMjMiLCJpZCI6Imdvb2dsZS1vYXV0aDJ8MTAzNzkyMjM3MzgyNzE4ODUwMTA3IiwiYXZhdGFyIjoiIiwiZW1haWwiOiJhcm9uZGkzMjNAZ21haWwuY29tIn19LCJyb29tIjoiKiJ9.GOE5AvPHLVzwtSJxQWx4wkVwHiIQFjmdsQEq6rER0CNjCPl8H2youf522SR-K-fOpKpx515jhrD43zerPfq7LbjXUzsiMSKkuhqufWGV3jmBmFsixzSmqKeXXGgvd4GGH7gjGQ8UyQ4dQPxhgjlzHK-ddOYHzN8Xv07SYCRq0FapUpkmb2jHmIyEvPu7YXkexMUOT5aU9JSxV4PpWQumRICDaM0cn_cYO0-yQl9P1sEBzwRT1MiFd9Xaz4kJjV072NcniFit-0iMy2FURCOz86qEpjtpCQvRdSD_BZMnPG0K_J7KzqIfF-uDJ_3KXLqQYullGyyH9ggSW1Xa0saiFw';
     
-    return `${baseUrl}/${roomName}#${config}`;
+    // Configuration professionnelle avec JWT
+    const params = new URLSearchParams({
+      'jwt': jwt,
+      'config.startWithAudioMuted': 'false',
+      'config.startWithVideoMuted': 'false',
+      'config.enableWelcomePage': 'false',
+      'config.prejoinPageEnabled': 'false',
+      'config.requireDisplayName': 'false',
+      'config.disableInviteFunctions': 'false',
+      'config.enableEmailInStats': 'false',
+      'config.enableInsecureRoomNameWarning': 'false',
+      'interfaceConfig.SHOW_JITSI_WATERMARK': 'false',
+      'interfaceConfig.SHOW_WATERMARK_FOR_GUESTS': 'false',
+      'interfaceConfig.SHOW_POWERED_BY': 'false',
+      'interfaceConfig.SHOW_PROMOTIONAL_CLOSE_PAGE': 'false',
+      'interfaceConfig.SHOW_CHROME_EXTENSION_BANNER': 'false',
+      'interfaceConfig.MOBILE_APP_PROMO': 'false',
+      'interfaceConfig.LANG_DETECTION': 'false',
+      'interfaceConfig.VIDEO_LAYOUT_FIT': 'both',
+      'userInfo.displayName': displayName
+    });
+    
+    return `${baseUrl}/${roomName}#${params.toString()}`;
   };
 
   const copyRoomCode = () => {
@@ -172,7 +169,20 @@ const VideoConferenceSimple: React.FC = () => {
           </Badge>
           
           <Badge variant="outline" className="bg-green-600/20 border-green-600 text-green-200">
-            Professionnel
+            <Crown className="h-3 w-3 mr-1" />
+            Pro Unlimited
+          </Badge>
+          
+          <Badge variant="outline" className="bg-blue-600/20 border-blue-600 text-blue-200">
+            Enregistrement
+          </Badge>
+          
+          <Badge variant="outline" className="bg-purple-600/20 border-purple-600 text-purple-200">
+            Transcription
+          </Badge>
+          
+          <Badge variant="outline" className="bg-red-600/20 border-red-600 text-red-200">
+            Live Stream
           </Badge>
         </div>
         
@@ -204,10 +214,22 @@ const VideoConferenceSimple: React.FC = () => {
           <div className="absolute inset-0 bg-gray-900/95 flex items-center justify-center z-20">
             <div className="text-center">
               <Loader2 className="h-16 w-16 animate-spin text-blue-500 mx-auto mb-6" />
-              <h3 className="text-xl font-semibold mb-3">Connexion en cours</h3>
-              <p className="text-gray-400 text-sm mb-2">Chargement de l'interface vidéo professionnelle...</p>
+              <h3 className="text-xl font-semibold mb-3">Activation JWT Professionnel</h3>
+              <p className="text-gray-400 text-sm mb-4">Initialisation des fonctionnalités avancées...</p>
+              <div className="flex justify-center space-x-4 mb-4">
+                <Badge variant="outline" className="bg-green-600/20 border-green-600 text-green-200">
+                  <Crown className="h-3 w-3 mr-1" />
+                  Enregistrement
+                </Badge>
+                <Badge variant="outline" className="bg-purple-600/20 border-purple-600 text-purple-200">
+                  Transcription
+                </Badge>
+                <Badge variant="outline" className="bg-red-600/20 border-red-600 text-red-200">
+                  Live Stream
+                </Badge>
+              </div>
               <div className="w-64 bg-gray-700 rounded-full h-2 mx-auto">
-                <div className="bg-blue-500 h-2 rounded-full animate-pulse" style={{width: '70%'}}></div>
+                <div className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full animate-pulse" style={{width: '85%'}}></div>
               </div>
             </div>
           </div>
@@ -245,7 +267,7 @@ const VideoConferenceSimple: React.FC = () => {
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <span className="text-xs text-gray-300 font-medium">
-                Interface professionnelle active
+                JWT Pro • Toutes fonctionnalités débloquées
               </span>
             </div>
             <div className="w-px h-4 bg-gray-600"></div>
