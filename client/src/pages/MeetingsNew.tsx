@@ -252,7 +252,7 @@ export default function MeetingsNew() {
         </div>
         
         {/* Contenu scrollable */}
-        <div className="flex-1 overflow-y-auto p-2">
+        <div className="flex-1 overflow-y-auto p-2" style={{ height: 'calc(100vh - 120px)' }}>
           <div className="max-w-4xl mx-auto">
 
             <Tabs defaultValue="active" className="w-full">
@@ -269,7 +269,7 @@ export default function MeetingsNew() {
                 </TabsList>
               </div>
 
-            <TabsContent value="active" className="space-y-4 max-h-[70vh] overflow-y-auto">
+            <TabsContent value="active" className="space-y-4 h-full overflow-y-auto pb-4">
               {(isLoadingMeetings || isLoadingScheduled) ? (
                 <div className="flex justify-center py-6">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -379,13 +379,23 @@ export default function MeetingsNew() {
                                   className="text-red-600 hover:text-red-700"
                                   onClick={async () => {
                                     try {
+                                      // Mise à jour optimistique
+                                      queryClient.setQueryData(['/api/meetings/scheduled'], (oldData: any) => {
+                                        if (!oldData) return oldData;
+                                        return {
+                                          ...oldData,
+                                          meetings: oldData.meetings.filter((m: any) => m.id !== meeting.id)
+                                        };
+                                      });
+                                      
                                       await apiRequest('DELETE', `/api/meetings/scheduled/${meeting.id}`);
                                       toast({
                                         title: "Réunion supprimée",
                                         description: "La réunion a été supprimée avec succès"
                                       });
-                                      queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
                                     } catch (error) {
+                                      // Restaurer en cas d'erreur
+                                      queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
                                       toast({
                                         title: "Erreur",
                                         description: "Impossible de supprimer la réunion",
@@ -597,6 +607,30 @@ export default function MeetingsNew() {
                               return;
                             }
                             
+                            // Créer une réunion temporaire pour l'affichage optimistique
+                            const tempMeeting = {
+                              id: Date.now(), // ID temporaire
+                              title: title.trim(),
+                              description: (formData.get('description') as string) || '',
+                              startTime,
+                              endTime,
+                              organizerId: currentUser?.id || 1,
+                              roomName: `scheduled-${Date.now()}`,
+                              isRecurring: formData.get('recurring') === 'on',
+                              waitingRoom: formData.get('waitingRoom') === 'on',
+                              recordMeeting: formData.get('recordMeeting') === 'on',
+                              createdAt: new Date().toISOString()
+                            };
+
+                            // Mise à jour optimistique
+                            queryClient.setQueryData(['/api/meetings/scheduled'], (oldData: any) => {
+                              if (!oldData) return { success: true, meetings: [tempMeeting] };
+                              return {
+                                ...oldData,
+                                meetings: [...oldData.meetings, tempMeeting]
+                              };
+                            });
+
                             const response = await apiRequest('POST', '/api/meetings/schedule', {
                               title: title.trim(),
                               description: (formData.get('description') as string) || '',
@@ -609,6 +643,8 @@ export default function MeetingsNew() {
 
                             if (!response.ok) {
                               const errorData = await response.json();
+                              // Restaurer l'état en cas d'erreur
+                              queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
                               throw new Error(errorData.message || 'Erreur lors de la programmation');
                             }
 
@@ -620,6 +656,7 @@ export default function MeetingsNew() {
                             
                             // Reset form
                             form.reset();
+                            // Mettre à jour avec les vraies données du serveur
                             queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
                           } catch (error: any) {
                             console.error('Error scheduling meeting:', error);
