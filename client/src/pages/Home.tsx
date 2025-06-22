@@ -63,7 +63,7 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
     <div 
       className="h-screen flex overflow-hidden transition-all duration-500 ease-out"
       style={{ 
-        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.95) 100%)',
+        background: 'var(--color-background)',
         minHeight: '100vh',
         backdropFilter: 'blur(10px)',
       }}

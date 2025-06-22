@@ -25,8 +25,8 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
     <div 
       className="flex items-center justify-between p-4 border-b backdrop-blur-xl transition-all duration-300 ease-out"
       style={{ 
-        background: 'rgba(255, 255, 255, 0.7)',
-        borderColor: 'rgba(0, 0, 0, 0.06)',
+        background: 'var(--color-surface)',
+        borderColor: 'var(--color-border)',
         backdropFilter: 'blur(20px)',
         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
       }}
@@ -42,7 +42,7 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
           <Menu className="w-5 h-5" style={{ color: 'var(--color-text)' }} />
         </Button>
 
-        <h2 className="text-xl font-light tracking-wide transition-all duration-300" style={{ color: 'rgba(0, 0, 0, 0.8)' }}>
+        <h2 className="text-xl font-light tracking-wide transition-all duration-300" style={{ color: 'var(--color-text)' }}>
           {getSectionTitle(currentSection)}
         </h2>
       </div>
