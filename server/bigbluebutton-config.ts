@@ -1,4 +1,4 @@
-import * as crypto from 'crypto-js';
+import * as crypto from 'crypto';
 
 // Configuration BigBlueButton - peut être auto-hébergé
 const BBB_CONFIG = {
@@ -81,7 +81,7 @@ class BigBlueButtonService {
   // Générer une signature pour l'API BBB
   private generateSignature(apiCall: string, params: string): string {
     const query = apiCall + params + this.secret;
-    return crypto.SHA1(query).toString();
+    return crypto.createHash('sha1').update(query).digest('hex');
   }
 
   // Construire l'URL d'API complète
