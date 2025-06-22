@@ -9,7 +9,7 @@ export default function MainContent({ children }: MainContentProps) {
     <div 
       className="flex-1 flex flex-col overflow-hidden rounded-tl-3xl transition-all duration-500 ease-out"
       style={{
-        background: 'rgba(255, 255, 255, 0.6)',
+        background: 'var(--color-surface)',
         backdropFilter: 'blur(20px)',
         boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.1)',
       }}

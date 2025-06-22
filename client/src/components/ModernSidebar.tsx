@@ -102,9 +102,9 @@ export default function ModernSidebar({
           w-80
         `}
         style={{
-          background: 'rgba(255, 255, 255, 0.85)',
+          background: 'var(--color-sidebar)',
           backdropFilter: 'blur(20px)',
-          borderRight: '1px solid rgba(0, 0, 0, 0.08)',
+          borderRight: '1px solid var(--color-border)',
           boxShadow: '0 0 20px rgba(0, 0, 0, 0.04)',
         }}
       >
@@ -232,14 +232,17 @@ export default function ModernSidebar({
                     }
                   `}
                   style={{
-                    background: isActive ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(147, 51, 234, 0.9))' : 'transparent',
-                    color: isActive ? '#ffffff' : 'rgba(0, 0, 0, 0.7)',
+                    background: isActive ? 'var(--color-sidebarActive)' : 'transparent',
+                    color: isActive ? 'var(--color-text)' : 'var(--color-textMuted)',
                     fontWeight: isActive ? '500' : '300',
                   }}
                 >
-                  <Icon className={`w-5 h-5 transition-all duration-300 ${isActive ? 'text-white' : 'text-gray-600 group-hover:text-gray-800'}`} />
+                  <Icon className={`w-5 h-5 transition-all duration-300`} style={{ color: isActive ? 'var(--color-text)' : 'var(--color-textMuted)' }} />
                   {!isCollapsed && (
-                    <span className={`font-light transition-all duration-300 ${isActive ? 'text-white font-medium' : 'text-gray-700 group-hover:text-gray-900'}`}>
+                    <span className={`font-light transition-all duration-300`} style={{ 
+                      color: isActive ? 'var(--color-text)' : 'var(--color-textMuted)',
+                      fontWeight: isActive ? '500' : '300'
+                    }}>
                       {item.label}
                     </span>
                   )}

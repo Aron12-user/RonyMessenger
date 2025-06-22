@@ -93,7 +93,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="flex-1 overflow-auto p-6 space-y-6">
+    <div className="flex-1 overflow-y-auto p-6 space-y-6" style={{ maxHeight: 'calc(100vh - 120px)' }}>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
