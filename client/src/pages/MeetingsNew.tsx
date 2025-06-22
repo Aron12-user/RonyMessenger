@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import EmptyState from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,6 +87,36 @@ export default function MeetingsNew() {
   const joinInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // WebSocket pour mises à jour en temps réel
+  useEffect(() => {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'meeting_scheduled') {
+          // Nouvelle réunion programmée
+          queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
+        } else if (data.type === 'meeting_deleted') {
+          // Réunion supprimée
+          queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
+        } else if (data.type === 'meeting_updated') {
+          // Réunion mise à jour
+          queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
+        }
+      } catch (error) {
+        console.error('Erreur WebSocket:', error);
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [queryClient]);
+
   // Récupérer l'utilisateur courant
   const { data: currentUser, isLoading: isLoadingUser } = useQuery<User>({
     queryKey: [API_ENDPOINTS.USER],
@@ -95,15 +125,25 @@ export default function MeetingsNew() {
   // Récupérer les réunions actives
   const { data: activeMeetings, isLoading: isLoadingMeetings } = useQuery<{success: boolean, rooms: ActiveMeeting[]}>({
     queryKey: ['/api/meetings/active'],
-    // Rafraîchir toutes les 30 secondes
-    refetchInterval: 30000,
+    // Rafraîchir toutes les 5 secondes pour une synchronisation rapide
+    refetchInterval: 5000,
+    // Gardé en arrière-plan pour les mises à jour temps réel
+    refetchOnWindowFocus: true,
+    // Refetch automatiquement quand l'onglet redevient visible
+    refetchOnReconnect: true,
   });
 
   // Récupérer les réunions programmées
   const { data: scheduledMeetings, isLoading: isLoadingScheduled } = useQuery<{success: boolean, meetings: ScheduledMeeting[]}>({
     queryKey: ['/api/meetings/scheduled'],
-    // Pas de refetch automatique, on gère manuellement
-    refetchInterval: false,
+    // Refetch toutes les 5 secondes pour synchroniser automatiquement
+    refetchInterval: 5000,
+    // Gardé en arrière-plan pour les mises à jour temps réel
+    refetchOnWindowFocus: true,
+    // Refetch automatiquement quand l'onglet redevient visible
+    refetchOnReconnect: true,
+    // Garder les données fraîches même en arrière-plan
+    staleTime: 0,
   });
 
   // Fonction pour mettre à jour instantanément le cache
@@ -113,14 +153,15 @@ export default function MeetingsNew() {
 
   // Fonction pour ajouter une réunion instantanément
   const addMeetingToCache = (meetingData: any) => {
+    const tempId = Date.now();
     const tempMeeting = {
-      id: Date.now(),
+      id: tempId,
       title: meetingData.title,
       description: meetingData.description || '',
       startTime: meetingData.startTime,
       endTime: meetingData.endTime,
       organizerId: currentUser?.id || 1,
-      roomName: `scheduled-${Date.now()}`,
+      roomName: `scheduled-${tempId}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
       isRecurring: meetingData.isRecurring || false,
       waitingRoom: meetingData.waitingRoom || false,
       recordMeeting: meetingData.recordMeeting || false,
@@ -745,27 +786,44 @@ export default function MeetingsNew() {
                             };
 
                             // Ajout instantané à l'interface
-                            addMeetingToCache(meetingData);
+                            const tempMeeting = addMeetingToCache(meetingData);
 
-                            const response = await apiRequest('POST', '/api/meetings/schedule', meetingData);
+                            try {
+                              const response = await apiRequest('POST', '/api/meetings/schedule', meetingData);
 
-                            if (!response.ok) {
-                              const errorData = await response.json();
-                              // Restaurer en cas d'erreur
-                              queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
-                              throw new Error(errorData.message || 'Erreur lors de la programmation');
+                              if (!response.ok) {
+                                const errorData = await response.json();
+                                // Retirer la réunion temporaire en cas d'erreur
+                                removeMeetingFromCache(tempMeeting.id);
+                                throw new Error(errorData.message || 'Erreur lors de la programmation');
+                              }
+
+                              const data = await response.json();
+                              
+                              // Remplacer la réunion temporaire par la vraie réunion du serveur
+                              updateScheduledMeetingsCache((old: any) => {
+                                if (!old) return old;
+                                return {
+                                  ...old,
+                                  meetings: old.meetings.map((m: any) => 
+                                    m.id === tempMeeting.id ? data.meeting : m
+                                  )
+                                };
+                              });
+
+                              toast({
+                                title: "Réunion programmée",
+                                description: "La réunion a été programmée avec succès"
+                              });
+                              
+                              // Reset form
+                              form.reset();
+                              
+                            } catch (error) {
+                              // Supprimer la réunion temporaire en cas d'erreur
+                              removeMeetingFromCache(tempMeeting.id);
+                              throw error;
                             }
-
-                            const data = await response.json();
-                            toast({
-                              title: "Réunion programmée",
-                              description: "La réunion a été programmée avec succès"
-                            });
-                            
-                            // Reset form
-                            form.reset();
-                            // Synchronisation avec le serveur
-                            queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
                           } catch (error: any) {
                             console.error('Error scheduling meeting:', error);
                             toast({
@@ -851,16 +909,61 @@ export default function MeetingsNew() {
                                     size="sm" 
                                     className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
                                     onClick={async () => {
+                                      // Sauvegarder la réunion pour restauration en cas d'erreur
+                                      const originalMeeting = meeting;
+                                      
+                                      // Suppression instantanée de l'interface
+                                      removeMeetingFromCache(meeting.id);
+                                      
+                                      toast({
+                                        title: "Suppression en cours...",
+                                        description: "La réunion est en cours de suppression"
+                                      });
+                                      
                                       try {
-                                        removeMeetingFromCache(meeting.id);
-                                        await apiRequest('DELETE', `/api/meetings/scheduled/${meeting.id}`);
+                                        const response = await apiRequest('DELETE', `/api/meetings/scheduled/${meeting.id}`);
+                                        
+                                        if (!response.ok) {
+                                          // Restaurer la réunion en cas d'erreur
+                                          updateScheduledMeetingsCache((old: any) => {
+                                            if (!old) return { success: true, meetings: [originalMeeting] };
+                                            // Insérer la réunion à sa position d'origine
+                                            const meetings = [...old.meetings];
+                                            const insertIndex = meetings.findIndex(m => m.id > originalMeeting.id);
+                                            if (insertIndex === -1) {
+                                              meetings.push(originalMeeting);
+                                            } else {
+                                              meetings.splice(insertIndex, 0, originalMeeting);
+                                            }
+                                            return { ...old, meetings };
+                                          });
+                                          throw new Error('Erreur lors de la suppression');
+                                        }
+                                        
                                         toast({
                                           title: "Réunion supprimée",
                                           description: "La réunion a été supprimée avec succès"
                                         });
-                                        queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
+                                        
+                                        // Forcer une mise à jour du cache pour synchroniser avec le serveur
+                                        setTimeout(() => {
+                                          queryClient.refetchQueries({ queryKey: ['/api/meetings/scheduled'] });
+                                        }, 500);
+                                        
                                       } catch (error) {
-                                        queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
+                                        // Restaurer la réunion en cas d'erreur
+                                        updateScheduledMeetingsCache((old: any) => {
+                                          if (!old) return { success: true, meetings: [originalMeeting] };
+                                          const meetings = [...old.meetings];
+                                          const insertIndex = meetings.findIndex(m => m.id > originalMeeting.id);
+                                          if (insertIndex === -1) {
+                                            meetings.push(originalMeeting);
+                                          } else {
+                                            meetings.splice(insertIndex, 0, originalMeeting);
+                                          }
+                                          return { ...old, meetings };
+                                        });
+                                        
                                         toast({
                                           title: "Erreur",
                                           description: "Impossible de supprimer la réunion",
