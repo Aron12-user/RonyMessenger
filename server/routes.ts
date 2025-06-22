@@ -57,6 +57,17 @@ const onlineUsers = new Map<number, WebSocket>();
 // Map to store pending messages for offline users
 const pendingMessages = new Map<number, any[]>();
 
+// Video conferencing interfaces and storage
+interface MeetingRoom {
+  id: string;
+  participants: Map<string, WebSocket>;
+  adminId?: string;
+  title?: string;
+  createdAt: Date;
+}
+
+const activeMeetingRooms = new Map<string, MeetingRoom>();
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
   const requireAuth = setupSimpleAuth(app);
@@ -94,6 +105,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
     server: httpServer, 
     path: '/ws',
     perMessageDeflate: false // Désactiver la compression pour éviter les problèmes de compatibilité
+  });
+
+  // Configure WebSocket server for video conferencing
+  const meetingWss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/ws/meeting',
+    verifyClient: (info: any) => {
+      // Extract room code from URL path
+      const url = new URL(info.req.url!, `ws://${info.req.headers.host}`);
+      const pathParts = url.pathname.split('/');
+      return pathParts.length >= 4 && pathParts[3]; // /ws/meeting/:roomCode
+    }
+  });
+
+  function broadcastToRoom(roomCode: string, data: any, excludeWs?: WebSocket) {
+    const room = activeMeetingRooms.get(roomCode);
+    if (room) {
+      room.participants.forEach((ws, userId) => {
+        if (ws !== excludeWs && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(data));
+        }
+      });
+    }
+  }
+
+  // Handle video conferencing WebSocket connections
+  meetingWss.on('connection', (ws, req) => {
+    const url = new URL(req.url!, `ws://${req.headers.host}`);
+    const pathParts = url.pathname.split('/');
+    const roomCode = pathParts[3];
+    
+    if (!roomCode) {
+      ws.close(1008, 'Room code required');
+      return;
+    }
+
+    let userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    let userInfo = { name: 'Anonymous', isAdmin: false };
+
+    // Get or create room
+    if (!activeMeetingRooms.has(roomCode)) {
+      activeMeetingRooms.set(roomCode, {
+        id: roomCode,
+        participants: new Map(),
+        createdAt: new Date()
+      });
+    }
+
+    const room = activeMeetingRooms.get(roomCode)!;
+    
+    // Set admin if first participant
+    if (room.participants.size === 0) {
+      room.adminId = userId;
+      userInfo.isAdmin = true;
+    }
+
+    room.participants.set(userId, ws);
+
+    // Send room info to new participant
+    ws.send(JSON.stringify({
+      type: 'room-info',
+      room: {
+        id: roomCode,
+        title: room.title,
+        participantCount: room.participants.size,
+        isAdmin: userInfo.isAdmin
+      }
+    }));
+
+    // Notify other participants
+    broadcastToRoom(roomCode, {
+      type: 'user-joined',
+      userId,
+      userInfo
+    }, ws);
+
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        
+        switch (data.type) {
+          case 'offer':
+          case 'answer':
+          case 'ice-candidate':
+            // Forward WebRTC signaling to target participant
+            const targetWs = room.participants.get(data.targetId);
+            if (targetWs && targetWs.readyState === WebSocket.OPEN) {
+              targetWs.send(JSON.stringify({
+                ...data,
+                userId
+              }));
+            }
+            break;
+            
+          case 'participant-update':
+            // Broadcast participant updates
+            broadcastToRoom(roomCode, {
+              type: 'participant-update',
+              userId,
+              updates: data.updates
+            }, ws);
+            break;
+            
+          case 'user-info':
+            // Update user info
+            userInfo = { ...userInfo, ...data.info };
+            break;
+        }
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
+      }
+    });
+
+    ws.on('close', () => {
+      room.participants.delete(userId);
+      
+      // Notify other participants
+      broadcastToRoom(roomCode, {
+        type: 'user-left',
+        userId
+      });
+      
+      // Clean up empty rooms
+      if (room.participants.size === 0) {
+        activeMeetingRooms.delete(roomCode);
+      }
+    });
+
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
+    });
   });
   
   // User routes with pagination (protected)
