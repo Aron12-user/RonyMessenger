@@ -61,10 +61,11 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
 
   return (
     <div 
-      className="h-screen flex overflow-hidden"
+      className="h-screen flex overflow-hidden transition-all duration-500 ease-out"
       style={{ 
-        background: 'var(--color-background)',
+        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.95) 100%)',
         minHeight: '100vh',
+        backdropFilter: 'blur(10px)',
       }}
     >
       {/* Modern Sidebar */}
