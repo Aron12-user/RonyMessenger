@@ -224,9 +224,9 @@ export function registerJitsiRoutes(app: Express, requireAuth: any) {
       // Générer un nom de salle unique pour la réunion programmée
       const roomName = `scheduled-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
-      // Créer la réunion programmée (simulation - dans une vraie app, cela serait sauvé en base)
+      // Créer la réunion programmée et l'ajouter au stockage
       const scheduledMeeting = {
-        id: Date.now(),
+        id: meetingIdCounter++,
         title,
         description: description || '',
         startTime: new Date(startTime),
@@ -238,6 +238,9 @@ export function registerJitsiRoutes(app: Express, requireAuth: any) {
         recordMeeting: recordMeeting || false,
         createdAt: new Date()
       };
+      
+      // Ajouter au stockage
+      scheduledMeetingsStore.push(scheduledMeeting);
       
       res.status(201).json({
         success: true,
@@ -253,21 +256,59 @@ export function registerJitsiRoutes(app: Express, requireAuth: any) {
     }
   });
   
+  // Stockage en mémoire pour les réunions programmées
+  let scheduledMeetingsStore: any[] = [];
+  let meetingIdCounter = 1;
+
   // Obtenir les réunions programmées
   app.get('/api/meetings/scheduled', requireAuth, (req, res) => {
     try {
-      // Simulation - dans une vraie app, cela viendrait de la base de données
-      const scheduledMeetings: any[] = [];
+      const userId = (req.user as Express.User).id;
+      
+      // Filtrer les réunions pour l'utilisateur connecté
+      const userMeetings = scheduledMeetingsStore.filter(meeting => meeting.organizerId === userId);
       
       res.json({
         success: true,
-        meetings: scheduledMeetings
+        meetings: userMeetings
       });
     } catch (error) {
       console.error('Error fetching scheduled meetings:', error);
       res.status(500).json({ 
         success: false, 
         message: 'Failed to fetch scheduled meetings' 
+      });
+    }
+  });
+  
+  // Supprimer une réunion programmée
+  app.delete('/api/meetings/scheduled/:id', requireAuth, (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req.user as Express.User).id;
+      
+      const meetingIndex = scheduledMeetingsStore.findIndex(
+        meeting => meeting.id === parseInt(id) && meeting.organizerId === userId
+      );
+      
+      if (meetingIndex === -1) {
+        return res.status(404).json({
+          success: false,
+          message: 'Meeting not found or not authorized'
+        });
+      }
+      
+      scheduledMeetingsStore.splice(meetingIndex, 1);
+      
+      res.json({
+        success: true,
+        message: 'Meeting deleted successfully'
+      });
+    } catch (error) {
+      console.error('Error deleting scheduled meeting:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to delete meeting' 
       });
     }
   });

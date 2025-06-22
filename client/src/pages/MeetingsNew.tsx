@@ -50,6 +50,21 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
+// Types pour les réunions programmées
+interface ScheduledMeeting {
+  id: number;
+  title: string;
+  description: string;
+  startTime: string;
+  endTime: string;
+  organizerId: number;
+  roomName: string;
+  isRecurring: boolean;
+  waitingRoom: boolean;
+  recordMeeting: boolean;
+  createdAt: string;
+}
+
 // Interface pour une réunion active
 interface ActiveMeeting {
   friendlyCode: string;
@@ -77,6 +92,13 @@ export default function MeetingsNew() {
   // Récupérer les réunions actives
   const { data: activeMeetings, isLoading: isLoadingMeetings } = useQuery<{success: boolean, rooms: ActiveMeeting[]}>({
     queryKey: ['/api/meetings/active'],
+    // Rafraîchir toutes les 30 secondes
+    refetchInterval: 30000,
+  });
+
+  // Récupérer les réunions programmées
+  const { data: scheduledMeetings, isLoading: isLoadingScheduled } = useQuery<{success: boolean, meetings: ScheduledMeeting[]}>({
+    queryKey: ['/api/meetings/scheduled'],
     // Rafraîchir toutes les 30 secondes
     refetchInterval: 30000,
   });
@@ -202,42 +224,50 @@ export default function MeetingsNew() {
 
   return (
     <section className="flex-1 p-1 flex flex-col overflow-hidden">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-2 flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">Réunions Vidéo</h2>
-            <div className="flex gap-2">
-              <Button
-                onClick={openJoinDialog}
-                variant="outline"
-                className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white py-2 px-4 rounded-lg flex items-center space-x-2"
-              >
-                <ClipboardCheck className="h-4 w-4 mr-2" />
-                <span>Rejoindre avec code</span>
-              </Button>
-              <Button 
-                onClick={handleStartMeeting}
-                className="bg-primary hover:bg-primary/90 text-white py-2 px-4 rounded-lg flex items-center space-x-2"
-              >
-                <Video className="h-4 w-4 mr-2" />
-                <span>Nouvelle réunion</span>
-              </Button>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow flex-1 flex flex-col">
+        {/* Header fixe */}
+        <div className="sticky top-0 z-20 bg-white dark:bg-gray-800 p-2 border-b border-gray-200 dark:border-gray-700">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Réunions Vidéo</h2>
+              <div className="flex gap-2">
+                <Button
+                  onClick={openJoinDialog}
+                  variant="outline"
+                  className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white py-2 px-4 rounded-lg flex items-center space-x-2"
+                >
+                  <ClipboardCheck className="h-4 w-4 mr-2" />
+                  <span>Rejoindre avec code</span>
+                </Button>
+                <Button 
+                  onClick={handleStartMeeting}
+                  className="bg-primary hover:bg-primary/90 text-white py-2 px-4 rounded-lg flex items-center space-x-2"
+                >
+                  <Video className="h-4 w-4 mr-2" />
+                  <span>Nouvelle réunion</span>
+                </Button>
+              </div>
             </div>
           </div>
+        </div>
+        
+        {/* Contenu scrollable */}
+        <div className="flex-1 overflow-y-auto p-2">
+          <div className="max-w-4xl mx-auto">
 
-          <Tabs defaultValue="active" className="w-full">
-            <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 pb-2 border-b border-gray-200 dark:border-gray-700 mb-4">
-              <TabsList className="mb-2">
-                <TabsTrigger value="active" className="flex items-center">
-                  <Video className="h-4 w-4 mr-2" />
-                  <span>Réunions actives</span>
-                </TabsTrigger>
-                <TabsTrigger value="scheduled" className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  <span>Réunions programmées</span>
-                </TabsTrigger>
-              </TabsList>
-            </div>
+            <Tabs defaultValue="active" className="w-full">
+              <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 pb-2 border-b border-gray-200 dark:border-gray-700 mb-4">
+                <TabsList className="mb-2">
+                  <TabsTrigger value="active" className="flex items-center">
+                    <Video className="h-4 w-4 mr-2" />
+                    <span>Réunions actives</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="scheduled" className="flex items-center">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    <span>Réunions programmées</span>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
             <TabsContent value="active" className="space-y-4 max-h-[70vh] overflow-y-auto">
               {isLoadingMeetings ? (
@@ -525,93 +555,125 @@ export default function MeetingsNew() {
                   </CardHeader>
                   <CardContent className="max-h-[40vh] overflow-y-auto">
                     <div className="space-y-3">
-                      {/* Exemple de réunions programmées */}
-                      <div className="border rounded-lg p-3 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <h4 className="font-medium text-sm">Réunion équipe marketing</h4>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">Révision campagne Q1</p>
+                      {isLoadingScheduled ? (
+                        <div className="flex justify-center py-6">
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        </div>
+                      ) : !scheduledMeetings?.meetings || scheduledMeetings.meetings.length === 0 ? (
+                        <div className="text-center py-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                          <Calendar className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                          <p className="text-sm text-gray-500">Aucune réunion programmée</p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Utilisez le formulaire ci-dessus pour programmer une nouvelle réunion
+                          </p>
+                        </div>
+                      ) : (
+                        scheduledMeetings.meetings.map((meeting, index) => (
+                          <div key={meeting.id} className={`border rounded-lg p-3 ${
+                            index % 2 === 0 
+                              ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' 
+                              : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                          }`}>
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <h4 className="font-medium text-sm">{meeting.title}</h4>
+                                {meeting.description && (
+                                  <p className="text-xs text-gray-600 dark:text-gray-400">{meeting.description}</p>
+                                )}
+                              </div>
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-6 w-6 p-0 text-red-600"
+                                  onClick={async () => {
+                                    try {
+                                      await apiRequest('DELETE', `/api/meetings/scheduled/${meeting.id}`);
+                                      toast({
+                                        title: "Réunion supprimée",
+                                        description: "La réunion a été supprimée avec succès"
+                                      });
+                                      queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
+                                    } catch (error) {
+                                      toast({
+                                        title: "Erreur",
+                                        description: "Impossible de supprimer la réunion",
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-center text-xs">
+                              <span className={`flex items-center ${
+                                index % 2 === 0 ? 'text-blue-600' : 'text-green-600'
+                              }`}>
+                                <Calendar className="h-3 w-3 mr-1" />
+                                {new Date(meeting.startTime).toLocaleDateString('fr-FR', {
+                                  weekday: 'short',
+                                  day: 'numeric',
+                                  month: 'short',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })} - {new Date(meeting.endTime).toLocaleTimeString('fr-FR', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                              <div className="flex items-center gap-2 text-gray-500">
+                                {meeting.waitingRoom && (
+                                  <span className="text-xs bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 px-1 py-0.5 rounded">
+                                    Salle d'attente
+                                  </span>
+                                )}
+                                {meeting.recordMeeting && (
+                                  <span className="text-xs bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300 px-1 py-0.5 rounded">
+                                    Enregistrement
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="mt-2 flex gap-1">
+                              <Button 
+                                size="sm" 
+                                className="h-6 text-xs flex-1"
+                                onClick={() => handleJoinMeeting(meeting.roomName)}
+                              >
+                                <Video className="h-3 w-3 mr-1" />
+                                Démarrer
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="h-6 text-xs"
+                                onClick={() => {
+                                  const meetingLink = `${window.location.origin}/meeting/${meeting.roomName}`;
+                                  navigator.clipboard.writeText(meetingLink);
+                                  toast({
+                                    title: "Lien copié",
+                                    description: "Le lien de la réunion a été copié"
+                                  });
+                                }}
+                              >
+                                <Share className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-600">
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="flex items-center text-blue-600">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            Demain 14:00 - 15:30
-                          </span>
-                          <span className="flex items-center text-gray-500">
-                            <Users className="h-3 w-3 mr-1" />
-                            5 invités
-                          </span>
-                        </div>
-                        <div className="mt-2 flex gap-1">
-                          <Button size="sm" className="h-6 text-xs flex-1">
-                            <Video className="h-3 w-3 mr-1" />
-                            Démarrer
-                          </Button>
-                          <Button variant="outline" size="sm" className="h-6 text-xs">
-                            <Share className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="border rounded-lg p-3 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <h4 className="font-medium text-sm">Stand-up développement</h4>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">Point quotidien équipe tech</p>
-                          </div>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-600">
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="flex items-center text-green-600">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            Lundi-Vendredi 09:00
-                          </span>
-                          <span className="flex items-center text-gray-500">
-                            <Users className="h-3 w-3 mr-1" />
-                            8 invités
-                          </span>
-                        </div>
-                        <div className="mt-2 flex gap-1">
-                          <Button size="sm" className="h-6 text-xs flex-1">
-                            <Video className="h-3 w-3 mr-1" />
-                            Démarrer
-                          </Button>
-                          <Button variant="outline" size="sm" className="h-6 text-xs">
-                            <Share className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="text-center py-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
-                        <Calendar className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                        <p className="text-sm text-gray-500">Aucune autre réunion programmée</p>
-                        <Button variant="ghost" size="sm" className="mt-2 text-xs">
-                          <Plus className="h-3 w-3 mr-1" />
-                          Programmer une réunion
-                        </Button>
-                      </div>
+                        ))
+                      )}
                     </div>
                   </CardContent>
                 </Card>
               </div>
             </TabsContent>
-          </Tabs>
+            </Tabs>
+          </div>
         </div>
       </div>
 
