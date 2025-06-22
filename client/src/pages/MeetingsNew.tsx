@@ -196,8 +196,8 @@ export default function MeetingsNew() {
   }
 
   return (
-    <section className="flex-1 p-4 pb-2 flex flex-col overflow-hidden">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex-1 overflow-y-auto">
+    <section className="flex-1 p-1 flex flex-col overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-2 flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold">Réunions Vidéo</h2>
