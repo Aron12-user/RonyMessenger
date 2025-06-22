@@ -20,9 +20,21 @@ export default function ConversationList({
   const { user: currentUser } = useAuth();
 
   return (
-    <div className="w-72 border-r border-gray-200 dark:border-gray-700 overflow-y-auto scrollbar-thin bg-white dark:bg-gray-800">
+    <div 
+      className="w-72 border-r overflow-y-auto scrollbar-thin" 
+      style={{ 
+        background: 'var(--color-surface)',
+        borderColor: 'var(--color-border)'
+      }}
+    >
       {/* Conversations Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+      <div 
+        className="p-4 border-b flex justify-between items-center"
+        style={{ 
+          borderColor: 'var(--color-border)',
+          color: 'var(--color-text)'
+        }}
+      >
         <h2 className="text-lg font-semibold">Messages</h2>
         <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
           <span className="material-icons">add</span>

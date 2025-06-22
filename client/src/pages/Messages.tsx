@@ -237,7 +237,14 @@ export default function Messages() {
   }, [activeConversationId, queryClient]);
 
   return (
-    <section className="flex-1 flex overflow-hidden bg-gray-900" style={{ padding: '4px', paddingBottom: '2px' }}>
+    <section 
+      className="flex-1 flex overflow-hidden" 
+      style={{ 
+        padding: '2px',
+        background: 'var(--color-background)',
+        color: 'var(--color-text)'
+      }}
+    >
       {/* Contacts/Conversations List */}
       <ConversationList 
         conversations={conversations}
@@ -247,7 +254,14 @@ export default function Messages() {
       />
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col bg-gray-900">
+      <div 
+        className="flex-1 flex flex-col" 
+        style={{ 
+          background: 'var(--color-surface)',
+          borderRadius: '8px',
+          margin: '2px'
+        }}
+      >
         {/* Chat Header */}
         <ChatHeader user={activeUser} />
 
