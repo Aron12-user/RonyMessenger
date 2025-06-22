@@ -126,16 +126,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Handle HTTP upgrade for meeting WebSockets
   httpServer.on('upgrade', (request, socket, head) => {
     const pathname = new URL(request.url!, `http://${request.headers.host}`).pathname;
+    console.log(`[WebSocket] Upgrade request for: ${pathname}`);
     
     if (pathname.startsWith('/ws/meeting/')) {
       const roomCode = pathname.split('/')[3];
+      console.log(`[WebSocket] Room code extracted: ${roomCode}`);
+      
       if (roomCode) {
         meetingWss.handleUpgrade(request, socket, head, (ws) => {
+          console.log(`[WebSocket] Connection upgraded for room: ${roomCode}`);
           meetingWss.emit('connection', ws, request, roomCode);
         });
       } else {
+        console.log(`[WebSocket] No room code, destroying socket`);
         socket.destroy();
       }
+    } else {
+      console.log(`[WebSocket] Invalid path, destroying socket`);
+      socket.destroy();
     }
   });
 
