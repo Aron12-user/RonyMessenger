@@ -4,21 +4,18 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import type { User } from "@shared/schema";
 import { 
   Mic, MicOff, Video, VideoOff, PhoneOff, Users, Share2,
   Maximize2, Minimize2, X, Crown, Settings, MessageSquare,
-  Monitor, AlertCircle, Loader2, Copy
+  Monitor, AlertCircle, Loader2, Copy, Camera, Volume2
 } from "lucide-react";
 
-interface Participant {
-  id: string;
-  name: string;
-  isAdmin: boolean;
-  isMuted: boolean;
-  hasVideo: boolean;
+declare global {
+  interface Window {
+    JitsiMeetExternalAPI: any;
+  }
 }
 
 const VideoConference: React.FC = () => {
@@ -32,266 +29,172 @@ const VideoConference: React.FC = () => {
 
   // États
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [participants, setParticipants] = useState<Participant[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [participantCount, setParticipantCount] = useState(1);
+  const [isJitsiLoaded, setIsJitsiLoaded] = useState(false);
   
-  // Contrôles
+  // Contrôles - états synchronisés avec Jitsi
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [hasAudioDevice, setHasAudioDevice] = useState(true);
   
   // Refs
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const wsRef = useRef<WebSocket | null>(null);
+  const jitsiContainerRef = useRef<HTMLDivElement>(null);
+  const jitsiApiRef = useRef<any>(null);
   
   const roomCode = params?.roomCode;
 
-  // Initialisation des médias
-  const initMedia = async () => {
-    try {
-      console.log('Tentative accès caméra + micro...');
-      
-      // Essayer d'abord caméra + micro
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 1280, height: 720 },
-          audio: true
-        });
-        
-        console.log('Accès accordé (vidéo + audio):', stream.getTracks().map(t => t.kind));
-        setLocalStream(stream);
-        
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-        
-        return true;
-      } catch (audioError) {
-        console.log('Échec audio, essai caméra seule...');
-        
-        // Si échec avec audio, essayer seulement la caméra
-        try {
-          const videoStream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 1280, height: 720 },
-            audio: false
-          });
-          
-          console.log('Accès accordé (vidéo seulement):', videoStream.getTracks().map(t => t.kind));
-          setLocalStream(videoStream);
-          setIsMuted(true); // Forcer mute puisque pas d'audio
-          setHasAudioDevice(false); // Marquer qu'il n'y a pas d'audio
-          
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = videoStream;
-          }
-          
-          toast({
-            title: "Caméra activée",
-            description: "Micro non disponible - vous êtes en mode muet",
-            variant: "default"
-          });
-          
-          return true;
-        } catch (videoError) {
-          throw videoError; // Relancer l'erreur vidéo
-        }
-      }
-    } catch (err: any) {
-      console.error('Erreur média complète:', err);
-      let msg = 'Impossible d\'accéder à la caméra';
-      
-      if (err.name === 'NotAllowedError') {
-        msg = 'Accès refusé. Veuillez autoriser l\'accès à la caméra.';
-      } else if (err.name === 'NotFoundError') {
-        msg = 'Aucune caméra détectée sur cet appareil.';
-      } else if (err.name === 'NotReadableError') {
-        msg = 'Caméra utilisée par une autre application.';
-      } else if (err.name === 'OverconstrainedError') {
-        msg = 'Résolution caméra non supportée.';
+  // Charger Jitsi Meet API
+  const loadJitsiScript = () => {
+    return new Promise((resolve, reject) => {
+      if (window.JitsiMeetExternalAPI) {
+        resolve(true);
+        return;
       }
       
-      setErrorMsg(msg);
-      return false;
-    }
+      const script = document.createElement('script');
+      script.src = 'https://meet.jit.si/external_api.js';
+      script.async = true;
+      script.onload = () => resolve(true);
+      script.onerror = () => reject(new Error('Impossible de charger Jitsi'));
+      document.head.appendChild(script);
+    });
   };
 
-  // Connexion WebSocket
-  const connectWS = () => {
-    if (!roomCode) return;
-    
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws/meeting/${roomCode}`;
-    
-    console.log('Connexion WS:', wsUrl);
-    wsRef.current = new WebSocket(wsUrl);
-    
-    wsRef.current.onopen = () => {
-      console.log('WS connecté');
-      setStatus('ready');
+  // Initialiser Jitsi Meet
+  const initJitsiMeet = async () => {
+    if (!roomCode || !jitsiContainerRef.current) return;
+
+    try {
+      console.log('Initialisation Jitsi Meet pour room:', roomCode);
       
-      wsRef.current?.send(JSON.stringify({
-        type: 'user-info',
-        info: {
-          name: authUser?.displayName || authUser?.username || 'Utilisateur'
+      const domain = 'meet.jit.si';
+      const options = {
+        roomName: `RonyApp_${roomCode}`,
+        width: '100%',
+        height: '100%',
+        parentNode: jitsiContainerRef.current,
+        userInfo: {
+          displayName: authUser?.displayName || authUser?.username || 'Utilisateur',
+        },
+        configOverwrite: {
+          startWithAudioMuted: false,
+          startWithVideoMuted: false,
+          enableWelcomePage: false,
+          prejoinPageEnabled: false,
+          disableInviteFunctions: true,
+          toolbarButtons: [
+            'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
+            'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
+            'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
+            'videoquality', 'filmstrip', 'invite', 'feedback', 'stats', 'shortcuts',
+            'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone',
+            'mute-video-everyone', 'security'
+          ],
+          defaultLocalDisplayName: authUser?.displayName || authUser?.username || 'Utilisateur'
+        },
+        interfaceConfigOverwrite: {
+          SHOW_JITSI_WATERMARK: false,
+          SHOW_WATERMARK_FOR_GUESTS: false,
+          DEFAULT_BACKGROUND: '#1a1a1a',
+          DISABLE_VIDEO_BACKGROUND: false,
+          ENABLE_FEEDBACK_ANIMATION: false,
+          FILM_STRIP_MAX_HEIGHT: 120,
+          GENERATE_ROOMNAMES_ON_WELCOME_PAGE: false,
+          HIDE_INVITE_MORE_HEADER: true,
+          JITSI_WATERMARK_LINK: '',
+          LANG_DETECTION: true,
+          LIVE_STREAMING_HELP_LINK: '',
+          MOBILE_APP_PROMO: false,
+          NATIVE_APP_NAME: 'RonyApp Meeting',
+          PROVIDER_NAME: 'RonyApp',
+          RECENT_LIST_ENABLED: false,
+          SHOW_BRAND_WATERMARK: false,
+          SHOW_CHROME_EXTENSION_BANNER: false,
+          SHOW_POWERED_BY: false,
+          SHOW_PROMOTIONAL_CLOSE_PAGE: false,
+          TOOLBAR_ALWAYS_VISIBLE: false,
+          TOOLBAR_TIMEOUT: 4000
         }
-      }));
-    };
-    
-    wsRef.current.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('Message WS:', data.type);
-        
-        if (data.type === 'user-joined') {
-          setParticipants(prev => [...prev, {
-            id: data.userId,
-            name: data.userInfo?.name || 'Utilisateur',
-            isAdmin: data.userInfo?.isAdmin || false,
-            isMuted: false,
-            hasVideo: true
-          }]);
-          
+      };
+
+      jitsiApiRef.current = new window.JitsiMeetExternalAPI(domain, options);
+
+      // Événements Jitsi
+      jitsiApiRef.current.addEventListeners({
+        readyToClose: () => {
+          console.log('Jitsi prêt à fermer');
+          leaveRoom();
+        },
+        participantJoined: (participant: any) => {
+          console.log('Participant rejoint:', participant);
+          setParticipantCount(prev => prev + 1);
           toast({
             title: "Participant rejoint",
-            description: `${data.userInfo?.name || 'Quelqu\'un'} a rejoint`
+            description: `${participant.displayName || 'Quelqu\'un'} a rejoint la réunion`
           });
-        } else if (data.type === 'user-left') {
-          setParticipants(prev => prev.filter(p => p.id !== data.userId));
-        } else if (data.type === 'participant-update') {
-          setParticipants(prev => prev.map(p => 
-            p.id === data.userId ? { ...p, ...data.updates } : p
-          ));
+        },
+        participantLeft: (participant: any) => {
+          console.log('Participant parti:', participant);
+          setParticipantCount(prev => Math.max(1, prev - 1));
+        },
+        audioMuteStatusChanged: (data: any) => {
+          console.log('Audio mute changé:', data);
+          setIsMuted(data.muted);
+        },
+        videoMuteStatusChanged: (data: any) => {
+          console.log('Vidéo mute changé:', data);
+          setIsVideoOn(!data.muted);
+        },
+        screenSharingStatusChanged: (data: any) => {
+          console.log('Partage écran changé:', data);
+          setIsScreenSharing(data.on);
         }
-      } catch (err) {
-        console.error('Erreur message WS:', err);
-      }
-    };
-    
-    wsRef.current.onclose = () => {
-      console.log('WS fermé');
+      });
+
+      console.log('Jitsi Meet initialisé avec succès');
+      setStatus('ready');
+      setIsJitsiLoaded(true);
+      
+    } catch (error) {
+      console.error('Erreur initialisation Jitsi:', error);
+      setErrorMsg('Impossible d\'initialiser la vidéoconférence');
       setStatus('error');
-      setErrorMsg('Connexion fermée');
-    };
-    
-    wsRef.current.onerror = () => {
-      console.log('Erreur WS');
-      setStatus('error');
-      setErrorMsg('Erreur connexion');
-    };
+    }
   };
 
   // Actions
   const toggleMute = () => {
-    if (!localStream || !hasAudioDevice) {
-      toast({
-        title: "Micro non disponible",
-        description: "Aucun microphone détecté",
-        variant: "destructive"
-      });
-      return;
+    if (jitsiApiRef.current) {
+      jitsiApiRef.current.executeCommand('toggleAudio');
     }
-    
-    localStream.getAudioTracks().forEach(track => {
-      track.enabled = isMuted;
-    });
-    setIsMuted(!isMuted);
-    
-    wsRef.current?.send(JSON.stringify({
-      type: 'participant-update',
-      updates: { isMuted: !isMuted }
-    }));
-    
-    toast({
-      title: isMuted ? "Micro activé" : "Micro coupé"
-    });
   };
 
   const toggleVideo = () => {
-    if (!localStream) return;
-    
-    localStream.getVideoTracks().forEach(track => {
-      track.enabled = !isVideoOn;
-    });
-    setIsVideoOn(!isVideoOn);
-    
-    wsRef.current?.send(JSON.stringify({
-      type: 'participant-update',
-      updates: { hasVideo: !isVideoOn }
-    }));
-    
-    toast({
-      title: isVideoOn ? "Caméra désactivée" : "Caméra activée"
-    });
+    if (jitsiApiRef.current) {
+      jitsiApiRef.current.executeCommand('toggleVideo');
+    }
   };
 
-  const startScreenShare = async () => {
-    try {
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: true
-      });
-      
-      setIsScreenSharing(true);
-      
-      screenStream.getVideoTracks()[0].onended = () => {
-        setIsScreenSharing(false);
-        toast({ title: "Partage écran arrêté" });
-      };
-      
-      toast({ title: "Partage écran démarré" });
-    } catch (err) {
-      toast({
-        title: "Erreur partage écran",
-        variant: "destructive"
-      });
+  const startScreenShare = () => {
+    if (jitsiApiRef.current) {
+      jitsiApiRef.current.executeCommand('toggleShareScreen');
     }
   };
 
   const copyRoomCode = () => {
     navigator.clipboard.writeText(roomCode || '');
-    toast({ title: "Code copié" });
-  };
-
-  const retryAudio = async () => {
-    if (hasAudioDevice || !localStream) return;
-    
-    try {
-      console.log('Tentative ajout audio...');
-      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      // Ajouter les pistes audio au flux existant
-      audioStream.getAudioTracks().forEach(track => {
-        localStream.addTrack(track);
-      });
-      
-      setHasAudioDevice(true);
-      setIsMuted(false);
-      
-      toast({
-        title: "Microphone activé",
-        description: "Audio ajouté avec succès"
-      });
-    } catch (err) {
-      toast({
-        title: "Microphone non disponible",
-        description: "Impossible d'ajouter l'audio",
-        variant: "destructive"
-      });
-    }
+    toast({ title: "Code de réunion copié" });
   };
 
   const leaveRoom = () => {
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
-    }
+    console.log('Quitter la réunion');
     
-    if (wsRef.current) {
-      wsRef.current.close();
+    if (jitsiApiRef.current) {
+      jitsiApiRef.current.dispose();
+      jitsiApiRef.current = null;
     }
     
     toast({ title: "Réunion quittée" });
@@ -300,9 +203,9 @@ const VideoConference: React.FC = () => {
 
   const toggleFullscreen = () => {
     if (!isFullscreen) {
-      document.documentElement.requestFullscreen();
+      document.documentElement.requestFullscreen().catch(console.error);
     } else {
-      document.exitFullscreen();
+      document.exitFullscreen().catch(console.error);
     }
   };
 
@@ -311,10 +214,13 @@ const VideoConference: React.FC = () => {
     if (!roomCode) return;
     
     const init = async () => {
-      const mediaOk = await initMedia();
-      if (mediaOk) {
-        connectWS();
-      } else {
+      try {
+        await loadJitsiScript();
+        console.log('Script Jitsi chargé');
+        await initJitsiMeet();
+      } catch (error) {
+        console.error('Erreur chargement Jitsi:', error);
+        setErrorMsg('Impossible de charger la vidéoconférence');
         setStatus('error');
       }
     };
@@ -322,14 +228,11 @@ const VideoConference: React.FC = () => {
     init();
     
     return () => {
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
+      if (jitsiApiRef.current) {
+        jitsiApiRef.current.dispose();
       }
     };
-  }, [roomCode]);
+  }, [roomCode, authUser]);
 
   // Gestion plein écran
   useEffect(() => {
@@ -347,8 +250,8 @@ const VideoConference: React.FC = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="p-8 max-w-md w-full text-center">
           <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-4">Code manquant</h2>
-          <p className="text-gray-600 mb-6">Un code de réunion est requis</p>
+          <h2 className="text-2xl font-bold mb-4">Code de réunion manquant</h2>
+          <p className="text-gray-600 mb-6">Un code de réunion valide est requis</p>
           <Button onClick={() => setLocation('/')} className="w-full">
             Retour à l'accueil
           </Button>
@@ -362,8 +265,13 @@ const VideoConference: React.FC = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="p-8 max-w-md w-full text-center">
           <Loader2 className="h-16 w-16 animate-spin text-blue-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-4">Initialisation...</h2>
-          <p className="text-gray-600">Accès caméra et connexion en cours</p>
+          <h2 className="text-2xl font-bold mb-4">Connexion en cours...</h2>
+          <p className="text-gray-600">Initialisation de la vidéoconférence</p>
+          <div className="mt-4 space-y-2 text-sm text-gray-500">
+            <p>• Chargement de l'interface</p>
+            <p>• Préparation audio/vidéo</p>
+            <p>• Connexion au serveur</p>
+          </div>
         </Card>
       </div>
     );
@@ -374,7 +282,7 @@ const VideoConference: React.FC = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="p-8 max-w-md w-full text-center">
           <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-4">Erreur</h2>
+          <h2 className="text-2xl font-bold mb-4">Erreur de connexion</h2>
           <p className="text-gray-600 mb-6">{errorMsg}</p>
           <div className="space-y-3">
             <Button 
@@ -392,7 +300,7 @@ const VideoConference: React.FC = () => {
               variant="outline"
               className="w-full"
             >
-              Retour
+              Retour à l'accueil
             </Button>
           </div>
         </Card>
@@ -400,16 +308,18 @@ const VideoConference: React.FC = () => {
     );
   }
 
-  // Interface principale
+  // Interface principale vidéoconférence
   return (
-    <div className={`h-screen bg-gray-900 text-white flex flex-col ${isMinimized ? 'fixed bottom-4 right-4 w-96 h-64 z-50 rounded-lg overflow-hidden shadow-2xl' : ''}`}>
+    <div className={`h-screen bg-gray-900 text-white flex flex-col ${
+      isMinimized ? 'fixed bottom-4 right-4 w-96 h-64 z-50 rounded-lg overflow-hidden shadow-2xl' : ''
+    } ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
       
-      {/* Barre de titre */}
-      <div className="bg-gray-800 px-4 py-3 flex items-center justify-between border-b border-gray-700 flex-shrink-0">
+      {/* Barre de contrôle supérieure */}
+      <div className="bg-gray-800 px-4 py-3 flex items-center justify-between border-b border-gray-700 flex-shrink-0 z-10">
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <h1 className="font-semibold">Réunion</h1>
+            <h1 className="font-semibold">Réunion Teams-like</h1>
           </div>
           
           <Button
@@ -423,215 +333,97 @@ const VideoConference: React.FC = () => {
           </Button>
           
           <Badge variant="secondary" className="bg-blue-600">
-            {participants.length + 1} participant{participants.length > 0 ? 's' : ''}
+            {participantCount} participant{participantCount > 1 ? 's' : ''}
           </Badge>
           
-          {!hasAudioDevice && (
-            <Badge variant="outline" className="bg-yellow-600/20 border-yellow-600 text-yellow-200">
-              Caméra seulement
+          {isJitsiLoaded && (
+            <Badge variant="outline" className="bg-green-600/20 border-green-600 text-green-200">
+              Connecté
             </Badge>
           )}
         </div>
         
         <div className="flex items-center space-x-2">
-          {!hasAudioDevice && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={retryAudio}
-              className="text-xs border-yellow-600 hover:bg-yellow-600/20 text-yellow-200"
-            >
-              Réessayer micro
-            </Button>
-          )}
           <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
             {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setIsMinimized(!isMinimized)}>
             <Minimize2 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={leaveRoom} className="text-red-400">
+          <Button variant="ghost" size="sm" onClick={leaveRoom} className="text-red-400 hover:text-red-300">
             <X className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex-1 relative">
+        {/* Container Jitsi Meet */}
+        <div 
+          ref={jitsiContainerRef} 
+          className="w-full h-full bg-black"
+          style={{ minHeight: isMinimized ? '200px' : '400px' }}
+        />
         
-        {/* Zone vidéo principale */}
-        <div className="flex-1 flex flex-col">
-          
-          {/* Zone de projection */}
-          <div className="flex-1 bg-black p-4">
-            <div className="h-full grid gap-4" style={{
-              gridTemplateColumns: participants.length === 0 ? '1fr' : 
-                                 participants.length === 1 ? 'repeat(2, 1fr)' :
-                                 participants.length <= 3 ? 'repeat(2, 1fr)' :
-                                 'repeat(3, 1fr)'
-            }}>
-              
-              {/* Ma vidéo */}
-              <div className="relative bg-gray-800 rounded-lg overflow-hidden border-2 border-blue-500">
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-                
-                <div className="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded text-sm">
-                  <div className="flex items-center space-x-1">
-                    <span className="font-medium">Vous</span>
-                    {isMuted ? <MicOff className="h-3 w-3 text-red-400" /> : <Mic className="h-3 w-3 text-green-400" />}
-                  </div>
-                </div>
-                
-                {!isVideoOn && (
-                  <div className="absolute inset-0 bg-gray-700 flex items-center justify-center">
-                    <Avatar className="w-20 h-20">
-                      <AvatarFallback className="text-2xl bg-blue-600">
-                        {authUser?.displayName?.charAt(0) || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                  </div>
-                )}
-              </div>
-
-              {/* Vidéos participants */}
-              {participants.map((participant) => (
-                <div key={participant.id} className="relative bg-gray-800 rounded-lg overflow-hidden border border-gray-600">
-                  <div className="w-full h-full bg-gray-700 flex items-center justify-center">
-                    <Avatar className="w-20 h-20">
-                      <AvatarFallback className="text-2xl bg-green-600">
-                        {participant.name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                  </div>
-                  
-                  <div className="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded text-sm">
-                    <div className="flex items-center space-x-1">
-                      {participant.isAdmin && <Crown className="h-3 w-3 text-yellow-400" />}
-                      <span className="font-medium">{participant.name}</span>
-                      {participant.isMuted ? <MicOff className="h-3 w-3 text-red-400" /> : <Mic className="h-3 w-3 text-green-400" />}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Contrôles */}
-          <div className="bg-gray-800 px-6 py-4 border-t border-gray-700 flex-shrink-0">
-            <div className="flex items-center justify-center space-x-4">
+        {/* Overlay de contrôles personnalisés */}
+        {!isMinimized && (
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20">
+            <div className="bg-gray-800/90 backdrop-blur-sm rounded-full px-6 py-3 flex items-center space-x-4 border border-gray-600">
               
               <Button
-                variant={isMuted || !hasAudioDevice ? "destructive" : "secondary"}
+                variant={isMuted ? "destructive" : "secondary"}
                 size="lg"
                 onClick={toggleMute}
-                className={`rounded-full w-14 h-14 ${!hasAudioDevice ? 'opacity-50 cursor-not-allowed' : ''}`}
-                disabled={!hasAudioDevice}
+                className="rounded-full w-12 h-12 hover:scale-110 transition-transform"
+                title={isMuted ? "Activer le micro" : "Couper le micro"}
               >
-                {isMuted || !hasAudioDevice ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+                {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
               </Button>
               
               <Button
                 variant={!isVideoOn ? "destructive" : "secondary"}
                 size="lg"
                 onClick={toggleVideo}
-                className="rounded-full w-14 h-14"
+                className="rounded-full w-12 h-12 hover:scale-110 transition-transform"
+                title={isVideoOn ? "Désactiver la caméra" : "Activer la caméra"}
               >
-                {isVideoOn ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
+                {isVideoOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
               </Button>
               
               <Button
                 variant={isScreenSharing ? "default" : "secondary"}
                 size="lg"
                 onClick={startScreenShare}
-                className="rounded-full w-14 h-14"
+                className="rounded-full w-12 h-12 hover:scale-110 transition-transform"
+                title="Partager l'écran"
               >
-                <Share2 className="h-6 w-6" />
+                <Share2 className="h-5 w-5" />
               </Button>
               
-              <Button
-                variant="secondary"
-                size="lg"
-                onClick={() => setShowSidebar(!showSidebar)}
-                className="rounded-full w-14 h-14"
-              >
-                <Users className="h-6 w-6" />
-              </Button>
+              <div className="h-6 w-px bg-gray-600"></div>
               
               <Button
                 variant="destructive"
                 size="lg"
                 onClick={leaveRoom}
-                className="rounded-full w-14 h-14"
+                className="rounded-full w-12 h-12 hover:scale-110 transition-transform"
+                title="Quitter la réunion"
               >
-                <PhoneOff className="h-6 w-6" />
+                <PhoneOff className="h-5 w-5" />
               </Button>
-              
-            </div>
-          </div>
-        </div>
-
-        {/* Panneau participants */}
-        {showSidebar && !isMinimized && (
-          <div className="w-80 bg-gray-800 border-l border-gray-700 flex flex-col">
-            
-            <div className="p-4 border-b border-gray-700 flex-shrink-0">
-              <h3 className="font-semibold text-lg">Participants</h3>
-              <p className="text-sm text-gray-400">{participants.length + 1} connecté{participants.length > 0 ? 's' : ''}</p>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              
-              {/* Moi */}
-              <div className="flex items-center space-x-3 p-3 bg-blue-600/20 rounded-lg">
-                <Avatar className="w-10 h-10">
-                  <AvatarFallback className="bg-blue-600">
-                    {authUser?.displayName?.charAt(0) || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                
-                <div className="flex-1">
-                  <p className="font-medium">Vous</p>
-                  <p className="text-xs text-gray-400">Organisateur</p>
-                </div>
-                
-                <div className="flex items-center space-x-1">
-                  <Crown className="w-4 h-4 text-yellow-400" />
-                  {isMuted ? <MicOff className="w-4 h-4 text-red-400" /> : <Mic className="w-4 h-4 text-green-400" />}
-                </div>
-              </div>
-
-              {/* Autres participants */}
-              {participants.map((participant) => (
-                <div key={participant.id} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition-colors">
-                  <Avatar className="w-10 h-10">
-                    <AvatarFallback className="bg-green-600">
-                      {participant.name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  
-                  <div className="flex-1">
-                    <p className="font-medium">{participant.name}</p>
-                    <p className="text-xs text-gray-400">
-                      {participant.isAdmin ? 'Admin' : 'Participant'}
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center space-x-1">
-                    {participant.isAdmin && <Crown className="w-4 h-4 text-yellow-400" />}
-                    {participant.isMuted ? <MicOff className="w-4 h-4 text-red-400" /> : <Mic className="w-4 h-4 text-green-400" />}
-                  </div>
-                </div>
-              ))}
               
             </div>
           </div>
         )}
       </div>
+      
+      {/* Indicateur mode minimisé */}
+      {isMinimized && (
+        <div className="absolute top-2 left-2 z-20">
+          <Badge variant="secondary" className="bg-blue-600 text-xs">
+            Réunion en cours
+          </Badge>
+        </div>
+      )}
     </div>
   );
 };
