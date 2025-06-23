@@ -5,16 +5,16 @@ import jwt from 'jsonwebtoken';
 export const JITSI_CONFIG = {
   // Configuration du domaine Jitsi
   DOMAIN: process.env.JITSI_DOMAIN || 'meet.jit.si',
-  
+
   // Clé secrète pour la génération des JWT
   JWT_SECRET: process.env.JITSI_JWT_SECRET || 'default_jwt_secret',
-  
+
   // Durée de validité du token (24 heures pour éviter les déconnexions)
   JWT_EXPIRY: '24h',
-  
+
   // Préfixe pour les noms de salles
   ROOM_PREFIX: 'rony-meet-',
-  
+
   // Configuration Jicofo (Jitsi Conference Focus - composant qui gère les salles)
   JICOFO: {
     // L'utilisateur focus de Prosody qui se connecte à XMPP
@@ -27,17 +27,17 @@ export const JITSI_CONFIG = {
     ENABLE_AUTO_OWNER: true, // Tous les utilisateurs sont automatiquement propriétaires
     DISABLE_MEETING_LIMITS: true // Désactive toutes les limitations de durée
   },
-  
+
   // Durée des réunions (en minutes) - valeurs très élevées pour désactiver en pratique
   DEFAULT_MEETING_DURATION: 10080, // 7 jours
   EXTENDED_MEETING_DURATION: 40320, // 28 jours
-  
+
   // Configuration des serveurs TURN/STUN pour les connexions WebRTC
   ICE_SERVERS: [
     // Serveurs STUN publics (pour la découverte NAT)
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    
+
     // Serveur TURN auto-hébergé (pour contourner les firewalls restrictifs)
     // Nécessite l'installation de coturn sur le VPS
     { 
@@ -53,7 +53,7 @@ export function generateFriendlyRoomCode(): string {
   // Définir des caractères qui sont faciles à distinguer visuellement et à prononcer
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
-  
+
   // Générer un code de 6 caractères
   for (let i = 0; i < 6; i++) {
     if (i > 0 && i % 3 === 0) {
@@ -62,7 +62,7 @@ export function generateFriendlyRoomCode(): string {
     const randomIndex = Math.floor(Math.random() * chars.length);
     code += chars[randomIndex];
   }
-  
+
   return code;
 }
 
@@ -74,25 +74,78 @@ function signJWT(payload: any, secret: string, options: any): string {
 
 // Générer un token JWT pour une salle spécifique
 export function generateJitsiToken(roomName: string, userId: number, userName: string, email?: string): string {
+  const APP_ID = 'rony_app';
+  const JITSI_DOMAIN = JITSI_CONFIG.DOMAIN;
+  const TOKEN_EXPIRY = 86400; // 24 hours
+  const JITSI_SECRET = JITSI_CONFIG.JWT_SECRET;
+
   const payload = {
-    aud: 'jitsi', // Audience
-    iss: 'rony_app', // Émetteur
-    sub: JITSI_CONFIG.DOMAIN, // Sujet (domaine Jitsi)
-    room: roomName, // Nom de la salle
+    iss: APP_ID,
+    aud: JITSI_DOMAIN,
+    exp: Math.floor(Date.now() / 1000) + TOKEN_EXPIRY,
+    nbf: Math.floor(Date.now() / 1000) - 10,
+    sub: JITSI_DOMAIN,
+    room: roomName,
     context: {
       user: {
         id: userId.toString(),
         name: userName,
+        avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${userName}`,
         email: email || `user-${userId}@rony.app`,
-        moderator: true, // Définir si l'utilisateur est modérateur
+        locale: 'fr'
       },
+      features: {
+        livestreaming: true,
+        recording: true,
+        transcription: true,
+        'outbound-call': false,
+        'screen-sharing': true,
+        'video-share': true,
+        'audio-share': true,
+        'raise-hand': true,
+        'toggle-camera': true,
+        'chat': true,
+        'tile-view': true,
+        'security-options': true,
+        'invite-others': true,
+        'blur-background': true,
+        'virtual-background': true,
+        'lobby-mode': true,
+        'breakout-rooms': true,
+        'whiteboard': true,
+        'shared-document': true,
+        'polls': true,
+        'reactions': true,
+        'noise-suppression': true,
+        'speaker-stats': true,
+        'connection-indicators': true,
+        'quality-controls': true
+      },
+      group: 'rony-premium-users'
     },
+    moderator: true,
+    aud: 'jitsi',
+    room: roomName,
+    // Permissions étendues pour fonctionnalités premium
+    permissions: {
+      'kick-participant': true,
+      'mute-participant': true,
+      'start-recording': true,
+      'stop-recording': true,
+      'start-livestream': true,
+      'stop-livestream': true,
+      'moderate-chat': true,
+      'manage-breakout-rooms': true,
+      'share-screen': true,
+      'share-video': true,
+      'share-audio': true,
+      'change-layout': true,
+      'control-camera': true,
+      'control-microphone': true
+    }
   };
 
-  // Générer le JWT avec le secret
-  return signJWT(payload, JITSI_CONFIG.JWT_SECRET, {
-    expiresIn: JITSI_CONFIG.JWT_EXPIRY,
-  });
+  return jwt.sign(payload, JITSI_SECRET, { algorithm: 'HS256' });
 }
 
 // Interface pour les métadonnées d'une salle
@@ -112,14 +165,14 @@ const activeRooms = new Map<string, JitsiRoomInfo>();
 export function createMeetingRoom(userId: number, userName: string): JitsiRoomInfo {
   // Générer un code convivial pour la salle
   const friendlyCode = generateFriendlyRoomCode();
-  
+
   // Créer un identifiant unique pour la salle
   const roomName = `${JITSI_CONFIG.ROOM_PREFIX}${randomBytes(16).toString('hex')}`;
-  
+
   // Définir la date d'expiration
   const now = new Date();
   const expiresAt = new Date(now.getTime() + JITSI_CONFIG.DEFAULT_MEETING_DURATION * 60 * 1000);
-  
+
   // Créer l'information sur la salle
   const roomInfo: JitsiRoomInfo = {
     roomName,
@@ -129,10 +182,10 @@ export function createMeetingRoom(userId: number, userName: string): JitsiRoomIn
     participants: [userId],
     expiresAt,
   };
-  
+
   // Stocker l'information de la salle
   activeRooms.set(friendlyCode, roomInfo);
-  
+
   return roomInfo;
 }
 
@@ -145,12 +198,12 @@ export function getRoomByCode(code: string): JitsiRoomInfo | undefined {
 export function addParticipantToRoom(code: string, userId: number): boolean {
   const room = activeRooms.get(code);
   if (!room) return false;
-  
+
   if (!room.participants.includes(userId)) {
     room.participants.push(userId);
     activeRooms.set(code, room);
   }
-  
+
   return true;
 }
 
@@ -158,9 +211,9 @@ export function addParticipantToRoom(code: string, userId: number): boolean {
 export function removeParticipantFromRoom(code: string, userId: number): boolean {
   const room = activeRooms.get(code);
   if (!room) return false;
-  
+
   room.participants = room.participants.filter(id => id !== userId);
-  
+
   // Si la salle est vide, la supprimer après un certain délai
   if (room.participants.length === 0) {
     setTimeout(() => {
@@ -173,7 +226,7 @@ export function removeParticipantFromRoom(code: string, userId: number): boolean
   } else {
     activeRooms.set(code, room);
   }
-  
+
   return true;
 }
 
@@ -187,7 +240,7 @@ export function cleanupExpiredRooms(): void {
   const now = new Date();
   // Utilisation d'un tableau intermédiaire pour éviter l'erreur d'itération
   const entries = Array.from(activeRooms.entries());
-  
+
   for (const [code, room] of entries) {
     if (room.expiresAt < now) {
       activeRooms.delete(code);

@@ -213,6 +213,86 @@ export default function MeetingRoom({ roomCode, userName, userId, onClose, showC
     leaveMeetingMutation.mutate();
   };
 
+  // Fonction d'optimisation automatique de la qualité
+  const optimizeVideoQuality = (connectionQuality: string, bandwidth: number) => {
+    if (!jitsiApiRef.current) return;
+
+    let targetResolution = 1080;
+    let targetFrameRate = 30;
+    let targetBitrate = 4000000;
+
+    // Algorithme adaptatif basé sur la qualité de connexion
+    switch (connectionQuality) {
+      case 'excellent':
+        targetResolution = 1080;
+        targetFrameRate = 60;
+        targetBitrate = 6000000;
+        break;
+      case 'good':
+        targetResolution = 1080;
+        targetFrameRate = 30;
+        targetBitrate = 4000000;
+        break;
+      case 'medium':
+        targetResolution = 720;
+        targetFrameRate = 30;
+        targetBitrate = 2000000;
+        break;
+      case 'poor':
+        targetResolution = 480;
+        targetFrameRate = 15;
+        targetBitrate = 800000;
+        break;
+      default:
+        targetResolution = 720;
+        targetFrameRate = 30;
+        targetBitrate = 1500000;
+    }
+
+    // Ajustement basé sur la bande passante disponible
+    if (bandwidth < 1000000) { // < 1 Mbps
+      targetResolution = Math.min(targetResolution, 480);
+      targetBitrate = Math.min(targetBitrate, 800000);
+    } else if (bandwidth < 3000000) { // < 3 Mbps
+      targetResolution = Math.min(targetResolution, 720);
+      targetBitrate = Math.min(targetBitrate, 2000000);
+    }
+
+    // Appliquer les optimisations
+    try {
+      jitsiApiRef.current.executeCommand('setVideoQuality', targetResolution);
+      jitsiApiRef.current.executeCommand('setVideoFrameRate', targetFrameRate);
+      
+      console.log(`Qualité optimisée: ${targetResolution}p@${targetFrameRate}fps, ${targetBitrate/1000}kbps`);
+      
+      toast({
+        title: "Qualité optimisée",
+        description: `Résolution: ${targetResolution}p, Débit: ${Math.round(targetBitrate/1000)}kbps`,
+        variant: "default"
+      });
+    } catch (error) {
+      console.error('Erreur lors de l\'optimisation:', error);
+    }
+  };
+
+  // Fonction pour forcer la haute qualité
+  const forceHighQuality = () => {
+    if (!jitsiApiRef.current) return;
+    
+    try {
+      jitsiApiRef.current.executeCommand('setVideoQuality', 1080);
+      jitsiApiRef.current.executeCommand('setVideoFrameRate', 60);
+      
+      toast({
+        title: "Haute qualité activée",
+        description: "Résolution: 1080p@60fps - Qualité maximale",
+        variant: "default"
+      });
+    } catch (error) {
+      console.error('Erreur activation haute qualité:', error);
+    }
+  };
+
   // Si en cours de chargement, afficher un indicateur
   if (isLoading) {
     return (
@@ -323,23 +403,135 @@ export default function MeetingRoom({ roomCode, userName, userId, onClose, showC
           configOverwrite={{
             startWithAudioMuted: false,
             startWithVideoMuted: false,
-            disableModeratorIndicator: true,
+            disableModeratorIndicator: false,
             enableEmailInStats: false,
             prejoinPageEnabled: false,
             disableSimulcast: false,
             enableClosePage: false,
-            hideConferenceSubject: true,
+            hideConferenceSubject: false,
             hideConferenceTimer: false,
             hideParticipantsStats: false,
+            
+            // Configuration vidéo haute qualité
+            resolution: 1080,
+            constraints: {
+              video: {
+                height: { ideal: 1080, max: 1080 },
+                width: { ideal: 1920, max: 1920 },
+                frameRate: { ideal: 30, max: 60 }
+              },
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+                sampleRate: 48000,
+                channelCount: 2
+              }
+            },
+            
+            // Optimisations réseau et performance
+            enableLayerSuspension: true,
+            enableTalkWhileMuted: false,
+            enableNoAudioDetection: true,
+            enableNoisyMicDetection: true,
+            startScreenSharing: false,
+            channelLastN: 25,
+            enableWelcomePage: false,
+            enableUserRolesBasedOnToken: true,
+            
+            // Fonctionnalités avancées
+            enableLipSync: true,
+            disableAP: false,
+            enableInsecureRoomNameWarning: false,
+            enableAutomaticUrlCopy: false,
+            liveStreamingEnabled: false,
+            transcribingEnabled: false,
+            
+            // Interface utilisateur améliorée
             toolbarButtons: [
-              'microphone', 'camera', 'desktop', 'chat',
-              'raisehand', 'tileview', 'hangup', 'settings'
+              'microphone', 'camera', 'desktop', 'fullscreen',
+              'fodeviceselection', 'hangup', 'profile', 'chat',
+              'raisehand', 'videoquality', 'filmstrip', 'tileview',
+              'select-background', 'download', 'help', 'mute-everyone',
+              'security', 'livestreaming', 'etherpad', 'sharedvideo',
+              'settings', 'toggle-camera', 'videoquality'
             ],
+            
+            // Paramètres de bande passante optimisés
+            videoQuality: {
+              maxBitratesVideo: {
+                low: 200000,    // 200 kbps
+                standard: 500000, // 500 kbps  
+                high: 1500000,   // 1.5 Mbps
+                ultra: 4000000   // 4 Mbps pour UHD
+              }
+            },
+            
+            // Paramètres audio améliorés
+            audioQuality: {
+              stereo: true,
+              opusMaxAverageBitrate: 510000 // 510 kbps pour audio haute qualité
+            }
           }}
           interfaceConfigOverwrite={{
             DISABLE_JOIN_LEAVE_NOTIFICATIONS: false,
             TOOLBAR_ALWAYS_VISIBLE: true,
             HIDE_INVITE_MORE_HEADER: false,
+            
+            // Interface optimisée pour haute qualité
+            OPTIMAL_BROWSERS: ['chrome', 'firefox', 'safari', 'edge'],
+            UNSUPPORTED_BROWSERS: [],
+            
+            // Paramètres d'affichage améliorés
+            DEFAULT_BACKGROUND: '#1a1a1a',
+            DISABLE_VIDEO_BACKGROUND: false,
+            INITIAL_TOOLBAR_TIMEOUT: 10000,
+            TOOLBAR_TIMEOUT: 4000,
+            
+            // Options de qualité vidéo dans l'interface
+            VIDEO_QUALITY_LABEL_DISABLED: false,
+            RESOLUTION_CONTROL_ENABLED: true,
+            
+            // Fonctionnalités de l'interface
+            SETTINGS_SECTIONS: [
+              'devices', 'language', 'moderator', 'profile', 'calendar'
+            ],
+            
+            // Configuration du chat
+            CHAT_ENABLED: true,
+            CHAT_COLLAPS_BUTTON_ENABLED: true,
+            
+            // Boutons et contrôles
+            TOOLBAR_BUTTONS: [
+              'microphone', 'camera', 'closedcaptions', 'desktop', 'embedmeeting',
+              'fullscreen', 'fodeviceselection', 'hangup', 'profile', 'chat',
+              'recording', 'livestreaming', 'etherpad', 'sharedvideo', 'settings',
+              'raisehand', 'videoquality', 'filmstrip', 'invite', 'feedback',
+              'stats', 'shortcuts', 'tileview', 'select-background', 'download',
+              'help', 'mute-everyone', 'mute-video-everyone', 'security'
+            ],
+            
+            // Améliorations visuelles
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_WATERMARK_FOR_GUESTS: false,
+            SHOW_POWERED_BY: false,
+            SHOW_PROMOTIONAL_CLOSE_PAGE: false,
+            SHOW_CHROME_EXTENSION_BANNER: false,
+            
+            // Notifications et statistiques
+            CONNECTION_INDICATOR_DISABLED: false,
+            VIDEO_LAYOUT_FIT: 'both',
+            FILM_STRIP_MAX_HEIGHT: 160,
+            
+            // Mode mobile optimisé
+            MOBILE_APP_PROMO: false,
+            MOBILE_DOWNLOAD_LINK_ANDROID: '',
+            MOBILE_DOWNLOAD_LINK_IOS: '',
+            
+            // Performance et stabilité
+            DISABLE_FOCUS_INDICATOR: false,
+            DISABLE_DOMINANT_SPEAKER_INDICATOR: false,
+            DISABLE_TRANSCRIPTION_SUBTITLES: false
           }}
           userInfo={{
             displayName: userName,
@@ -369,10 +561,136 @@ export default function MeetingRoom({ roomCode, userName, userId, onClose, showC
 
             externalApi.addListener('passwordRequired', () => {
               console.log('Authentification requise');
-              // Tentative de rafraîchir le token
               if (room?.roomName) {
                 refreshTokenMutation.mutate(room.roomName);
               }
+            });
+
+            // Événements de monitoring de qualité vidéo avancés
+            externalApi.addListener('videoQualityChanged', (quality: any) => {
+              console.log('Qualité vidéo changée:', quality);
+              if (quality.resolution < 720) {
+                toast({
+                  title: "Qualité vidéo réduite",
+                  description: "Connexion instable détectée",
+                  variant: "destructive"
+                });
+              }
+            });
+
+            externalApi.addListener('connectionStatsUpdated', (stats: any) => {
+              console.log('Statistiques de connexion:', stats);
+              
+              // Monitoring de la bande passante
+              if (stats.bandwidth && stats.bandwidth.download < 1000000) { // < 1 Mbps
+                console.warn('Bande passante faible détectée');
+              }
+              
+              // Monitoring de la latence
+              if (stats.transport && stats.transport.rtt > 200) { // > 200ms
+                console.warn('Latence élevée détectée:', stats.transport.rtt + 'ms');
+              }
+            });
+
+            externalApi.addListener('audioMuteStatusChanged', (data: any) => {
+              console.log('Statut audio changé:', data);
+            });
+
+            externalApi.addListener('videoMuteStatusChanged', (data: any) => {
+              console.log('Statut vidéo changé:', data);
+            });
+
+            externalApi.addListener('screenSharingStatusChanged', (data: any) => {
+              console.log('Partage d\'écran changé:', data);
+              if (data.on) {
+                toast({
+                  title: "Partage d'écran actif",
+                  description: `${data.details.sourceType || 'Écran'} partagé`,
+                  variant: "default"
+                });
+              }
+            });
+
+            externalApi.addListener('recordingStatusChanged', (data: any) => {
+              console.log('Statut enregistrement changé:', data);
+              if (data.on) {
+                toast({
+                  title: "Enregistrement démarré",
+                  description: "La réunion est maintenant enregistrée",
+                  variant: "default"
+                });
+              } else if (data.error) {
+                toast({
+                  title: "Erreur d'enregistrement",
+                  description: data.error,
+                  variant: "destructive"
+                });
+              }
+            });
+
+            externalApi.addListener('dominantSpeakerChanged', (id: string) => {
+              console.log('Orateur principal changé:', id);
+            });
+
+            externalApi.addListener('raiseHandUpdated', (data: any) => {
+              console.log('Main levée mise à jour:', data);
+              if (data.handRaised) {
+                toast({
+                  title: "Main levée",
+                  description: `${data.displayName} a levé la main`,
+                  variant: "default"
+                });
+              }
+            });
+
+            // Optimisations automatiques de qualité
+            externalApi.addListener('connectionQualityChanged', (data: any) => {
+              console.log('Qualité de connexion:', data);
+              
+              if (data.quality === 'poor') {
+                // Réduire automatiquement la qualité si connexion faible
+                externalApi.executeCommand('setVideoQuality', 720);
+                toast({
+                  title: "Optimisation automatique",
+                  description: "Qualité vidéo ajustée pour une meilleure stabilité",
+                  variant: "default"
+                });
+              } else if (data.quality === 'good') {
+                // Rétablir la haute qualité si connexion stable
+                externalApi.executeCommand('setVideoQuality', 1080);
+              }
+            });
+
+            // Détection et correction automatique des problèmes
+            externalApi.addListener('participantKicked', (data: any) => {
+              console.log('Participant exclu:', data);
+              toast({
+                title: "Participant exclu",
+                description: `${data.displayName} a été exclu de la réunion`,
+                variant: "destructive"
+              });
+            });
+
+            externalApi.addListener('deviceListChanged', (devices: any) => {
+              console.log('Liste des appareils changée:', devices);
+            });
+
+            externalApi.addListener('cameraError', (error: any) => {
+              console.error('Erreur caméra:', error);
+              toast({
+                title: "Problème de caméra",
+                description: "Vérifiez que votre caméra est connectée et autorisée",
+                variant: "destructive"
+              });
+            });
+
+            externalApi.addListener('micError', (error: any) => {
+              console.error('Erreur microphone:', error);
+              toast({
+                title: "Problème de microphone", 
+                description: "Vérifiez que votre microphone est connecté et autorisé",
+                variant: "destructive"
+              });
             });
           }}
           getIFrameRef={(node) => {
