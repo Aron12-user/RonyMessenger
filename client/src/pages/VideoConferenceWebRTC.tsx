@@ -80,7 +80,7 @@ const VideoConferenceWebRTC: React.FC = () => {
   const [pinnedParticipant, setPinnedParticipant] = useState<string | null>(null);
   const [virtualBackground, setVirtualBackground] = useState<string | null>(null);
   const [isNoiseSuppressionEnabled, setIsNoiseSuppressionEnabled] = useState(true);
-  const [videoQuality, setVideoQuality] = useState<'low' | 'medium' | 'high' | '4k'>('4k');
+  const [videoQuality, setVideoQuality] = useState<'low' | 'medium' | 'high' | '4k' | '8k'>('4k');
   const [showControlBar, setShowControlBar] = useState(true);
   const [controlBarTimeout, setControlBarTimeout] = useState<NodeJS.Timeout | null>(null);
   const [participantsPanelWidth, setParticipantsPanelWidth] = useState(320);
@@ -99,10 +99,11 @@ const VideoConferenceWebRTC: React.FC = () => {
     trackId: null
   });
   
-  // Chat
+  // Chat FONCTIONNEL
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isHandRaised, setIsHandRaised] = useState(false);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const roomCode = params?.roomCode;
 
@@ -610,14 +611,31 @@ const VideoConferenceWebRTC: React.FC = () => {
     }
   };
 
-  // Gestion des messages chat
+  // Gestion des messages chat reçus via WebSocket
   const handleChatMessage = (message: any) => {
-    setChatMessages(prev => [...prev, {
-      id: Date.now().toString(),
-      sender: message.sender,
-      message: message.text,
-      timestamp: new Date()
-    }]);
+    console.log('Message chat reçu:', message);
+    
+    // Éviter les doublons
+    setChatMessages(prev => {
+      const exists = prev.find(msg => msg.id === message.id);
+      if (exists) return prev;
+      
+      const newMessages = [...prev, {
+        id: message.id || Date.now().toString(),
+        sender: message.sender,
+        message: message.text || message.message,
+        timestamp: new Date(message.timestamp || Date.now())
+      }];
+      
+      // Scroll automatique vers le bas
+      setTimeout(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, 100);
+      
+      return newMessages;
+    });
   };
 
   // Gestion mise à jour participant
@@ -785,12 +803,48 @@ const VideoConferenceWebRTC: React.FC = () => {
   const addVideoTrack = async () => {
     console.log('Début addVideoTrack - Qualité demandée:', videoQuality);
     
-    // Contraintes basées sur la qualité sélectionnée avec fallbacks 4K
+    // Contraintes basées sur la qualité sélectionnée avec fallbacks ultra-intelligents
     const getConstraintsByQuality = () => {
       switch (videoQuality) {
+        case '8k':
+          return [
+            // 8K Ultra HD avec gestion intelligente des bugs
+            {
+              width: { ideal: 7680, max: 7680 },
+              height: { ideal: 4320, max: 4320 },
+              frameRate: { ideal: 120, max: 120 },
+              facingMode: 'user'
+            },
+            {
+              width: { ideal: 7680, max: 7680 },
+              height: { ideal: 4320, max: 4320 },
+              frameRate: { ideal: 60, max: 60 },
+              facingMode: 'user'
+            },
+            // 5K fallback
+            {
+              width: { ideal: 5120, max: 5120 },
+              height: { ideal: 2880, max: 2880 },
+              frameRate: { ideal: 60 },
+              facingMode: 'user'
+            },
+            // 4K fallback
+            {
+              width: { ideal: 3840, max: 3840 },
+              height: { ideal: 2160, max: 2160 },
+              frameRate: { ideal: 60 },
+              facingMode: 'user'
+            }
+          ];
         case '4k':
           return [
-            // 4K Ultra HD
+            // 4K Ultra HD avec gestion intelligente des bugs
+            {
+              width: { ideal: 3840, max: 3840 },
+              height: { ideal: 2160, max: 2160 },
+              frameRate: { ideal: 120, max: 120 },
+              facingMode: 'user'
+            },
             {
               width: { ideal: 3840, max: 3840 },
               height: { ideal: 2160, max: 2160 },
@@ -808,12 +862,19 @@ const VideoConferenceWebRTC: React.FC = () => {
             {
               width: { ideal: 2560, max: 2560 },
               height: { ideal: 1440, max: 1440 },
-              frameRate: { ideal: 30 },
+              frameRate: { ideal: 60 },
               facingMode: 'user'
             }
           ];
         case 'high':
           return [
+            // Full HD 120fps
+            {
+              width: { ideal: 1920, max: 1920 },
+              height: { ideal: 1080, max: 1080 },
+              frameRate: { ideal: 120 },
+              facingMode: 'user'
+            },
             // Full HD 60fps
             {
               width: { ideal: 1920, max: 1920 },
@@ -831,6 +892,12 @@ const VideoConferenceWebRTC: React.FC = () => {
           ];
         case 'medium':
           return [
+            {
+              width: { ideal: 1280, max: 1280 },
+              height: { ideal: 720, max: 720 },
+              frameRate: { ideal: 60 },
+              facingMode: 'user'
+            },
             {
               width: { ideal: 1280, max: 1280 },
               height: { ideal: 720, max: 720 },
@@ -1160,17 +1227,46 @@ const VideoConferenceWebRTC: React.FC = () => {
     }
   };
 
+  // Fonction de chat FONCTIONNELLE avec WebSocket
   const sendChatMessage = () => {
-    if (newMessage.trim() && wsRef.current) {
-      wsRef.current.send(JSON.stringify({
+    if (newMessage.trim() && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const chatMsg = {
         type: 'chat-message',
+        roomCode: roomCode,
         message: {
-          sender: authUser?.displayName || authUser?.username || 'Anonyme',
+          id: Date.now().toString(),
+          sender: authUser?.displayName || authUser?.username || 'Utilisateur',
           text: newMessage,
-          timestamp: new Date()
+          timestamp: new Date().toISOString()
         }
-      }));
+      };
+      
+      console.log('Envoi message chat:', chatMsg);
+      wsRef.current.send(JSON.stringify(chatMsg));
+      
+      // Ajouter immédiatement le message localement
+      setChatMessages(prev => [...prev, {
+        id: chatMsg.message.id,
+        sender: chatMsg.message.sender,
+        message: chatMsg.message.text,
+        timestamp: new Date()
+      }]);
+      
       setNewMessage('');
+      
+      // Scroll automatique vers le bas
+      setTimeout(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, 100);
+    } else {
+      console.error('WebSocket non connecté pour le chat');
+      toast({
+        title: "Chat indisponible",
+        description: "Connexion WebSocket fermée",
+        variant: "destructive"
+      });
     }
   };
 
@@ -1942,33 +2038,40 @@ const VideoConferenceWebRTC: React.FC = () => {
                       </div>
                     </div>
                     
-                    {/* Écran vertical avec effet miroir */}
-                    <div className="relative bg-gray-900 rounded-lg overflow-hidden border border-gray-600/30" style={{aspectRatio: '9/16', height: '120px'}}>
+                    {/* Vidéo participant SANS BORDS - Toujours vidéo caméra, jamais partage d'écran */}
+                    <div className="relative video-container overflow-hidden border border-gray-600/30 rounded-lg" style={{aspectRatio: '9/16', height: '120px'}}>
                       <video
                         autoPlay
                         playsInline
                         muted
-                        className="w-full h-full object-cover rounded-lg"
+                        className="video-no-borders rounded-lg"
                         style={{
-                          transform: 'scaleX(-1)' // Effet miroir
+                          transform: 'scaleX(-1) scale(1.005)', // Effet miroir + élimination bords
+                          background: '#000'
                         }}
                         ref={(video) => {
                           if (video && participant.stream) {
-                            console.log(`Attribution stream participant ${participant.id}:`, participant.stream);
-                            video.srcObject = participant.stream;
+                            // IMPORTANT: Toujours utiliser la caméra du participant, jamais le partage d'écran
+                            const participantCameraStream = participant.stream;
                             
-                            // Forcer la lecture
-                            video.play().catch(e => {
-                              console.log('Lecture automatique bloquée (normal):', e);
-                            });
+                            // Vérifier si c'est un stream de caméra (pas de partage d'écran)
+                            const videoTrack = participantCameraStream.getVideoTracks()[0];
+                            if (videoTrack && videoTrack.label && !videoTrack.label.includes('screen')) {
+                              console.log(`Attribution stream CAMÉRA participant ${participant.id}:`, participantCameraStream);
+                              video.srcObject = participantCameraStream;
+                              
+                              video.play().catch(e => {
+                                console.log('Lecture automatique bloquée (normal):', e);
+                              });
+                            }
                           }
                         }}
                         onLoadedMetadata={(e) => {
                           const video = e.target as HTMLVideoElement;
-                          console.log(`Métadonnées chargées pour ${participant.id}:`, {
+                          console.log(`Métadonnées vidéo participant ${participant.id}:`, {
                             videoWidth: video.videoWidth,
                             videoHeight: video.videoHeight,
-                            duration: video.duration
+                            source: 'camera'
                           });
                         }}
                         onError={(e) => {
@@ -1999,7 +2102,10 @@ const VideoConferenceWebRTC: React.FC = () => {
               </h3>
             </div>
             
-            <div className="flex-1 p-4 overflow-y-auto space-y-3 min-h-0 custom-scrollbar">
+            <div 
+              ref={chatContainerRef}
+              className="flex-1 p-4 overflow-y-auto space-y-3 min-h-0 custom-scrollbar"
+            >
               {chatMessages.length === 0 ? (
                 <div className="text-center text-gray-400 py-8">
                   <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -2058,7 +2164,7 @@ const VideoConferenceWebRTC: React.FC = () => {
                 <select 
                   value={videoQuality}
                   onChange={async (e) => {
-                    const newQuality = e.target.value as 'low' | 'medium' | 'high' | '4k';
+                    const newQuality = e.target.value as 'low' | 'medium' | 'high' | '4k' | '8k';
                     setVideoQuality(newQuality);
                     
                     // Redémarrer la vidéo avec la nouvelle qualité si activée
@@ -2073,7 +2179,8 @@ const VideoConferenceWebRTC: React.FC = () => {
                     
                     toast({
                       title: "Qualité vidéo mise à jour",
-                      description: newQuality === '4k' ? '4K Ultra HD (3840x2160)' :
+                      description: newQuality === '8k' ? '8K Ultra HD (7680x4320)' :
+                                  newQuality === '4k' ? '4K Ultra HD (3840x2160)' :
                                   newQuality === 'high' ? 'Full HD (1920x1080)' : 
                                   newQuality === 'medium' ? 'HD (1280x720)' : 'Standard (640x480)'
                     });
@@ -2084,6 +2191,7 @@ const VideoConferenceWebRTC: React.FC = () => {
                   <option value="medium">HD (1280x720)</option>
                   <option value="high">Full HD (1920x1080)</option>
                   <option value="4k">4K Ultra HD (3840x2160)</option>
+                  <option value="8k">8K Ultra HD (7680x4320)</option>
                 </select>
               </div>
 
@@ -2261,7 +2369,7 @@ const VideoConferenceWebRTC: React.FC = () => {
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-400">Qualité:</span>
                     <span className="text-white">
-                      {videoQuality === '4k' ? '4K Ultra HD' : videoQuality === 'high' ? 'Full HD' : videoQuality === 'medium' ? 'HD' : 'SD'}
+                      {videoQuality === '8k' ? '8K Ultra HD' : videoQuality === '4k' ? '4K Ultra HD' : videoQuality === 'high' ? 'Full HD' : videoQuality === 'medium' ? 'HD' : 'SD'}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
