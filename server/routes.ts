@@ -276,16 +276,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }, ws);
             break;
 
-          case 'chat-message':
-            // Diffuser les messages de chat
-            broadcastToRoom(roomCode, {
-              type: 'chat-message',
-              message: {
-                ...data.message,
-                id: `${Date.now()}_${userId}`,
-                timestamp: new Date()
-              }
-            });
+          case 'chat_message':
+            // Gestion robuste des messages de chat WebSocket
+            console.log('📨 Réception message chat WebSocket:', data);
+            const chatData = data.data || data.message;
+            if (chatData) {
+              const chatMessage = {
+                type: 'chat_message',
+                roomCode,
+                data: {
+                  id: chatData.id || `msg-${Date.now()}-${userId}`,
+                  sender: chatData.sender || 'Utilisateur',
+                  message: chatData.message || chatData.text,
+                  timestamp: new Date().toISOString(),
+                  userId: chatData.userId || userId
+                }
+              };
+              
+              console.log('📢 Diffusion message chat à la room:', roomCode, chatMessage);
+              broadcastToRoom(roomCode, chatMessage);
+            }
             break;
 
           case 'screen-share-start':
