@@ -448,151 +448,120 @@ const VideoConferenceWebRTC: React.FC = () => {
     });
   };
 
-  // Contrôles audio améliorés
+  // Contrôles audio améliorés avec gestion robuste
   const toggleAudio = async () => {
     try {
-      if (!localStreamRef.current) {
-        const audioStream = await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: isNoiseSuppressionEnabled,
-            autoGainControl: true,
-            sampleRate: 48000
+      if (!isAudioEnabled) {
+        // Activer l'audio
+        if (localStreamRef.current) {
+          const audioTrack = localStreamRef.current.getAudioTracks()[0];
+          if (audioTrack) {
+            audioTrack.enabled = true;
+            setIsAudioEnabled(true);
+            toast({ title: "Microphone activé" });
+          } else {
+            // Ajouter track audio s'il n'existe pas
+            await addAudioTrack();
           }
-        });
-        
-        localStreamRef.current = audioStream;
-        setIsAudioEnabled(true);
-        
-        peerConnectionsRef.current.forEach(pc => {
-          audioStream.getAudioTracks().forEach(track => {
-            pc.addTrack(track, localStreamRef.current!);
-          });
-        });
-        
-        toast({ title: "Microphone activé" });
-      } else {
-        const audioTrack = localStreamRef.current.getAudioTracks()[0];
-        if (audioTrack) {
-          audioTrack.enabled = !audioTrack.enabled;
-          setIsAudioEnabled(audioTrack.enabled);
-          toast({ title: audioTrack.enabled ? "Microphone activé" : "Microphone désactivé" });
         } else {
-          const audioStream = await navigator.mediaDevices.getUserMedia({ 
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: isNoiseSuppressionEnabled,
-              autoGainControl: true
-            }
-          });
-          audioStream.getAudioTracks().forEach(track => {
-            localStreamRef.current?.addTrack(track);
-            peerConnectionsRef.current.forEach(pc => {
-              pc.addTrack(track, localStreamRef.current!);
-            });
-          });
-          setIsAudioEnabled(true);
-          toast({ title: "Microphone activé" });
+          // Créer nouveau stream
+          await addAudioTrack();
+        }
+      } else {
+        // Désactiver l'audio (garder le track mais désactiver)
+        if (localStreamRef.current) {
+          const audioTrack = localStreamRef.current.getAudioTracks()[0];
+          if (audioTrack) {
+            audioTrack.enabled = false;
+            setIsAudioEnabled(false);
+            toast({ title: "Microphone désactivé" });
+          }
         }
       }
+      
+      // Notifier les autres participants
+      wsRef.current?.send(JSON.stringify({
+        type: 'participant-update',
+        participant: {
+          id: authUser?.id.toString(),
+          audioEnabled: !isAudioEnabled
+        }
+      }));
+      
     } catch (error) {
       console.error('Erreur toggle audio:', error);
-      if (error instanceof DOMException && error.name === 'NotAllowedError') {
-        toast({
-          title: "Permission refusée",
-          description: "Autorisez l'accès au microphone dans votre navigateur",
-          variant: "destructive"
-        });
-      }
+      handleMediaError(error, 'microphone');
     }
   };
 
-  // Contrôles vidéo améliorés avec autorisation forcée
+  // Fonction pour ajouter un track audio
+  const addAudioTrack = async () => {
+    try {
+      const audioStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: isNoiseSuppressionEnabled,
+          autoGainControl: true,
+          sampleRate: 48000
+        }
+      });
+      
+      const audioTrack = audioStream.getAudioTracks()[0];
+      
+      if (localStreamRef.current) {
+        localStreamRef.current.addTrack(audioTrack);
+      } else {
+        localStreamRef.current = audioStream;
+      }
+      
+      setIsAudioEnabled(true);
+      
+      // Ajouter aux connexions peer
+      peerConnectionsRef.current.forEach(pc => {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'audio');
+        if (sender) {
+          sender.replaceTrack(audioTrack);
+        } else {
+          pc.addTrack(audioTrack, localStreamRef.current!);
+        }
+      });
+      
+      toast({ title: "Microphone activé" });
+      
+    } catch (error) {
+      handleMediaError(error, 'microphone');
+    }
+  };
+
+  // Contrôles vidéo améliorés avec gestion robuste
   const toggleVideo = async () => {
     try {
       if (!isVideoEnabled) {
-        // Demande explicite d'autorisation avec contraintes 4K
-        const videoConstraints = {
-          width: { ideal: 3840, max: 3840, min: 640 },
-          height: { ideal: 2160, max: 2160, min: 480 },
-          frameRate: { ideal: 60, max: 60, min: 15 },
-          facingMode: 'user'
-        };
-
-        // Première tentative avec 4K
-        let stream;
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ 
-            video: videoConstraints,
-            audio: false 
-          });
-        } catch (e) {
-          // Fallback vers Full HD si 4K échoue
-          const hdConstraints = {
-            width: { ideal: 1920, max: 1920, min: 640 },
-            height: { ideal: 1080, max: 1080, min: 480 },
-            frameRate: { ideal: 30, max: 30, min: 15 },
-            facingMode: 'user'
-          };
-          stream = await navigator.mediaDevices.getUserMedia({ 
-            video: hdConstraints,
-            audio: false 
-          });
-        }
-        
-        // Remplacer ou ajouter le track vidéo
-        if (localStreamRef.current) {
-          const existingVideoTrack = localStreamRef.current.getVideoTracks()[0];
-          if (existingVideoTrack) {
-            localStreamRef.current.removeTrack(existingVideoTrack);
-            existingVideoTrack.stop();
-          }
-          
-          stream.getVideoTracks().forEach(track => {
-            localStreamRef.current?.addTrack(track);
-          });
-        } else {
-          localStreamRef.current = stream;
-        }
-        
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = localStreamRef.current;
-        }
-        
-        setIsVideoEnabled(true);
-        
-        // Ajouter aux connexions peer
-        peerConnectionsRef.current.forEach(pc => {
-          stream.getVideoTracks().forEach(track => {
-            const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-            if (sender) {
-              sender.replaceTrack(track);
-            } else {
-              pc.addTrack(track, localStreamRef.current!);
-            }
-          });
-        });
-        
-        const videoTrack = stream.getVideoTracks()[0];
-        const settings = videoTrack.getSettings();
-        
-        toast({ 
-          title: "Caméra activée", 
-          description: `${settings.width}x${settings.height} @ ${settings.frameRate}fps`
-        });
-        
-      } else {
-        // Désactiver la vidéo
+        // Activer la vidéo
         if (localStreamRef.current) {
           const videoTrack = localStreamRef.current.getVideoTracks()[0];
           if (videoTrack) {
-            videoTrack.stop();
-            localStreamRef.current.removeTrack(videoTrack);
+            videoTrack.enabled = true;
+            setIsVideoEnabled(true);
+            toast({ title: "Caméra activée" });
+          } else {
+            // Ajouter track vidéo s'il n'existe pas
+            await addVideoTrack();
+          }
+        } else {
+          // Créer nouveau stream
+          await addVideoTrack();
+        }
+      } else {
+        // Désactiver la vidéo (garder le track mais désactiver)
+        if (localStreamRef.current) {
+          const videoTrack = localStreamRef.current.getVideoTracks()[0];
+          if (videoTrack) {
+            videoTrack.enabled = false;
+            setIsVideoEnabled(false);
+            toast({ title: "Caméra désactivée" });
           }
         }
-        
-        setIsVideoEnabled(false);
-        toast({ title: "Caméra désactivée" });
       }
       
       // Notifier les autres participants
@@ -606,40 +575,90 @@ const VideoConferenceWebRTC: React.FC = () => {
       
     } catch (error) {
       console.error('Erreur toggle vidéo:', error);
-      if (error instanceof DOMException) {
-        if (error.name === 'NotAllowedError') {
-          // Guide l'utilisateur pour autoriser la caméra
-          toast({
-            title: "Autorisation caméra requise",
-            description: "Cliquez sur l'icône caméra dans la barre d'adresse pour autoriser l'accès",
-            variant: "destructive"
-          });
-          
-          // Tentative de redirection vers les paramètres
-          if (navigator.permissions) {
-            navigator.permissions.query({name: 'camera' as PermissionName}).then(result => {
-              if (result.state === 'denied') {
-                toast({
-                  title: "Caméra bloquée",
-                  description: "Débloquez la caméra dans les paramètres du navigateur",
-                  variant: "destructive"
-                });
-              }
-            });
-          }
-        } else if (error.name === 'NotFoundError') {
-          toast({
-            title: "Caméra non trouvée",
-            description: "Aucune caméra détectée sur cet appareil",
-            variant: "destructive"
-          });
-        } else if (error.name === 'NotReadableError') {
-          toast({
-            title: "Caméra occupée",
-            description: "La caméra est utilisée par une autre application",
-            variant: "destructive"
-          });
+      handleMediaError(error, 'caméra');
+    }
+  };
+
+  // Fonction pour ajouter un track vidéo
+  const addVideoTrack = async () => {
+    try {
+      const videoConstraints = {
+        width: { ideal: 1920, max: 3840, min: 640 },
+        height: { ideal: 1080, max: 2160, min: 480 },
+        frameRate: { ideal: 30, max: 60, min: 15 },
+        facingMode: 'user'
+      };
+
+      const videoStream = await navigator.mediaDevices.getUserMedia({ 
+        video: videoConstraints
+      });
+      
+      const videoTrack = videoStream.getVideoTracks()[0];
+      
+      if (localStreamRef.current) {
+        localStreamRef.current.addTrack(videoTrack);
+      } else {
+        localStreamRef.current = videoStream;
+      }
+      
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = localStreamRef.current;
+      }
+      
+      setIsVideoEnabled(true);
+      
+      // Ajouter aux connexions peer
+      peerConnectionsRef.current.forEach(pc => {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+          sender.replaceTrack(videoTrack);
+        } else {
+          pc.addTrack(videoTrack, localStreamRef.current!);
         }
+      });
+      
+      const settings = videoTrack.getSettings();
+      toast({ 
+        title: "Caméra activée", 
+        description: `${settings.width}x${settings.height}`
+      });
+      
+    } catch (error) {
+      handleMediaError(error, 'caméra');
+    }
+  };
+
+  // Gestion des erreurs média unifiée
+  const handleMediaError = (error: any, device: string) => {
+    if (error instanceof DOMException) {
+      switch (error.name) {
+        case 'NotAllowedError':
+          toast({
+            title: `Permission ${device} refusée`,
+            description: `Autorisez l'accès au ${device} dans votre navigateur`,
+            variant: "destructive"
+          });
+          break;
+        case 'NotFoundError':
+          toast({
+            title: `${device} non trouvé`,
+            description: `Aucun ${device} détecté sur cet appareil`,
+            variant: "destructive"
+          });
+          break;
+        case 'NotReadableError':
+          toast({
+            title: `${device} occupé`,
+            description: `Le ${device} est utilisé par une autre application`,
+            variant: "destructive"
+          });
+          break;
+        default:
+          toast({
+            title: `Erreur ${device}`,
+            description: `Impossible d'accéder au ${device}`,
+            variant: "destructive"
+          });
       }
     }
   };
@@ -1302,100 +1321,249 @@ const VideoConferenceWebRTC: React.FC = () => {
           </div>
         </div>
 
-        {/* Panneau des participants avec écrans verticaux */}
-        {showParticipants && (
-          <div className="absolute right-0 top-12 bottom-0 w-80 bg-black/60 backdrop-blur-xl border-l border-gray-700/50 flex flex-col z-50">
-            <div className="p-4 border-b border-gray-700/50">
-              <h3 className="font-semibold flex items-center text-lg">
-                <Users className="h-5 w-5 mr-2 text-green-400" />
-                Participants ({participants.size + 1})
-              </h3>
-            </div>
-            
-            <div className="flex-1 p-4 overflow-y-auto space-y-3">
-              {/* Participant local */}
-              <div className="bg-gray-800/50 rounded-xl p-3 border border-gray-700/50">
-                <div className="flex items-center space-x-3 mb-3">
-                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                    <span className="text-xs font-bold text-white">
-                      {(localParticipant?.name || 'Vous').charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-white text-sm">{localParticipant?.name} (Vous)</div>
-                    <div className="flex items-center space-x-2 text-xs text-gray-400">
-                      <div className={`w-1.5 h-1.5 rounded-full ${isAudioEnabled ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                      <span>{isAudioEnabled ? 'Micro' : 'Muet'}</span>
-                      <div className={`w-1.5 h-1.5 rounded-full ${isVideoEnabled ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                      <span>{isVideoEnabled ? 'Vidéo' : 'Cam off'}</span>
+        {/* Zone vidéo principale avec panneau participants intégré */}
+        <div className="absolute inset-0 bg-black flex">
+          {/* Grille vidéo principale */}
+          <div className={`flex-1 ${getGridLayout()}`} style={{
+            padding: participants.size === 0 ? '20px' : '4px',
+            marginRight: showParticipants ? '320px' : '0',
+            transition: 'margin-right 0.3s ease-in-out'
+          }}>
+            {/* Vidéo locale - ultra-légère */}
+            <div className="relative group">
+              <div className="relative bg-transparent overflow-hidden h-full rounded-sm">
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover rounded-sm"
+                  style={{
+                    filter: 'brightness(1.1) contrast(1.05)',
+                    transform: 'scale(1.01)'
+                  }}
+                />
+                
+                {/* Overlay ultra-transparent - n'apparaît qu'au survol */}
+                <div className={`absolute inset-0 transition-all duration-300 ${
+                  showControlBar ? 'bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-100' : 'opacity-0'
+                }`}>
+                  <div className="absolute bottom-1 left-1">
+                    <div className="bg-black/30 backdrop-blur-sm px-1.5 py-0.5 rounded text-xs">
+                      <span className="text-white/90 font-medium text-xs">
+                        {localParticipant?.name} (Vous)
+                      </span>
                     </div>
                   </div>
                 </div>
                 
-                {/* Écran vertical du participant local */}
-                <div className="relative bg-gray-900 rounded-lg overflow-hidden" style={{aspectRatio: '9/16', height: '100px'}}>
-                  <video
-                    ref={localVideoRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
-                  {!isVideoEnabled && (
-                    <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
-                      <Camera className="h-4 w-4 text-gray-500" />
+                {/* Indicateurs d'état ultra-minimalistes */}
+                <div className={`absolute top-1 right-1 flex space-x-0.5 transition-opacity duration-300 ${
+                  showControlBar ? 'opacity-100' : 'opacity-30'
+                }`}>
+                  {!isAudioEnabled && (
+                    <div className="bg-red-500/80 p-0.5 rounded-sm">
+                      <MicOff className="h-2.5 w-2.5 text-white" />
+                    </div>
+                  )}
+                  {isScreenSharing && (
+                    <div className="bg-blue-500/80 p-0.5 rounded-sm">
+                      <ScreenShare className="h-2.5 w-2.5 text-white" />
+                    </div>
+                  )}
+                  {isHandRaised && (
+                    <div className="bg-yellow-500/80 p-0.5 rounded-sm">
+                      <Hand className="h-2.5 w-2.5 text-white" />
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* Participants distants */}
-              {Array.from(participants.values()).map((participant) => (
-                <div key={participant.id} className="bg-gray-800/50 rounded-xl p-3 border border-gray-700/50">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                      <span className="text-xs font-bold text-white">
-                        {participant.name.charAt(0).toUpperCase()}
-                      </span>
+                
+                {/* Placeholder vidéo désactivée - ultra-minimaliste */}
+                {!isVideoEnabled && (
+                  <div className="absolute inset-0 bg-gray-900/90 flex flex-col items-center justify-center">
+                    <div className="w-12 h-12 bg-gray-700/50 rounded-full flex items-center justify-center mb-1">
+                      <Camera className="h-6 w-6 text-gray-400" />
                     </div>
-                    <div className="flex-1">
-                      <div className="font-medium text-white text-sm">{participant.name}</div>
-                      <div className="flex items-center space-x-2 text-xs text-gray-400">
-                        <div className={`w-1.5 h-1.5 rounded-full ${participant.audioEnabled ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                        <span>{participant.audioEnabled ? 'Micro' : 'Muet'}</span>
-                        <div className={`w-1.5 h-1.5 rounded-full ${participant.videoEnabled ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                        <span>{participant.videoEnabled ? 'Vidéo' : 'Cam off'}</span>
+                    <p className="text-gray-400 text-xs">Caméra désactivée</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Vidéos des participants distants - ultra-légères */}
+            {Array.from(participants.values()).map((participant) => (
+              <div key={participant.id} className="relative group">
+                <div className="relative bg-transparent overflow-hidden h-full rounded-sm">
+                  <video
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover rounded-sm"
+                    style={{
+                      filter: 'brightness(1.1) contrast(1.05)',
+                      transform: 'scale(1.01)'
+                    }}
+                    ref={(video) => {
+                      if (video && participant.stream) {
+                        video.srcObject = participant.stream;
+                      }
+                    }}
+                  />
+                  
+                  {/* Overlay ultra-transparent */}
+                  <div className={`absolute inset-0 transition-all duration-300 ${
+                    showControlBar ? 'bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-100' : 'opacity-0'
+                  }`}>
+                    <div className="absolute bottom-1 left-1">
+                      <div className="bg-black/30 backdrop-blur-sm px-1.5 py-0.5 rounded text-xs">
+                        <span className="text-white/90 font-medium text-xs">
+                          {participant.name}
+                        </span>
                       </div>
                     </div>
                   </div>
                   
-                  {/* Écran vertical du participant distant */}
-                  <div className="relative bg-gray-900 rounded-lg overflow-hidden" style={{aspectRatio: '9/16', height: '100px'}}>
+                  {/* Indicateurs d'état minimalistes */}
+                  <div className={`absolute top-1 right-1 flex space-x-0.5 transition-opacity duration-300 ${
+                    showControlBar ? 'opacity-100' : 'opacity-30'
+                  }`}>
+                    {!participant.audioEnabled && (
+                      <div className="bg-red-500/80 p-0.5 rounded-sm">
+                        <MicOff className="h-2.5 w-2.5 text-white" />
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Placeholder vidéo désactivée - minimaliste */}
+                  {!participant.videoEnabled && (
+                    <div className="absolute inset-0 bg-gray-900/90 flex flex-col items-center justify-center">
+                      <div className="w-12 h-12 bg-gray-700/50 rounded-full flex items-center justify-center mb-1">
+                        <Users className="h-6 w-6 text-gray-400" />
+                      </div>
+                      <p className="text-gray-400 text-xs">{participant.name}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Séparateur vertical vert transparent */}
+          {showParticipants && (
+            <div className="absolute right-80 top-0 bottom-0 w-1 bg-gradient-to-b from-transparent via-green-400/60 to-transparent shadow-lg shadow-green-400/20 z-30"></div>
+          )}
+
+          {/* Panneau participants avec aspect vert transparent */}
+          {showParticipants && (
+            <div className="absolute right-0 top-0 bottom-0 w-80 bg-gradient-to-l from-green-900/20 via-black/40 to-transparent backdrop-blur-md border-l border-green-400/30 flex flex-col z-40">
+              {/* En-tête avec effet miroir vert */}
+              <div className="p-4 border-b border-green-400/30 bg-gradient-to-r from-green-900/20 to-transparent">
+                <h3 className="font-semibold flex items-center text-lg text-green-100">
+                  <Users className="h-5 w-5 mr-2 text-green-400" />
+                  Participants ({participants.size + 1})
+                </h3>
+              </div>
+              
+              <div className="flex-1 p-3 overflow-y-auto space-y-2 custom-scrollbar">
+                {/* Participant local avec effet miroir vert */}
+                <div className="bg-gradient-to-r from-green-900/30 to-transparent rounded-lg p-3 border border-green-400/20 backdrop-blur-sm">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center shadow-lg shadow-green-500/30">
+                      <span className="text-xs font-bold text-white">
+                        {(localParticipant?.name || 'Vous').charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-green-100 text-sm">{localParticipant?.name} (Vous)</div>
+                      <div className="flex items-center space-x-2 text-xs text-green-300">
+                        <div className={`w-1.5 h-1.5 rounded-full ${isAudioEnabled ? 'bg-green-400 shadow-green-400/50' : 'bg-red-400'} shadow-sm`}></div>
+                        <span>{isAudioEnabled ? 'Micro' : 'Muet'}</span>
+                        <div className={`w-1.5 h-1.5 rounded-full ${isVideoEnabled ? 'bg-green-400 shadow-green-400/50' : 'bg-red-400'} shadow-sm`}></div>
+                        <span>{isVideoEnabled ? 'Vidéo' : 'Cam off'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Écran vertical avec effet miroir vert */}
+                  <div className="relative bg-gradient-to-br from-green-900/40 to-black/60 rounded-lg overflow-hidden border border-green-400/20" style={{aspectRatio: '9/16', height: '120px'}}>
                     <video
+                      ref={localVideoRef}
                       autoPlay
+                      muted
                       playsInline
-                      className="w-full h-full object-cover"
-                      ref={(video) => {
-                        if (video && participant.stream) {
-                          video.srcObject = participant.stream;
-                        }
+                      className="w-full h-full object-cover rounded-lg"
+                      style={{
+                        filter: 'hue-rotate(10deg) saturate(1.1)',
+                        transform: 'scaleX(-1)' // Effet miroir
                       }}
                     />
-                    {!participant.videoEnabled && (
-                      <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
-                        <Users className="h-4 w-4 text-gray-500" />
+                    
+                    {/* Overlay effet vert transparent */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-green-900/20 via-transparent to-green-900/10 pointer-events-none"></div>
+                    
+                    {!isVideoEnabled && (
+                      <div className="absolute inset-0 bg-gradient-to-br from-green-900/60 to-black/80 flex items-center justify-center">
+                        <Camera className="h-6 w-6 text-green-400" />
                       </div>
                     )}
                   </div>
                 </div>
-              ))}
+
+                {/* Participants distants avec effet vert */}
+                {Array.from(participants.values()).map((participant) => (
+                  <div key={participant.id} className="bg-gradient-to-r from-green-900/20 to-transparent rounded-lg p-3 border border-green-400/15 backdrop-blur-sm">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-green-700 rounded-full flex items-center justify-center shadow-lg shadow-green-600/30">
+                        <span className="text-xs font-bold text-white">
+                          {participant.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-green-100 text-sm">{participant.name}</div>
+                        <div className="flex items-center space-x-2 text-xs text-green-300">
+                          <div className={`w-1.5 h-1.5 rounded-full ${participant.audioEnabled ? 'bg-green-400 shadow-green-400/50' : 'bg-red-400'} shadow-sm`}></div>
+                          <span>{participant.audioEnabled ? 'Micro' : 'Muet'}</span>
+                          <div className={`w-1.5 h-1.5 rounded-full ${participant.videoEnabled ? 'bg-green-400 shadow-green-400/50' : 'bg-red-400'} shadow-sm`}></div>
+                          <span>{participant.videoEnabled ? 'Vidéo' : 'Cam off'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Écran vertical avec effet miroir vert */}
+                    <div className="relative bg-gradient-to-br from-green-900/30 to-black/60 rounded-lg overflow-hidden border border-green-400/15" style={{aspectRatio: '9/16', height: '120px'}}>
+                      <video
+                        autoPlay
+                        playsInline
+                        className="w-full h-full object-cover rounded-lg"
+                        style={{
+                          filter: 'hue-rotate(10deg) saturate(1.1)',
+                          transform: 'scaleX(-1)' // Effet miroir
+                        }}
+                        ref={(video) => {
+                          if (video && participant.stream) {
+                            video.srcObject = participant.stream;
+                          }
+                        }}
+                      />
+                      
+                      {/* Overlay effet vert transparent */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-green-900/20 via-transparent to-green-900/10 pointer-events-none"></div>
+                      
+                      {!participant.videoEnabled && (
+                        <div className="absolute inset-0 bg-gradient-to-br from-green-900/60 to-black/80 flex items-center justify-center">
+                          <Users className="h-6 w-6 text-green-400" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Panneau de chat */}
         {showChat && (
-          <div className="absolute right-0 top-12 bottom-0 w-80 bg-black/60 backdrop-blur-xl border-l border-gray-700/50 flex flex-col z-50">
+          <div className="absolute right-0 top-0 bottom-0 w-80 bg-black/60 backdrop-blur-xl border-l border-gray-700/50 flex flex-col z-50">
             <div className="p-4 border-b border-gray-700/50">
               <h3 className="font-semibold flex items-center text-lg">
                 <MessageSquare className="h-5 w-5 mr-2 text-blue-400" />
@@ -1403,7 +1571,7 @@ const VideoConferenceWebRTC: React.FC = () => {
               </h3>
             </div>
             
-            <div className="flex-1 p-4 overflow-y-auto space-y-3 min-h-0">
+            <div className="flex-1 p-4 overflow-y-auto space-y-3 min-h-0 custom-scrollbar">
               {chatMessages.length === 0 ? (
                 <div className="text-center text-gray-400 py-8">
                   <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -1440,6 +1608,175 @@ const VideoConferenceWebRTC: React.FC = () => {
                 >
                   <Send className="h-4 w-4" />
                 </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Panneau de paramètres avancé */}
+        {showSettings && (
+          <div className="absolute right-0 top-0 bottom-0 w-80 bg-black/60 backdrop-blur-xl border-l border-gray-700/50 flex flex-col z-50">
+            <div className="p-4 border-b border-gray-700/50">
+              <h3 className="font-semibold flex items-center text-lg">
+                <Settings className="h-5 w-5 mr-2 text-purple-400" />
+                Paramètres
+              </h3>
+            </div>
+            
+            <div className="flex-1 p-4 overflow-y-auto space-y-4 custom-scrollbar">
+              {/* Qualité vidéo */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-300">Qualité vidéo</label>
+                <select 
+                  value={videoQuality}
+                  onChange={(e) => setVideoQuality(e.target.value as 'low' | 'medium' | 'high')}
+                  className="w-full bg-gray-800/50 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                >
+                  <option value="low">Standard (640p)</option>
+                  <option value="medium">HD (1080p)</option>
+                  <option value="high">4K (2160p)</option>
+                </select>
+              </div>
+
+              {/* Suppression de bruit */}
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-300">Suppression de bruit</label>
+                <Button
+                  variant={isNoiseSuppressionEnabled ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setIsNoiseSuppressionEnabled(!isNoiseSuppressionEnabled)}
+                  className="h-8"
+                >
+                  {isNoiseSuppressionEnabled ? 'Activé' : 'Désactivé'}
+                </Button>
+              </div>
+
+              {/* Mode présentation */}
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-300">Mode présentation</label>
+                <Button
+                  variant={isPresentationMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setIsPresentationMode(!isPresentationMode)}
+                  className="h-8"
+                >
+                  {isPresentationMode ? 'Activé' : 'Désactivé'}
+                </Button>
+              </div>
+
+              {/* Enregistrement */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-300">Enregistrement</label>
+                  <Button
+                    variant={isRecording ? "destructive" : "outline"}
+                    size="sm"
+                    onClick={toggleRecording}
+                    className="h-8"
+                  >
+                    <Circle className={`h-3 w-3 mr-1 ${isRecording ? 'animate-pulse' : ''}`} />
+                    {isRecording ? 'Arrêter' : 'Démarrer'}
+                  </Button>
+                </div>
+                {isRecording && (
+                  <div className="text-xs text-red-400 bg-red-900/20 p-2 rounded">
+                    Enregistrement en cours...
+                  </div>
+                )}
+              </div>
+
+              {/* Statistiques de connexion */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-300">Statistiques</label>
+                <div className="bg-gray-800/30 rounded-lg p-3 space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-400">État:</span>
+                    <span className={`${
+                      connectionStatus === 'connected' ? 'text-green-400' : 
+                      connectionStatus === 'connecting' ? 'text-yellow-400' : 'text-red-400'
+                    }`}>
+                      {connectionStatus === 'connected' ? 'Connecté' : 
+                       connectionStatus === 'connecting' ? 'Connexion...' : 'Déconnecté'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-400">Participants:</span>
+                    <span className="text-white">{participants.size + 1}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-400">Qualité:</span>
+                    <span className="text-white">
+                      {videoQuality === 'high' ? '4K' : videoQuality === 'medium' ? 'HD' : 'SD'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions avancées */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-300">Actions</label>
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={copyRoomCode}
+                    className="w-full justify-start"
+                  >
+                    <Copy className="h-3 w-3 mr-2" />
+                    Copier le code de réunion
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.navigator.share?.({
+                      title: 'Rejoindre ma réunion',
+                      text: `Code de réunion: ${roomCode}`,
+                      url: window.location.href
+                    })}
+                    className="w-full justify-start"
+                  >
+                    <UserPlus className="h-3 w-3 mr-2" />
+                    Partager la réunion
+                  </Button>
+
+                  <Button
+                    variant={isLocked ? "destructive" : "outline"}
+                    size="sm"
+                    onClick={() => setIsLocked(!isLocked)}
+                    className="w-full justify-start"
+                  >
+                    {isLocked ? <Lock className="h-3 w-3 mr-2" /> : <Unlock className="h-3 w-3 mr-2" />}
+                    {isLocked ? 'Déverrouiller' : 'Verrouiller'} la réunion
+                  </Button>
+                </div>
+              </div>
+
+              {/* Raccourcis clavier */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-300">Raccourcis clavier</label>
+                <div className="bg-gray-800/30 rounded-lg p-3 space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Micro:</span>
+                    <kbd className="bg-gray-700 px-1 rounded">M</kbd>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Caméra:</span>
+                    <kbd className="bg-gray-700 px-1 rounded">V</kbd>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Partage d'écran:</span>
+                    <kbd className="bg-gray-700 px-1 rounded">S</kbd>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Lever la main:</span>
+                    <kbd className="bg-gray-700 px-1 rounded">R</kbd>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Plein écran:</span>
+                    <kbd className="bg-gray-700 px-1 rounded">F</kbd>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
