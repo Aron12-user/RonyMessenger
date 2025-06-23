@@ -5,7 +5,7 @@
 /* Scrollbar personnalisé pour les panneaux vidéoconférence */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(34, 197, 94, 0.3) transparent;
+  scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -17,12 +17,12 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(34, 197, 94, 0.3);
+  background: rgba(156, 163, 175, 0.3);
   border-radius: 2px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(34, 197, 94, 0.5);
+  background: rgba(156, 163, 175, 0.5);
 }
 
 @layer base {
