@@ -80,7 +80,7 @@ const VideoConferenceWebRTC: React.FC = () => {
   const [pinnedParticipant, setPinnedParticipant] = useState<string | null>(null);
   const [virtualBackground, setVirtualBackground] = useState<string | null>(null);
   const [isNoiseSuppressionEnabled, setIsNoiseSuppressionEnabled] = useState(true);
-  const [videoQuality, setVideoQuality] = useState<'low' | 'medium' | 'high'>('high');
+  const [videoQuality, setVideoQuality] = useState<'low' | 'medium' | 'high' | '4k'>('4k');
   const [showControlBar, setShowControlBar] = useState(true);
   const [controlBarTimeout, setControlBarTimeout] = useState<NodeJS.Timeout | null>(null);
   const [participantsPanelWidth, setParticipantsPanelWidth] = useState(320);
@@ -785,22 +785,85 @@ const VideoConferenceWebRTC: React.FC = () => {
   const addVideoTrack = async () => {
     console.log('Début addVideoTrack - Qualité demandée:', videoQuality);
     
-    // Contraintes progressives plus simples et stables
+    // Contraintes basées sur la qualité sélectionnée avec fallbacks 4K
+    const getConstraintsByQuality = () => {
+      switch (videoQuality) {
+        case '4k':
+          return [
+            // 4K Ultra HD
+            {
+              width: { ideal: 3840, max: 3840 },
+              height: { ideal: 2160, max: 2160 },
+              frameRate: { ideal: 60, max: 60 },
+              facingMode: 'user'
+            },
+            // 4K Standard
+            {
+              width: { ideal: 3840, max: 3840 },
+              height: { ideal: 2160, max: 2160 },
+              frameRate: { ideal: 30, max: 30 },
+              facingMode: 'user'
+            },
+            // 1440p fallback
+            {
+              width: { ideal: 2560, max: 2560 },
+              height: { ideal: 1440, max: 1440 },
+              frameRate: { ideal: 30 },
+              facingMode: 'user'
+            }
+          ];
+        case 'high':
+          return [
+            // Full HD 60fps
+            {
+              width: { ideal: 1920, max: 1920 },
+              height: { ideal: 1080, max: 1080 },
+              frameRate: { ideal: 60 },
+              facingMode: 'user'
+            },
+            // Full HD 30fps
+            {
+              width: { ideal: 1920, max: 1920 },
+              height: { ideal: 1080, max: 1080 },
+              frameRate: { ideal: 30 },
+              facingMode: 'user'
+            }
+          ];
+        case 'medium':
+          return [
+            {
+              width: { ideal: 1280, max: 1280 },
+              height: { ideal: 720, max: 720 },
+              frameRate: { ideal: 30 },
+              facingMode: 'user'
+            }
+          ];
+        default:
+          return [
+            {
+              width: { ideal: 640, max: 640 },
+              height: { ideal: 480, max: 480 },
+              frameRate: { ideal: 30 },
+              facingMode: 'user'
+            }
+          ];
+      }
+    };
+
     const constraints = [
-      // Standard robuste
+      ...getConstraintsByQuality(),
+      // Fallbacks universels
       {
-        width: { ideal: 640, min: 320 },
-        height: { ideal: 480, min: 240 },
+        width: { ideal: 1920, min: 640 },
+        height: { ideal: 1080, min: 480 },
         frameRate: { ideal: 30, min: 15 },
         facingMode: 'user'
       },
-      // Minimal garanti
       {
-        width: 320,
-        height: 240,
+        width: 640,
+        height: 480,
         frameRate: 15
       },
-      // Vraiment basique
       true
     ];
 
@@ -951,108 +1014,149 @@ const VideoConferenceWebRTC: React.FC = () => {
     }
   };
 
-  // Partage d'écran avec arrêt fonctionnel
+  // Référence pour le stream de partage d'écran
+  const screenStreamRef = useRef<MediaStream | null>(null);
+
+  // Partage d'écran corrigé avec gestion complète
   const startScreenShare = async () => {
+    console.log('Toggle partage écran - État actuel:', isScreenSharing);
+    
     if (isScreenSharing) {
       await stopScreenShare();
       return;
     }
 
     try {
+      console.log('Démarrage partage d\'écran...');
+      
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
+        video: { 
+          width: { ideal: 1920, max: 3840 }, 
+          height: { ideal: 1080, max: 2160 }, 
+          frameRate: { ideal: 30, max: 60 } 
+        },
         audio: true
       });
 
-      if (localStreamRef.current) {
-        const videoTrack = localStreamRef.current.getVideoTracks()[0];
-        const screenTrack = screenStream.getVideoTracks()[0];
-        
-        peerConnectionsRef.current.forEach(pc => {
-          const sender = pc.getSenders().find(s => s.track === videoTrack);
-          if (sender) {
-            sender.replaceTrack(screenTrack);
-          }
-        });
+      screenStreamRef.current = screenStream;
+      const screenTrack = screenStream.getVideoTracks()[0];
+      
+      console.log('Stream de partage obtenu:', {
+        id: screenTrack.id,
+        label: screenTrack.label,
+        settings: screenTrack.getSettings()
+      });
 
-        if (videoTrack) {
-          localStreamRef.current.removeTrack(videoTrack);
+      // Remplacer la vidéo dans le stream local
+      if (localStreamRef.current) {
+        const oldVideoTrack = localStreamRef.current.getVideoTracks()[0];
+        if (oldVideoTrack) {
+          console.log('Remplacement du track vidéo par le partage d\'écran');
+          localStreamRef.current.removeTrack(oldVideoTrack);
         }
         localStreamRef.current.addTrack(screenTrack);
         
+        // Mettre à jour l'affichage local
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = localStreamRef.current;
         }
       }
 
+      // Remplacer dans toutes les connexions peer
+      peerConnectionsRef.current.forEach((pc, peerId) => {
+        console.log(`Remplacement track vidéo pour peer ${peerId}`);
+        const videoSender = pc.getSenders().find(s => s.track?.kind === 'video');
+        if (videoSender) {
+          videoSender.replaceTrack(screenTrack);
+        } else {
+          pc.addTrack(screenTrack, localStreamRef.current!);
+        }
+      });
+
       setIsScreenSharing(true);
       
-      screenStream.getVideoTracks()[0].onended = () => {
+      // Gérer l'arrêt automatique du partage
+      screenTrack.addEventListener('ended', () => {
+        console.log('Partage d\'écran arrêté par l\'utilisateur');
         stopScreenShare();
-      };
+      });
 
-      toast({ title: "Partage d'écran démarré" });
+      toast({ 
+        title: "Partage d'écran activé",
+        description: "Votre écran est maintenant partagé avec les participants"
+      });
+      
     } catch (error) {
       console.error('Erreur partage écran:', error);
+      setIsScreenSharing(false);
       toast({
-        title: "Erreur partage d'écran",
-        description: "Impossible de partager l'écran",
+        title: "Partage d'écran impossible",
+        description: "Vérifiez les permissions de partage d'écran",
         variant: "destructive"
       });
     }
   };
 
   const stopScreenShare = async () => {
+    console.log('Arrêt du partage d\'écran...');
+    
     try {
-      setIsScreenSharing(false);
-      
-      if (isVideoEnabled) {
-        await restoreCamera();
-      } else {
-        if (localStreamRef.current) {
-          const screenTrack = localStreamRef.current.getVideoTracks()[0];
-          if (screenTrack) {
-            screenTrack.stop();
-            localStreamRef.current.removeTrack(screenTrack);
-          }
-        }
+      // Arrêter le stream de partage
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(track => {
+          console.log('Arrêt du track de partage:', track.id);
+          track.stop();
+        });
+        screenStreamRef.current = null;
       }
 
-      toast({ title: "Partage d'écran arrêté" });
-    } catch (error) {
-      console.error('Erreur arrêt partage:', error);
-    }
-  };
-
-  const restoreCamera = async () => {
-    try {
-      const cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
-        audio: false
-      });
-
-      const videoTrack = cameraStream.getVideoTracks()[0];
-      
-      peerConnectionsRef.current.forEach(pc => {
-        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-        if (sender) {
-          sender.replaceTrack(videoTrack);
-        }
-      });
-
+      // Nettoyer le stream local
       if (localStreamRef.current) {
-        const oldTrack = localStreamRef.current.getVideoTracks()[0];
-        if (oldTrack) {
-          localStreamRef.current.removeTrack(oldTrack);
-        }
-        localStreamRef.current.addTrack(videoTrack);
-        
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = localStreamRef.current;
-        }
+        const screenTracks = localStreamRef.current.getVideoTracks();
+        screenTracks.forEach(track => {
+          console.log('Suppression track de partage du stream local:', track.id);
+          localStreamRef.current?.removeTrack(track);
+          track.stop();
+        });
       }
+
+      setIsScreenSharing(false);
+
+      // Restaurer la caméra si elle était active
+      if (isVideoEnabled) {
+        console.log('Restauration de la caméra...');
+        await addVideoTrack();
+      } else {
+        // Vider l'affichage vidéo local
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = null;
+        }
+        
+        // Supprimer les tracks vidéo des connexions peer
+        peerConnectionsRef.current.forEach((pc, peerId) => {
+          console.log(`Suppression track vidéo pour peer ${peerId}`);
+          const videoSenders = pc.getSenders().filter(s => s.track?.kind === 'video');
+          videoSenders.forEach(sender => {
+            if (sender.track) {
+              sender.track.stop();
+              pc.removeTrack(sender);
+            }
+          });
+        });
+      }
+
+      toast({ 
+        title: "Partage d'écran arrêté",
+        description: "Le partage d'écran a été interrompu"
+      });
+      
     } catch (error) {
-      console.error('Erreur restauration caméra:', error);
+      console.error('Erreur arrêt partage écran:', error);
+      toast({
+        title: "Erreur",
+        description: "Problème lors de l'arrêt du partage d'écran",
+        variant: "destructive"
+      });
     }
   };
 
@@ -1843,14 +1947,32 @@ const VideoConferenceWebRTC: React.FC = () => {
                       <video
                         autoPlay
                         playsInline
+                        muted
                         className="w-full h-full object-cover rounded-lg"
                         style={{
                           transform: 'scaleX(-1)' // Effet miroir
                         }}
                         ref={(video) => {
                           if (video && participant.stream) {
+                            console.log(`Attribution stream participant ${participant.id}:`, participant.stream);
                             video.srcObject = participant.stream;
+                            
+                            // Forcer la lecture
+                            video.play().catch(e => {
+                              console.log('Lecture automatique bloquée (normal):', e);
+                            });
                           }
+                        }}
+                        onLoadedMetadata={(e) => {
+                          const video = e.target as HTMLVideoElement;
+                          console.log(`Métadonnées chargées pour ${participant.id}:`, {
+                            videoWidth: video.videoWidth,
+                            videoHeight: video.videoHeight,
+                            duration: video.duration
+                          });
+                        }}
+                        onError={(e) => {
+                          console.error(`Erreur vidéo participant ${participant.id}:`, e);
                         }}
                       />
                       
@@ -1936,7 +2058,7 @@ const VideoConferenceWebRTC: React.FC = () => {
                 <select 
                   value={videoQuality}
                   onChange={async (e) => {
-                    const newQuality = e.target.value as 'low' | 'medium' | 'high';
+                    const newQuality = e.target.value as 'low' | 'medium' | 'high' | '4k';
                     setVideoQuality(newQuality);
                     
                     // Redémarrer la vidéo avec la nouvelle qualité si activée
@@ -1951,7 +2073,8 @@ const VideoConferenceWebRTC: React.FC = () => {
                     
                     toast({
                       title: "Qualité vidéo mise à jour",
-                      description: newQuality === 'high' ? 'Full HD (1920x1080)' : 
+                      description: newQuality === '4k' ? '4K Ultra HD (3840x2160)' :
+                                  newQuality === 'high' ? 'Full HD (1920x1080)' : 
                                   newQuality === 'medium' ? 'HD (1280x720)' : 'Standard (640x480)'
                     });
                   }}
@@ -1960,6 +2083,7 @@ const VideoConferenceWebRTC: React.FC = () => {
                   <option value="low">Standard (640x480)</option>
                   <option value="medium">HD (1280x720)</option>
                   <option value="high">Full HD (1920x1080)</option>
+                  <option value="4k">4K Ultra HD (3840x2160)</option>
                 </select>
               </div>
 
@@ -2137,7 +2261,7 @@ const VideoConferenceWebRTC: React.FC = () => {
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-400">Qualité:</span>
                     <span className="text-white">
-                      {videoQuality === 'high' ? 'Full HD' : videoQuality === 'medium' ? 'HD' : 'SD'}
+                      {videoQuality === '4k' ? '4K Ultra HD' : videoQuality === 'high' ? 'Full HD' : videoQuality === 'medium' ? 'HD' : 'SD'}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
