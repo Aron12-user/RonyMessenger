@@ -399,8 +399,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Meeting routes
-  // Meeting endpoints removed - video conferencing functionality disabled
+  // Meeting routes - Simple Jitsi Meet integration
+  app.get("/api/meetings/active", async (req, res) => {
+    try {
+      // Retourner les salles actives (pour l'instant vide, sera peuplé par l'usage)
+      res.json({ success: true, rooms: [] });
+    } catch (error) {
+      console.error('Error fetching active meetings:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.get("/api/meetings/scheduled", async (req, res) => {
+    try {
+      // Retourner les réunions programmées (pour l'instant vide)
+      res.json({ success: true, meetings: [] });
+    } catch (error) {
+      console.error('Error fetching scheduled meetings:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.post("/api/meetings/create", async (req, res) => {
+    try {
+      const { title, roomCode } = req.body;
+      
+      if (!roomCode) {
+        return res.status(400).json({ error: 'Room code is required' });
+      }
+
+      // Simple création de réunion avec Jitsi Meet
+      const meetingUrl = `https://meet.jit.si/${roomCode}`;
+      
+      res.json({
+        success: true,
+        meeting: {
+          id: roomCode,
+          title: title || 'Nouvelle réunion',
+          roomCode,
+          url: meetingUrl,
+          createdAt: new Date()
+        }
+      });
+    } catch (error) {
+      console.error('Error creating meeting:', error);
+      res.status(500).json({ error: 'Failed to create meeting' });
+    }
+  });
 
   // AI Assistant route
   app.post("/api/ai/chat", async (req, res) => {

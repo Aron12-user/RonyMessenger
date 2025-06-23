@@ -22,15 +22,17 @@ Rony is a comprehensive communication platform that combines messaging, video co
 - **Real-time**: WebSocket server for live messaging and notifications
 - **File Uploads**: Multer for handling file uploads with local storage
 
-### Communication Features (Video Conferencing Removed)
-- **Focus**: Pure messaging and collaboration platform
-- **Real-time Chat**: WebSocket-based instant messaging
-- **File Sharing**: Secure document exchange and collaboration
+### Video Conferencing
+- **Primary**: Simple Jitsi Meet integration (meet.jit.si)
+- **Features**: Instant meeting creation, room codes, external link integration
+- **Architecture**: Lightweight interface connecting to public Jitsi servers
+- **Scalability**: Leverages Jitsi's infrastructure for unlimited users
 
 ## Key Components
 
 ### Communication Features
 - **Messaging System**: Real-time chat with file attachments and encryption support
+- **Video Conferencing**: Simple Jitsi Meet integration for instant meetings
 - **File Sharing**: Secure file upload, download, and sharing with expiration controls
 - **Collaboration Tools**: Document sharing and team coordination features
 
@@ -59,11 +61,11 @@ Rony is a comprehensive communication platform that combines messaging, video co
 3. Presence updates propagated to all contacts
 4. File uploads processed and shared immediately
 
-### Real-time Communication
-1. Instant messaging with WebSocket connections
-2. File sharing with secure upload/download
-3. Real-time notifications and status updates
-4. User presence and activity tracking
+### Video Conferencing
+1. Meeting rooms created with unique codes
+2. Simple Jitsi Meet integration via external links
+3. Instant meeting creation without complex server setup
+4. Room management through lightweight API endpoints
 
 ### File Management
 1. Files uploaded to local storage with unique identifiers
@@ -75,7 +77,7 @@ Rony is a comprehensive communication platform that combines messaging, video co
 
 ### Core Technologies
 - **Database**: PostgreSQL (Neon serverless or local)
-- **Real-time**: WebSocket messaging with presence tracking
+- **Video**: Simple Jitsi Meet integration (meet.jit.si)
 - **File Storage**: Local filesystem with future cloud integration
 
 ### Third-party Services
@@ -118,7 +120,8 @@ Changelog:
 - June 23, 2025. Implemented native WebRTC solution with custom signaling server
 - June 23, 2025. Cleaned database schema removing meeting tables
 - June 23, 2025. Completely removed WebRTC and all video conferencing functionality
-- June 23, 2025. Finalized as pure messaging and collaboration platform
+- June 23, 2025. Restored meetings interface with simple Jitsi Meet integration
+- June 23, 2025. Implemented lightweight meeting API using public Jitsi servers
 ```
 
 ## User Preferences
