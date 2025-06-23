@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/AuthPage";
 import Home from "@/pages/Home";
-import VideoConferenceNative from "@/pages/VideoConferenceNative";
+// Video conferencing components removed
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthProvider } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
@@ -35,11 +35,7 @@ function App() {
       <div className="font-sans antialiased bg-background text-foreground min-h-screen">
         <Switch>
           <Route path="/auth" component={AuthPage} />
-          <Route path="/meeting/:roomCode">
-            <ProtectedRoute>
-              <VideoConferenceNative />
-            </ProtectedRoute>
-          </Route>
+          {/* Video conferencing routes removed */}
           <Route path="/">
             <ProtectedRoute>
               <Home isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />

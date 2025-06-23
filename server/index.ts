@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes-clean";
 import { setupVite, serveStatic, log } from "./vite";
-import { WebRTCServer } from "./webrtc-server";
+// WebRTC server removed
 import session from 'express-session';
 import MemoryStore from 'memorystore';
 
@@ -70,13 +70,7 @@ app.use('/uploads', express.static('uploads'));
 
   const server = await registerRoutes(app);
 
-  // Initialize WebRTC Server
-  const webrtcServer = new WebRTCServer(server);
-  console.log("WebRTC server initialized");
-
-  // Setup WebRTC API routes
-  const { setupWebRTCRoutes } = await import("./webrtc-routes");
-  setupWebRTCRoutes(app, webrtcServer);
+  // WebRTC server removed
 
   if (app.get("env") === "development") {
     await setupVite(app, server);

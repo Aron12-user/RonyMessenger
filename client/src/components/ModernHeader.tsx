@@ -13,7 +13,7 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
       case "messages": return "Conversations";
       case "assistant": return "Assistant IA";
       case "calls": return "Appels";
-      case "meetings": return "Réunions";
+      // Meeting section removed
       case "files": return "Fichiers";
       case "contacts": return "Contacts";
       case "settings": return "Paramètres";

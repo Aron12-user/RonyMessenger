@@ -400,23 +400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Meeting routes
-  app.get("/api/meetings/active", async (req, res) => {
-    try {
-      res.json({ success: true, rooms: [] });
-    } catch (error) {
-      console.error('Error fetching active meetings:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
-
-  app.get("/api/meetings/scheduled", async (req, res) => {
-    try {
-      res.json({ success: true, meetings: [] });
-    } catch (error) {
-      console.error('Error fetching scheduled meetings:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
+  // Meeting endpoints removed - video conferencing functionality disabled
 
   // AI Assistant route
   app.post("/api/ai/chat", async (req, res) => {

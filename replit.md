@@ -22,19 +22,17 @@ Rony is a comprehensive communication platform that combines messaging, video co
 - **Real-time**: WebSocket server for live messaging and notifications
 - **File Uploads**: Multer for handling file uploads with local storage
 
-### Video Conferencing
-- **Primary**: Native WebRTC implementation for peer-to-peer communication
-- **Features**: Audio/video calls, screen sharing, real-time chat, forced device access
-- **Architecture**: Custom WebSocket signaling server with room management
-- **Scalability**: Designed for thousands of concurrent users
+### Communication Features (Video Conferencing Removed)
+- **Focus**: Pure messaging and collaboration platform
+- **Real-time Chat**: WebSocket-based instant messaging
+- **File Sharing**: Secure document exchange and collaboration
 
 ## Key Components
 
 ### Communication Features
 - **Messaging System**: Real-time chat with file attachments and encryption support
-- **Video Conferencing**: Unlimited duration meetings with Jitsi Meet integration
-- **Voice Calls**: WebRTC-based audio calls between users
 - **File Sharing**: Secure file upload, download, and sharing with expiration controls
+- **Collaboration Tools**: Document sharing and team coordination features
 
 ### User Management
 - **Authentication**: Username/password authentication with session management
@@ -61,11 +59,11 @@ Rony is a comprehensive communication platform that combines messaging, video co
 3. Presence updates propagated to all contacts
 4. File uploads processed and shared immediately
 
-### Video Conferencing
-1. Meeting rooms created with unique codes
-2. Native WebRTC for direct peer-to-peer communication
-3. Custom signaling server for connection establishment
-4. Forced device access for camera/microphone permission issues
+### Real-time Communication
+1. Instant messaging with WebSocket connections
+2. File sharing with secure upload/download
+3. Real-time notifications and status updates
+4. User presence and activity tracking
 
 ### File Management
 1. Files uploaded to local storage with unique identifiers
@@ -77,9 +75,8 @@ Rony is a comprehensive communication platform that combines messaging, video co
 
 ### Core Technologies
 - **Database**: PostgreSQL (Neon serverless or local)
-- **Real-time**: Native WebSocket implementation
+- **Real-time**: WebSocket messaging with presence tracking
 - **File Storage**: Local filesystem with future cloud integration
-- **Video**: Native WebRTC with custom signaling server
 
 ### Third-party Services
 - **AI Assistant**: Groq API for language model interactions
@@ -108,9 +105,9 @@ Rony is a comprehensive communication platform that combines messaging, video co
 
 ### Scaling Considerations
 - **Database**: Connection pooling with 20 max connections
-- **WebSocket**: Efficient message broadcasting and WebRTC signaling
+- **WebSocket**: Efficient message broadcasting and real-time updates
 - **File Storage**: Local storage with cloud migration path
-- **Video**: Native WebRTC with horizontal scaling support
+- **Architecture**: Pure messaging platform optimized for collaboration
 
 ## Changelog
 
@@ -120,7 +117,8 @@ Changelog:
 - June 23, 2025. Removed all legacy video conferencing servers (Jitsi, BigBlueButton, LiveKit, Mediasoup)
 - June 23, 2025. Implemented native WebRTC solution with custom signaling server
 - June 23, 2025. Cleaned database schema removing meeting tables
-- June 23, 2025. Updated architecture to pure WebRTC implementation
+- June 23, 2025. Completely removed WebRTC and all video conferencing functionality
+- June 23, 2025. Finalized as pure messaging and collaboration platform
 ```
 
 ## User Preferences
