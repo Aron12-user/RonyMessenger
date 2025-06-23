@@ -170,48 +170,80 @@ const JitsiEmbedded = () => {
     }
   };
 
-  // Initialiser Jitsi Meet
+  // Initialiser Jitsi Meet embarqué
   const initializeJitsi = async () => {
     if (!roomCode || !authUser || !jitsiContainerRef.current) return;
 
     try {
-      // Charger l'API Jitsi
+      console.log('Initializing embedded Jitsi Meet...');
+
+      // Nettoyer le container
+      jitsiContainerRef.current.innerHTML = '';
+
+      // Charger l'API Jitsi si nécessaire
       if (!window.JitsiMeetExternalAPI) {
+        console.log('Loading Jitsi External API...');
         const script = document.createElement('script');
         script.src = 'https://meet.jit.si/external_api.js';
         script.async = true;
         document.head.appendChild(script);
         
         await new Promise((resolve, reject) => {
-          script.onload = resolve;
-          script.onerror = reject;
+          script.onload = () => {
+            console.log('Jitsi External API loaded successfully');
+            resolve(true);
+          };
+          script.onerror = () => {
+            console.error('Failed to load Jitsi External API');
+            reject(new Error('Failed to load Jitsi External API'));
+          };
+          
+          // Timeout de 10 secondes
+          setTimeout(() => {
+            reject(new Error('Timeout loading Jitsi API'));
+          }, 10000);
         });
       }
 
       const displayName = authUser.displayName || authUser.username || 'Participant';
       
-      // Configuration Jitsi avancée
+      // Configuration Jitsi pour intégration complète
       const options = {
         roomName: roomCode,
         width: '100%',
         height: '100%',
         parentNode: jitsiContainerRef.current,
+        // Configuration pour forcer l'embedding
         configOverwrite: {
+          // Désactiver toutes les redirections
           startWithAudioMuted: false,
           startWithVideoMuted: false,
           enableWelcomePage: false,
           enableClosePage: false,
           prejoinPageEnabled: false,
+          enableLobbyChat: false,
+          
+          // Qualité vidéo
           resolution: 1080,
           maxFullResolutionParticipants: 4,
           channelLastN: 20,
+          
+          // Fonctionnalités audio/vidéo
           enableLipSync: true,
           enableNoiseCancellation: true,
           enableSpeakerStats: true,
           enableP2P: true,
+          
+          // Empêcher les redirections
           requireDisplayName: false,
           disableDeepLinking: true,
           disableInviteFunctions: false,
+          
+          // Forcer l'utilisation dans iframe
+          enableNoAudioDetection: false,
+          enableNoisyMicDetection: false,
+          
+          // Toolbar complète
           toolbarButtons: [
             'camera', 'microphone', 'closedcaptions', 'desktop', 'fullscreen',
             'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
@@ -220,76 +252,125 @@ const JitsiEmbedded = () => {
             'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone'
           ]
         },
+        
+        // Configuration interface pour embedding complet
         interfaceConfigOverwrite: {
+          // Branding
           SHOW_JITSI_WATERMARK: false,
           SHOW_BRAND_WATERMARK: false,
           SHOW_POWERED_BY: false,
           PROVIDER_NAME: 'RonyMeet',
+          
+          // Interface
           TOOLBAR_ALWAYS_VISIBLE: false,
           TOOLBAR_TIMEOUT: 4000,
           CHAT_ENABLED: true,
           MOBILE_APP_PROMO: false,
           VERTICAL_FILMSTRIP: true,
           DEFAULT_BACKGROUND: '#474747',
+          
+          // Empêcher les popups et redirections
           DISABLE_VIDEO_BACKGROUND: false,
           ENABLE_FEEDBACK_ANIMATION: true,
           DISPLAY_WELCOME_PAGE_CONTENT: false,
-          DISPLAY_WELCOME_PAGE_TOOLBAR_ADDITIONAL_CONTENT: false
+          DISPLAY_WELCOME_PAGE_TOOLBAR_ADDITIONAL_CONTENT: false,
+          
+          // Forcer l'embedding
+          JITSI_WATERMARK_LINK: '',
+          SHOW_CHROME_EXTENSION_BANNER: false,
+          
+          // Désactiver les liens externes
+          HIDE_INVITE_MORE_HEADER: false,
+          
+          // Configuration complète pour éviter les redirections
+          SETTINGS_SECTIONS: ['devices', 'language', 'moderator', 'profile', 'calendar'],
+          
+          // Empêcher l'ouverture de nouveaux onglets
+          ENFORCE_NOTIFICATION_AUTO_DISMISS_TIMEOUT: 15000
         },
+        
+        // Info utilisateur
         userInfo: {
-          displayName: displayName
+          displayName: displayName,
+          email: authUser.username
+        },
+        
+        // Contraintes pour embedding
+        onload: () => {
+          console.log('Jitsi iframe loaded');
         }
       };
 
-      // Créer l'instance Jitsi
+      console.log('Creating Jitsi API instance...');
+      
+      // Créer l'instance Jitsi avec gestion d'erreur
       const api = new window.JitsiMeetExternalAPI('meet.jit.si', options);
       setJitsiApi(api);
 
-      // Event listeners
+      // Event listeners détaillés
       api.addEventListener('ready', () => {
-        console.log('Jitsi Meet ready');
+        console.log('Jitsi Meet is ready!');
         setIsInitializing(false);
         
-        // Forcer l'utilisation du stream si disponible
+        // Nettoyer le stream de prévisualisation
         if (stream) {
-          const videoTracks = stream.getVideoTracks();
-          const audioTracks = stream.getAudioTracks();
-          
-          if (videoTracks.length > 0) {
-            api.executeCommand('toggleVideo');
-          }
-          if (audioTracks.length > 0) {
-            api.executeCommand('toggleAudio');
-          }
+          console.log('Cleaning up preview stream...');
+          stream.getTracks().forEach(track => track.stop());
+          setStream(null);
         }
+        
+        toast({
+          title: "Jitsi Meet prêt",
+          description: "Interface de conférence chargée",
+        });
       });
 
       api.addEventListener('participantJoined', (participant: any) => {
-        console.log('Participant joined:', participant);
+        console.log('Participant joined:', participant.displayName);
       });
 
       api.addEventListener('participantLeft', (participant: any) => {
-        console.log('Participant left:', participant);
+        console.log('Participant left:', participant.displayName);
       });
 
-      api.addEventListener('videoConferenceJoined', () => {
-        console.log('Successfully joined the conference');
+      api.addEventListener('videoConferenceJoined', (info: any) => {
+        console.log('Successfully joined conference:', info);
         toast({
           title: "Réunion rejointe",
-          description: "Vous êtes maintenant connecté à la réunion",
+          description: "Vous êtes maintenant dans la réunion",
         });
       });
 
       api.addEventListener('videoConferenceLeft', () => {
         console.log('Left the conference');
+        toast({
+          title: "Réunion quittée",
+          description: "Vous avez quitté la réunion",
+        });
         setLocation('/');
+      });
+
+      api.addEventListener('readyToClose', () => {
+        console.log('Jitsi ready to close');
+        setLocation('/');
+      });
+
+      // Gestion des erreurs
+      api.addEventListener('error', (error: any) => {
+        console.error('Jitsi error:', error);
+        toast({
+          title: "Erreur Jitsi",
+          description: error.message || "Une erreur est survenue",
+          variant: "destructive"
+        });
       });
 
     } catch (error) {
       console.error('Error initializing Jitsi:', error);
+      setIsInitializing(false);
       toast({
         title: "Erreur d'initialisation",
-        description: "Impossible de charger la réunion",
+        description: "Impossible de charger Jitsi Meet",
         variant: "destructive"
       });
     }
@@ -320,18 +401,38 @@ const JitsiEmbedded = () => {
   useEffect(() => {
     if (roomCode && authUser) {
       const init = async () => {
-        await forceMediaAccess();
+        console.log('Starting initialization sequence...');
+        
+        // D'abord forcer l'accès aux médias
+        const mediaSuccess = await forceMediaAccess();
+        console.log('Media access result:', mediaSuccess);
+        
+        // Attendre un peu pour que les permissions soient bien établies
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Puis initialiser Jitsi
         await initializeJitsi();
       };
       init();
     }
 
     return () => {
+      console.log('Cleaning up JitsiEmbedded component...');
       if (jitsiApi) {
-        jitsiApi.dispose();
+        try {
+          jitsiApi.dispose();
+        } catch (e) {
+          console.log('Error disposing Jitsi API:', e);
+        }
       }
       if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach(track => {
+          try {
+            track.stop();
+          } catch (e) {
+            console.log('Error stopping track:', e);
+          }
+        });
       }
     };
   }, [roomCode, authUser]);
@@ -456,12 +557,24 @@ const JitsiEmbedded = () => {
       </div>
 
       {/* Jitsi Container */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative bg-gray-800">
         <div 
           ref={jitsiContainerRef} 
-          className="w-full h-full"
-          style={{ minHeight: isFullscreen ? '100vh' : 'calc(100vh - 80px)' }}
-        />
+          className="w-full h-full rounded-lg overflow-hidden border border-gray-600"
+          style={{ 
+            minHeight: isFullscreen ? 'calc(100vh - 80px)' : 'calc(100vh - 80px)',
+            backgroundColor: '#1f2937'
+          }}
+        >
+          {!jitsiApi && isInitializing && (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="animate-spin w-8 h-8 border-2 border-gray-600 border-t-blue-500 rounded-full mx-auto mb-4"></div>
+                <p className="text-gray-300">Chargement de Jitsi Meet...</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
