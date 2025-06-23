@@ -7,7 +7,7 @@ import MainContent from "@/components/MainContent";
 import WelcomeContent from "@/components/WelcomeContent";
 import AIAssistant from "@/pages/AIAssistant";
 import Messages from "@/pages/Messages";
-// Meeting components removed
+import MeetingsNew from "@/pages/MeetingsNew";
 import FilesManager from "@/pages/FilesManager";
 import CloudStorage from "@/pages/CloudStorage";
 import Contacts from "@/pages/Contacts";
@@ -42,7 +42,7 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
       case "assistant":
         return <AIAssistant />;
       case "meetings":
-        return <div className="p-6 text-center"><h2 className="text-lg font-semibold">Fonctionnalité de visioconférence supprimée</h2></div>;
+        return <MeetingsNew />;
       case "files":
         return <CloudStorage />;
       case "cloud":

@@ -54,7 +54,7 @@ export default function ModernSidebar({
   const menuItems = [
     { id: "messages", label: "Messages", icon: MessageCircle, active: true },
     { id: "assistant", label: "Assistant IA", icon: Bot },
-    // Meeting section removed
+    { id: "meetings", label: "Réunions", icon: Video },
     { id: "files", label: "Cloud", icon: FolderOpen },
     { id: "mail", label: "Courrier", icon: Mail },
     { id: "contacts", label: "Contacts", icon: Users },
