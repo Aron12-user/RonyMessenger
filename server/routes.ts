@@ -102,55 +102,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Create WebSocket server on a distinct endpoint
-  const wss = new WebSocketServer({ 
-    server: httpServer, 
-    path: '/ws',
-    perMessageDeflate: false // Désactiver la compression pour éviter les problèmes de compatibilité
-  });
+  // WebSocket servers are now handled by WebRTCServer
+  // Removed old WebSocket implementation to avoid conflicts
 
-  // Configure WebSocket server for video conferencing
-  const meetingWss = new WebSocketServer({ 
-    noServer: true
-  });
-
-  function broadcastToRoom(roomCode: string, data: any, excludeWs?: WebSocket) {
-    const room = activeMeetingRooms.get(roomCode);
-    if (room) {
-      room.participants.forEach((ws, userId) => {
-        if (ws !== excludeWs && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify(data));
-        }
-      });
-    }
+  // Chat WebSocket - Legacy chat functionality (will be migrated)
+  function broadcastToAll(data: any) {
+    // Legacy broadcast function for chat
   }
 
-  // Handle HTTP upgrade for meeting WebSockets
-  httpServer.on('upgrade', (request, socket, head) => {
-    const pathname = new URL(request.url!, `http://${request.headers.host}`).pathname;
-    console.log(`[WebSocket] Upgrade request for: ${pathname}`);
-    
-    if (pathname.startsWith('/ws/meeting/')) {
-      const roomCode = pathname.split('/')[3];
-      console.log(`[WebSocket] Room code extracted: ${roomCode}`);
-      
-      if (roomCode) {
-        meetingWss.handleUpgrade(request, socket, head, (ws) => {
-          console.log(`[WebSocket] Connection upgraded for room: ${roomCode}`);
-          meetingWss.emit('connection', ws, request, roomCode);
-        });
-      } else {
-        console.log(`[WebSocket] No room code, destroying socket`);
-        socket.destroy();
-      }
-    } else {
-      console.log(`[WebSocket] Invalid path, destroying socket`);
-      socket.destroy();
-    }
-  });
-
-  // Handle video conferencing WebSocket connections
-  meetingWss.on('connection', (ws: any, req: any, roomCode: string) => {
+  // Old meeting WebSocket removed - now handled by WebRTCServer
     if (!roomCode) {
       ws.close(1008, 'Room code required');
       return;
