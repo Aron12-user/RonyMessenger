@@ -23,10 +23,10 @@ Rony is a comprehensive communication platform that combines messaging, video co
 - **File Uploads**: Multer for handling file uploads with local storage
 
 ### Video Conferencing
-- **Primary**: Jitsi Meet integration for unlimited video calls
-- **Self-hosted Option**: Support for custom Jitsi deployment
-- **Fallback**: WebRTC implementation for peer-to-peer communication
-- **Features**: Audio/video calls, screen sharing, recording capabilities
+- **Primary**: Native WebRTC implementation for peer-to-peer communication
+- **Features**: Audio/video calls, screen sharing, real-time chat, forced device access
+- **Architecture**: Custom WebSocket signaling server with room management
+- **Scalability**: Designed for thousands of concurrent users
 
 ## Key Components
 
@@ -63,9 +63,9 @@ Rony is a comprehensive communication platform that combines messaging, video co
 
 ### Video Conferencing
 1. Meeting rooms created with unique codes
-2. Jitsi Meet embedded for unlimited duration calls
-3. WebRTC fallback for direct peer connections
-4. Screen sharing and recording capabilities
+2. Native WebRTC for direct peer-to-peer communication
+3. Custom signaling server for connection establishment
+4. Forced device access for camera/microphone permission issues
 
 ### File Management
 1. Files uploaded to local storage with unique identifiers
@@ -79,10 +79,9 @@ Rony is a comprehensive communication platform that combines messaging, video co
 - **Database**: PostgreSQL (Neon serverless or local)
 - **Real-time**: Native WebSocket implementation
 - **File Storage**: Local filesystem with future cloud integration
-- **Video**: Jitsi Meet public instance with self-hosting option
+- **Video**: Native WebRTC with custom signaling server
 
 ### Third-party Services
-- **Jitsi Meet**: Video conferencing platform (meet.jit.si)
 - **AI Assistant**: Groq API for language model interactions
 - **Icons**: Custom icon sets and Material Icons
 - **Fonts**: Google Fonts (Inter family)
@@ -109,15 +108,19 @@ Rony is a comprehensive communication platform that combines messaging, video co
 
 ### Scaling Considerations
 - **Database**: Connection pooling with 20 max connections
-- **WebSocket**: Efficient message broadcasting
+- **WebSocket**: Efficient message broadcasting and WebRTC signaling
 - **File Storage**: Local storage with cloud migration path
-- **Video**: Self-hosted Jitsi for enterprise scaling
+- **Video**: Native WebRTC with horizontal scaling support
 
 ## Changelog
 
 ```
 Changelog:
 - June 23, 2025. Initial setup
+- June 23, 2025. Removed all legacy video conferencing servers (Jitsi, BigBlueButton, LiveKit, Mediasoup)
+- June 23, 2025. Implemented native WebRTC solution with custom signaling server
+- June 23, 2025. Cleaned database schema removing meeting tables
+- June 23, 2025. Updated architecture to pure WebRTC implementation
 ```
 
 ## User Preferences

@@ -155,39 +155,7 @@ export const fileSharing = pgTable("file_sharing", {
   }
 });
 
-// Scheduled Meetings Table
-export const scheduledMeetings = pgTable("scheduled_meetings", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  description: text("description"),
-  startTime: timestamp("start_time").notNull(),
-  endTime: timestamp("end_time").notNull(),
-  organizerId: integer("organizer_id").notNull().references(() => users.id),
-  roomName: text("room_name").notNull(),
-  isRecurring: boolean("is_recurring").default(false),
-  recurringPattern: text("recurring_pattern"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => {
-  return {
-    organizerIdIdx: index("scheduled_meeting_organizer_idx").on(table.organizerId),
-    startTimeIdx: index("scheduled_meeting_start_time_idx").on(table.startTime),
-  }
-});
-
-// Meeting Participants Table
-export const meetingParticipants = pgTable("meeting_participants", {
-  id: serial("id").primaryKey(),
-  meetingId: integer("meeting_id").notNull().references(() => scheduledMeetings.id),
-  userId: integer("user_id").notNull().references(() => users.id),
-  status: text("status").notNull(), // 'pending', 'accepted', 'declined'
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => {
-  return {
-    meetingIdIdx: index("participant_meeting_idx").on(table.meetingId),
-    userIdIdx: index("participant_user_idx").on(table.userId),
-  }
-});
+// Meeting tables removed - using native WebRTC solution without database persistence
 
 // Contacts Table
 export const contacts = pgTable("contacts", {

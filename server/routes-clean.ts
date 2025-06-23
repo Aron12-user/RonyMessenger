@@ -17,10 +17,7 @@ import multer from "multer";
 import * as path from "path";
 import * as fs from "fs";
 import { v4 as uuidv4 } from "uuid";
-import { registerJitsiRoutes } from "./jitsi/routes";
 import { handleAIChat } from "./ai-assistant";
-import { liveKitService } from "./livekit-config";
-import { bbbService } from "./bigbluebutton-config";
 
 // Configure multer for avatar uploads
 const avatarStorage = multer.diskStorage({
@@ -436,100 +433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // LiveKit routes
-  app.post('/api/livekit/token', async (req: Request, res: Response) => {
-    try {
-      const { roomName, participantName } = req.body;
-      
-      if (!roomName || !participantName) {
-        return res.status(400).json({ error: 'Room name and participant name are required' });
-      }
-
-      const token = await liveKitService.generateAccessToken(roomName, participantName);
-      res.json({ token });
-    } catch (error) {
-      console.error('Error generating LiveKit token:', error);
-      res.status(500).json({ error: 'Failed to generate token' });
-    }
-  });
-
-  app.get('/api/livekit/room/:roomCode', async (req: Request, res: Response) => {
-    try {
-      const { roomCode } = req.params;
-      const roomInfo = await liveKitService.getRoomInfo(roomCode);
-      res.json(roomInfo);
-    } catch (error) {
-      console.error('Error getting room info:', error);
-      res.status(500).json({ error: 'Failed to get room info' });
-    }
-  });
-
-  // BigBlueButton routes
-  app.post('/api/bbb/create', async (req: Request, res: Response) => {
-    try {
-      const { meetingID, meetingName, moderatorPW, attendeePW } = req.body;
-      
-      if (!meetingID || !meetingName) {
-        return res.status(400).json({ error: 'Meeting ID and name are required' });
-      }
-
-      const result = await bbbService.createMeeting(meetingID, meetingName, moderatorPW, attendeePW);
-      res.json(result);
-    } catch (error) {
-      console.error('Error creating BBB meeting:', error);
-      res.status(500).json({ error: 'Failed to create meeting' });
-    }
-  });
-
-  app.post('/api/bbb/join', async (req: Request, res: Response) => {
-    try {
-      const { meetingID, fullName, password, userID } = req.body;
-      
-      if (!meetingID || !fullName || !password) {
-        return res.status(400).json({ error: 'Meeting ID, full name, and password are required' });
-      }
-
-      const joinUrl = bbbService.getJoinUrl(meetingID, fullName, password, userID);
-      res.json({ joinUrl });
-    } catch (error) {
-      console.error('Error generating BBB join URL:', error);
-      res.status(500).json({ error: 'Failed to generate join URL' });
-    }
-  });
-
-  app.get('/api/bbb/meeting/:roomCode', async (req: Request, res: Response) => {
-    try {
-      const { roomCode } = req.params;
-      const { password } = req.query;
-      
-      if (!password) {
-        return res.status(400).json({ error: 'Password is required' });
-      }
-
-      const meetingInfo = await bbbService.getMeetingInfo(roomCode, password as string);
-      res.json(meetingInfo);
-    } catch (error) {
-      console.error('Error getting BBB meeting info:', error);
-      res.status(500).json({ error: 'Failed to get meeting info' });
-    }
-  });
-
-  app.delete('/api/bbb/meeting/:roomCode', async (req: Request, res: Response) => {
-    try {
-      const { roomCode } = req.params;
-      const { password } = req.body;
-      
-      if (!password) {
-        return res.status(400).json({ error: 'Password is required' });
-      }
-
-      const result = await bbbService.endMeeting(roomCode, password);
-      res.json({ success: result });
-    } catch (error) {
-      console.error('Error ending BBB meeting:', error);
-      res.status(500).json({ error: 'Failed to end meeting' });
-    }
-  });
+  // Legacy video conferencing routes removed - using native WebRTC solution
 
   // Jitsi routes temporarily disabled - using WebRTC native solution
   console.log("Routes configured successfully");
