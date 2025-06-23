@@ -86,6 +86,19 @@ const VideoConferenceWebRTC: React.FC = () => {
   const [participantsPanelWidth, setParticipantsPanelWidth] = useState(320);
   const [isDraggingSeparator, setIsDraggingSeparator] = useState(false);
   
+  // Diagnostic vidéo en temps réel
+  const [videoStatus, setVideoStatus] = useState<{
+    trackState: string;
+    streamActive: boolean;
+    lastError: string | null;
+    trackId: string | null;
+  }>({
+    trackState: 'none',
+    streamActive: false,
+    lastError: null,
+    trackId: null
+  });
+  
   // Chat
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -214,6 +227,96 @@ const VideoConferenceWebRTC: React.FC = () => {
         break;
     }
   };
+
+  // Surveillance automatique de l'état vidéo
+  useEffect(() => {
+    if (!isVideoEnabled) return;
+
+    const checkVideoHealth = () => {
+      if (localStreamRef.current) {
+        const videoTracks = localStreamRef.current.getVideoTracks();
+        const videoElement = localVideoRef.current;
+        
+        if (videoTracks.length === 0) {
+          console.log('⚠️ Aucun track vidéo trouvé, caméra supposée active');
+          setVideoStatus(prev => ({
+            ...prev,
+            trackState: 'missing',
+            lastError: 'Track vidéo manquant'
+          }));
+          
+          // Relancer automatiquement
+          toast({
+            title: "Reconnexion caméra",
+            description: "Tentative de reconnexion automatique..."
+          });
+          
+          setTimeout(() => {
+            addVideoTrack();
+          }, 1000);
+          
+          return;
+        }
+
+        const activeTrack = videoTracks[0];
+        const isTrackLive = activeTrack.readyState === 'live';
+        const isTrackEnabled = activeTrack.enabled;
+        
+        // Vérifier si l'élément vidéo affiche bien quelque chose
+        let hasVideo = false;
+        if (videoElement) {
+          hasVideo = videoElement.videoWidth > 0 && videoElement.videoHeight > 0;
+        }
+
+        console.log('🔍 État caméra:', {
+          trackId: activeTrack.id,
+          readyState: activeTrack.readyState,
+          enabled: isTrackEnabled,
+          hasVideo,
+          videoWidth: videoElement?.videoWidth,
+          videoHeight: videoElement?.videoHeight
+        });
+
+        // Détecter les problèmes
+        if (!isTrackLive || !isTrackEnabled || !hasVideo) {
+          console.log('🚨 Problème détecté avec la caméra');
+          setVideoStatus(prev => ({
+            ...prev,
+            trackState: !isTrackLive ? 'ended' : !isTrackEnabled ? 'disabled' : 'no-video',
+            lastError: !isTrackLive ? 'Track arrêté' : !isTrackEnabled ? 'Track désactivé' : 'Pas de signal vidéo'
+          }));
+
+          if (!isTrackLive) {
+            // Track mort, relancer
+            toast({
+              title: "Caméra reconnectée",
+              description: "Redémarrage automatique en cours..."
+            });
+            addVideoTrack();
+          }
+        } else {
+          // Tout va bien
+          setVideoStatus(prev => ({
+            ...prev,
+            trackState: 'live',
+            streamActive: true,
+            lastError: null
+          }));
+        }
+      }
+    };
+
+    // Vérification initiale après 2 secondes
+    const initialCheck = setTimeout(checkVideoHealth, 2000);
+    
+    // Vérification périodique toutes les 5 secondes
+    const healthInterval = setInterval(checkVideoHealth, 5000);
+
+    return () => {
+      clearTimeout(initialCheck);
+      clearInterval(healthInterval);
+    };
+  }, [isVideoEnabled]);
 
   // Diagnostic complet des périphériques média
   const performMediaDiagnostic = async () => {
@@ -622,35 +725,41 @@ const VideoConferenceWebRTC: React.FC = () => {
     }
   };
 
-  // Contrôles vidéo améliorés avec gestion robuste
+  // Contrôles vidéo robustes avec debugging
   const toggleVideo = async () => {
+    console.log('Toggle vidéo - État actuel:', isVideoEnabled);
+    
     try {
       if (!isVideoEnabled) {
-        // Activer la vidéo
-        if (localStreamRef.current) {
-          const videoTrack = localStreamRef.current.getVideoTracks()[0];
-          if (videoTrack) {
-            videoTrack.enabled = true;
-            setIsVideoEnabled(true);
-            toast({ title: "Caméra activée" });
-          } else {
-            // Ajouter track vidéo s'il n'existe pas
-            await addVideoTrack();
-          }
-        } else {
-          // Créer nouveau stream
-          await addVideoTrack();
-        }
+        console.log('Activation de la vidéo...');
+        await addVideoTrack();
       } else {
-        // Désactiver la vidéo (garder le track mais désactiver)
+        console.log('Désactivation de la vidéo...');
+        // Désactiver complètement la vidéo
         if (localStreamRef.current) {
-          const videoTrack = localStreamRef.current.getVideoTracks()[0];
-          if (videoTrack) {
-            videoTrack.enabled = false;
-            setIsVideoEnabled(false);
-            toast({ title: "Caméra désactivée" });
-          }
+          const videoTracks = localStreamRef.current.getVideoTracks();
+          videoTracks.forEach(track => {
+            console.log('Arrêt du track vidéo:', track.id);
+            track.stop();
+            localStreamRef.current?.removeTrack(track);
+          });
+          
+          // Notifier les peer connections
+          peerConnectionsRef.current.forEach(pc => {
+            const videoSenders = pc.getSenders().filter(s => s.track?.kind === 'video');
+            videoSenders.forEach(sender => {
+              pc.removeTrack(sender);
+            });
+          });
         }
+        
+        // Vider la vidéo locale
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = null;
+        }
+        
+        setIsVideoEnabled(false);
+        toast({ title: "Caméra désactivée" });
       }
       
       // Notifier les autres participants
@@ -665,121 +774,176 @@ const VideoConferenceWebRTC: React.FC = () => {
     } catch (error) {
       console.error('Erreur toggle vidéo:', error);
       toast({
-        title: "Caméra inaccessible",
-        description: "Vérifiez les permissions dans votre navigateur",
+        title: "Problème caméra",
+        description: "Erreur lors de l'activation/désactivation",
         variant: "destructive"
       });
     }
   };
 
-  // Fonction pour ajouter un track vidéo avec fallbacks progressifs
+  // Fonction pour ajouter un track vidéo avec gestion stable
   const addVideoTrack = async () => {
-    const getConstraintsByQuality = (quality: string) => {
-      switch (quality) {
-        case 'high':
-          return {
-            width: { ideal: 1920, max: 1920 },
-            height: { ideal: 1080, max: 1080 },
-            frameRate: { ideal: 30 }
-          };
-        case 'medium':
-          return {
-            width: { ideal: 1280, max: 1280 },
-            height: { ideal: 720, max: 720 },
-            frameRate: { ideal: 30 }
-          };
-        default:
-          return {
-            width: { ideal: 640, max: 640 },
-            height: { ideal: 480, max: 480 },
-            frameRate: { ideal: 30 }
-          };
-      }
-    };
-
+    console.log('Début addVideoTrack - Qualité demandée:', videoQuality);
+    
+    // Contraintes progressives plus simples et stables
     const constraints = [
-      // Tentative avec qualité demandée
+      // Standard robuste
       {
-        ...getConstraintsByQuality(videoQuality),
+        width: { ideal: 640, min: 320 },
+        height: { ideal: 480, min: 240 },
+        frameRate: { ideal: 30, min: 15 },
         facingMode: 'user'
       },
-      // Fallback 1: qualité réduite
+      // Minimal garanti
       {
-        width: { ideal: 640, max: 640 },
-        height: { ideal: 480, max: 480 },
-        frameRate: { ideal: 30 },
-        facingMode: 'user'
+        width: 320,
+        height: 240,
+        frameRate: 15
       },
-      // Fallback 2: contraintes minimales
-      {
-        width: { ideal: 320, max: 320 },
-        height: { ideal: 240, max: 240 },
-        facingMode: 'user'
-      },
-      // Fallback 3: aucune contrainte spécifique
-      {
-        facingMode: 'user'
-      },
-      // Fallback 4: vraiment basique
+      // Vraiment basique
       true
     ];
 
     for (let i = 0; i < constraints.length; i++) {
       try {
-        console.log(`Tentative vidéo ${i + 1}/${constraints.length}:`, constraints[i]);
+        console.log(`Tentative vidéo ${i + 1}:`, constraints[i]);
         
+        // Obtenir le stream vidéo
         const videoStream = await navigator.mediaDevices.getUserMedia({ 
           video: constraints[i]
         });
         
         const videoTrack = videoStream.getVideoTracks()[0];
+        console.log('Track vidéo obtenu:', {
+          id: videoTrack.id,
+          label: videoTrack.label,
+          readyState: videoTrack.readyState,
+          enabled: videoTrack.enabled
+        });
         
+        // Vérifier que le track est utilisable
+        if (videoTrack.readyState === 'ended') {
+          console.error('Track vidéo déjà terminé');
+          videoTrack.stop();
+          continue;
+        }
+        
+        // Gérer le stream local
         if (localStreamRef.current) {
-          // Retirer l'ancien track vidéo s'il existe
-          const oldVideoTrack = localStreamRef.current.getVideoTracks()[0];
-          if (oldVideoTrack) {
-            localStreamRef.current.removeTrack(oldVideoTrack);
-            oldVideoTrack.stop();
-          }
+          // Nettoyer les anciens tracks vidéo
+          const oldVideoTracks = localStreamRef.current.getVideoTracks();
+          oldVideoTracks.forEach(track => {
+            console.log('Suppression ancien track:', track.id);
+            localStreamRef.current?.removeTrack(track);
+            track.stop();
+          });
+          
+          // Ajouter le nouveau track
           localStreamRef.current.addTrack(videoTrack);
         } else {
-          localStreamRef.current = videoStream;
-        }
-        
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = localStreamRef.current;
-        }
-        
-        setIsVideoEnabled(true);
-        
-        // Ajouter aux connexions peer
-        peerConnectionsRef.current.forEach(pc => {
-          const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-          if (sender) {
-            sender.replaceTrack(videoTrack);
-          } else {
-            pc.addTrack(videoTrack, localStreamRef.current!);
+          // Créer un nouveau stream avec tous les tracks nécessaires
+          localStreamRef.current = new MediaStream();
+          localStreamRef.current.addTrack(videoTrack);
+          
+          // Ajouter les tracks audio existants si disponibles
+          if (localStreamRef.current.getAudioTracks().length === 0) {
+            // Pas d'audio pour l'instant, juste la vidéo
           }
+        }
+        
+        // Configurer la vidéo locale avec vérifications
+        if (localVideoRef.current) {
+          console.log('Attribution du stream à la vidéo locale');
+          localVideoRef.current.srcObject = localStreamRef.current;
+          
+          // Forcer le chargement
+          try {
+            await localVideoRef.current.play();
+            console.log('Lecture vidéo démarrée avec succès');
+          } catch (playError) {
+            console.warn('Erreur lecture automatique (normal):', playError);
+          }
+        }
+        
+        // Mettre à jour l'état et le diagnostic
+        setIsVideoEnabled(true);
+        setVideoStatus({
+          trackState: 'live',
+          streamActive: true,
+          lastError: null,
+          trackId: videoTrack.id
+        });
+        
+        // Ajouter aux connexions peer existantes
+        peerConnectionsRef.current.forEach((pc, peerId) => {
+          console.log(`Ajout track vidéo à peer ${peerId}`);
+          try {
+            const existingSenders = pc.getSenders();
+            const videoSender = existingSenders.find(s => s.track?.kind === 'video');
+            
+            if (videoSender) {
+              videoSender.replaceTrack(videoTrack);
+            } else {
+              pc.addTrack(videoTrack, localStreamRef.current!);
+            }
+          } catch (peerError) {
+            console.error(`Erreur ajout track peer ${peerId}:`, peerError);
+          }
+        });
+        
+        // Surveiller l'état du track avec diagnostic
+        videoTrack.addEventListener('ended', () => {
+          console.log('🔴 Track vidéo terminé de manière inattendue');
+          setVideoStatus(prev => ({
+            ...prev,
+            trackState: 'ended',
+            lastError: 'Track terminé de manière inattendue',
+            streamActive: false
+          }));
+          
+          setIsVideoEnabled(false);
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = null;
+          }
+          
+          toast({
+            title: "Caméra interrompue",
+            description: "La caméra s'est arrêtée de manière inattendue",
+            variant: "destructive"
+          });
+        });
+
+        videoTrack.addEventListener('mute', () => {
+          console.log('🔇 Track vidéo mis en sourdine');
+          setVideoStatus(prev => ({ ...prev, trackState: 'muted' }));
+        });
+
+        videoTrack.addEventListener('unmute', () => {
+          console.log('🔊 Track vidéo réactivé');
+          setVideoStatus(prev => ({ ...prev, trackState: 'live' }));
         });
         
         const settings = videoTrack.getSettings();
-        const qualityText = i > 0 ? " (qualité réduite)" : "";
+        console.log('Caméra activée avec succès:', settings);
+        
         toast({ 
           title: "Caméra activée", 
-          description: `${settings.width}x${settings.height}${qualityText}`
+          description: `${settings.width}x${settings.height} @ ${settings.frameRate}fps`
         });
         
-        return; // Succès, sortir de la boucle
+        return; // Succès complet
         
       } catch (error) {
-        console.error(`Tentative vidéo ${i + 1} échouée:`, error);
+        console.error(`Tentative ${i + 1} échouée:`, error);
         
-        // Si c'est la dernière tentative, afficher l'erreur
+        // Si dernière tentative
         if (i === constraints.length - 1) {
-          console.error('Échec de toutes les tentatives vidéo:', error);
+          console.error('Toutes les tentatives ont échoué');
+          setIsVideoEnabled(false);
+          
           toast({
             title: "Caméra inaccessible",
-            description: "Vérifiez les permissions dans votre navigateur",
+            description: "Impossible d'accéder à votre caméra. Vérifiez les permissions.",
             variant: "destructive"
           });
         }
@@ -1983,9 +2147,46 @@ const VideoConferenceWebRTC: React.FC = () => {
                 </div>
               </div>
 
+              {/* État vidéo en temps réel */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-300">État caméra</label>
+                <div className="bg-gray-800/30 rounded-lg p-3 space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-400">État:</span>
+                    <span className={`${
+                      videoStatus.trackState === 'live' ? 'text-green-400' : 
+                      videoStatus.trackState === 'missing' ? 'text-red-400' : 'text-yellow-400'
+                    }`}>
+                      {videoStatus.trackState === 'live' ? 'Actif' : 
+                       videoStatus.trackState === 'missing' ? 'Manquant' :
+                       videoStatus.trackState === 'ended' ? 'Arrêté' : videoStatus.trackState}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-400">Stream:</span>
+                    <span className={videoStatus.streamActive ? 'text-green-400' : 'text-red-400'}>
+                      {videoStatus.streamActive ? 'Actif' : 'Inactif'}
+                    </span>
+                  </div>
+                  {videoStatus.trackId && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-400">Track ID:</span>
+                      <span className="text-gray-300 font-mono text-[10px]">
+                        {videoStatus.trackId.substring(0, 8)}...
+                      </span>
+                    </div>
+                  )}
+                  {videoStatus.lastError && (
+                    <div className="text-xs text-red-400 bg-red-900/20 p-2 rounded">
+                      {videoStatus.lastError}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Diagnostic des périphériques */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-300">Diagnostic</label>
+                <label className="text-sm font-medium text-gray-300">Diagnostic complet</label>
                 <div className="p-3 border border-gray-600 rounded-lg">
                   <MediaDiagnostic />
                 </div>
