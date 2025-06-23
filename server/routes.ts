@@ -207,25 +207,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         switch (data.type) {
           case 'join-room':
-            // Notifier les participants existants du nouveau participant
+            // Update user info from client data
+            if (data.userInfo) {
+              userInfo = { ...userInfo, ...data.userInfo };
+              userId = data.userId || userId;
+            }
+            
+            // Notify existing participants of new participant
             broadcastToRoom(roomCode, {
               type: 'participant-joined',
-              participant: data.participant
+              participant: {
+                id: userId,
+                name: userInfo.name,
+                ...data.userInfo
+              }
             }, ws);
             
-            // Envoyer la liste des participants existants au nouveau participant
-            const existingParticipants: any[] = [];
-            room.participants.forEach((participantWs, id) => {
-              if (id !== userId) {
-                existingParticipants.push({ id });
-              }
-            });
-
+            // Send confirmation to joining user
             ws.send(JSON.stringify({
               type: 'room-joined',
               roomCode: roomCode,
               participantId: userId,
-              existingParticipants
+              userInfo: userInfo
             }));
             break;
 
