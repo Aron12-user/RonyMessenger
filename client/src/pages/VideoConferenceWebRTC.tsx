@@ -212,7 +212,7 @@ const VideoConferenceWebRTC: React.FC = () => {
     }
   };
 
-  // Initialisation du stream local
+  // Initialisation du stream local avec demande automatique d'autorisation
   const initializeLocalStream = async () => {
     try {
       const local: Participant = {
@@ -225,16 +225,89 @@ const VideoConferenceWebRTC: React.FC = () => {
       };
 
       setLocalParticipant(local);
-      setIsAudioEnabled(false);
-      setIsVideoEnabled(false);
 
-      toast({
-        title: "Vidéoconférence prête",
-        description: "Activez micro/caméra pour commencer"
-      });
+      // Demander automatiquement les autorisations au démarrage
+      try {
+        // Demander d'abord l'autorisation caméra avec qualité maximale
+        const videoConstraints = {
+          width: { ideal: 3840, max: 3840, min: 640 },
+          height: { ideal: 2160, max: 2160, min: 480 },
+          frameRate: { ideal: 60, max: 60, min: 15 },
+          facingMode: 'user'
+        };
+
+        let stream;
+        try {
+          // Tentative 4K
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: videoConstraints,
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              sampleRate: 48000
+            }
+          });
+        } catch (e) {
+          // Fallback Full HD
+          const hdConstraints = {
+            width: { ideal: 1920, max: 1920, min: 640 },
+            height: { ideal: 1080, max: 1080, min: 480 },
+            frameRate: { ideal: 30, max: 30, min: 15 },
+            facingMode: 'user'
+          };
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: hdConstraints,
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            }
+          });
+        }
+
+        localStreamRef.current = stream;
+        
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+
+        // Désactiver par défaut mais autorisation obtenue
+        stream.getAudioTracks().forEach(track => track.enabled = false);
+        stream.getVideoTracks().forEach(track => track.enabled = false);
+        
+        setIsAudioEnabled(false);
+        setIsVideoEnabled(false);
+
+        const videoTrack = stream.getVideoTracks()[0];
+        const settings = videoTrack ? videoTrack.getSettings() : null;
+        
+        toast({
+          title: "Vidéoconférence prête",
+          description: settings ? `Résolution: ${settings.width}x${settings.height}` : "Cliquez sur les boutons pour activer micro/caméra"
+        });
+
+      } catch (permissionError) {
+        console.log('Autorisation refusée au démarrage:', permissionError);
+        
+        // Continuer sans stream, l'utilisateur pourra activer manuellement
+        setIsAudioEnabled(false);
+        setIsVideoEnabled(false);
+        
+        toast({
+          title: "Autorisations requises",
+          description: "Cliquez sur micro/caméra pour autoriser l'accès",
+          variant: "default"
+        });
+      }
 
     } catch (error) {
       console.error('Erreur initialisation:', error);
+      toast({
+        title: "Erreur d'initialisation",
+        description: "Impossible d'initialiser la vidéoconférence",
+        variant: "destructive"
+      });
     }
   };
 
@@ -434,25 +507,52 @@ const VideoConferenceWebRTC: React.FC = () => {
     }
   };
 
-  // Contrôles vidéo améliorés
+  // Contrôles vidéo améliorés avec autorisation forcée
   const toggleVideo = async () => {
     try {
-      if (!localStreamRef.current) {
+      if (!isVideoEnabled) {
+        // Demande explicite d'autorisation avec contraintes 4K
         const videoConstraints = {
-          width: videoQuality === 'high' ? { ideal: 1920 } : videoQuality === 'medium' ? { ideal: 1280 } : { ideal: 640 },
-          height: videoQuality === 'high' ? { ideal: 1080 } : videoQuality === 'medium' ? { ideal: 720 } : { ideal: 480 },
-          frameRate: { ideal: 30 },
+          width: { ideal: 3840, max: 3840, min: 640 },
+          height: { ideal: 2160, max: 2160, min: 480 },
+          frameRate: { ideal: 60, max: 60, min: 15 },
           facingMode: 'user'
         };
 
-        const videoStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
+        // Première tentative avec 4K
+        let stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: videoConstraints,
+            audio: false 
+          });
+        } catch (e) {
+          // Fallback vers Full HD si 4K échoue
+          const hdConstraints = {
+            width: { ideal: 1920, max: 1920, min: 640 },
+            height: { ideal: 1080, max: 1080, min: 480 },
+            frameRate: { ideal: 30, max: 30, min: 15 },
+            facingMode: 'user'
+          };
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: hdConstraints,
+            audio: false 
+          });
+        }
         
-        if (!localStreamRef.current) {
-          localStreamRef.current = videoStream;
-        } else {
-          videoStream.getVideoTracks().forEach(track => {
+        // Remplacer ou ajouter le track vidéo
+        if (localStreamRef.current) {
+          const existingVideoTrack = localStreamRef.current.getVideoTracks()[0];
+          if (existingVideoTrack) {
+            localStreamRef.current.removeTrack(existingVideoTrack);
+            existingVideoTrack.stop();
+          }
+          
+          stream.getVideoTracks().forEach(track => {
             localStreamRef.current?.addTrack(track);
           });
+        } else {
+          localStreamRef.current = stream;
         }
         
         if (localVideoRef.current) {
@@ -461,34 +561,82 @@ const VideoConferenceWebRTC: React.FC = () => {
         
         setIsVideoEnabled(true);
         
+        // Ajouter aux connexions peer
         peerConnectionsRef.current.forEach(pc => {
-          videoStream.getVideoTracks().forEach(track => {
-            pc.addTrack(track, localStreamRef.current!);
+          stream.getVideoTracks().forEach(track => {
+            const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+            if (sender) {
+              sender.replaceTrack(track);
+            } else {
+              pc.addTrack(track, localStreamRef.current!);
+            }
           });
         });
         
-        toast({ title: "Caméra activée" });
+        const videoTrack = stream.getVideoTracks()[0];
+        const settings = videoTrack.getSettings();
+        
+        toast({ 
+          title: "Caméra activée", 
+          description: `${settings.width}x${settings.height} @ ${settings.frameRate}fps`
+        });
+        
       } else {
-        const videoTrack = localStreamRef.current.getVideoTracks()[0];
-        if (videoTrack) {
-          videoTrack.enabled = !videoTrack.enabled;
-          setIsVideoEnabled(videoTrack.enabled);
-          toast({ title: videoTrack.enabled ? "Caméra activée" : "Caméra désactivée" });
+        // Désactiver la vidéo
+        if (localStreamRef.current) {
+          const videoTrack = localStreamRef.current.getVideoTracks()[0];
+          if (videoTrack) {
+            videoTrack.stop();
+            localStreamRef.current.removeTrack(videoTrack);
+          }
         }
+        
+        setIsVideoEnabled(false);
+        toast({ title: "Caméra désactivée" });
       }
+      
+      // Notifier les autres participants
+      wsRef.current?.send(JSON.stringify({
+        type: 'participant-update',
+        participant: {
+          id: authUser?.id.toString(),
+          videoEnabled: !isVideoEnabled
+        }
+      }));
+      
     } catch (error) {
       console.error('Erreur toggle vidéo:', error);
       if (error instanceof DOMException) {
         if (error.name === 'NotAllowedError') {
+          // Guide l'utilisateur pour autoriser la caméra
           toast({
-            title: "Permission refusée",
-            description: "Autorisez l'accès à la caméra dans votre navigateur",
+            title: "Autorisation caméra requise",
+            description: "Cliquez sur l'icône caméra dans la barre d'adresse pour autoriser l'accès",
             variant: "destructive"
           });
+          
+          // Tentative de redirection vers les paramètres
+          if (navigator.permissions) {
+            navigator.permissions.query({name: 'camera' as PermissionName}).then(result => {
+              if (result.state === 'denied') {
+                toast({
+                  title: "Caméra bloquée",
+                  description: "Débloquez la caméra dans les paramètres du navigateur",
+                  variant: "destructive"
+                });
+              }
+            });
+          }
         } else if (error.name === 'NotFoundError') {
           toast({
             title: "Caméra non trouvée",
             description: "Aucune caméra détectée sur cet appareil",
+            variant: "destructive"
+          });
+        } else if (error.name === 'NotReadableError') {
+          toast({
+            title: "Caméra occupée",
+            description: "La caméra est utilisée par une autre application",
             variant: "destructive"
           });
         }
@@ -640,30 +788,110 @@ const VideoConferenceWebRTC: React.FC = () => {
     toast({ title: "Code de réunion copié" });
   };
 
-  // Gestion automatique de la barre de contrôles
+  // Gestion automatique de la barre de contrôles comme Jitsi
   useEffect(() => {
-    setShowControlBar(true);
-    const timeout = setTimeout(() => setShowControlBar(false), 4000);
-    setControlBarTimeout(timeout);
+    let hideTimeout: NodeJS.Timeout;
     
-    const handleMouseMove = () => {
+    const hideControlBar = () => {
+      hideTimeout = setTimeout(() => {
+        setShowControlBar(false);
+      }, 3000);
+    };
+    
+    const showControlBar = () => {
       setShowControlBar(true);
-      if (controlBarTimeout) {
-        clearTimeout(controlBarTimeout);
+      clearTimeout(hideTimeout);
+      hideTimeout = setTimeout(() => {
+        setShowControlBar(false);
+      }, 3000);
+    };
+
+    // Afficher au début puis cacher
+    setShowControlBar(true);
+    hideControlBar();
+    
+    // Écouter les mouvements de souris
+    const handleMouseMove = (e: MouseEvent) => {
+      // Afficher seulement si la souris est dans le tiers inférieur
+      if (e.clientY > window.innerHeight * 0.7) {
+        showControlBar();
       }
-      const newTimeout = setTimeout(() => setShowControlBar(false), 4000);
-      setControlBarTimeout(newTimeout);
+    };
+
+    const handleMouseLeave = () => {
+      setShowControlBar(false);
+      clearTimeout(hideTimeout);
     };
 
     window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseleave', handleMouseLeave);
     
     return () => {
-      if (controlBarTimeout) {
-        clearTimeout(controlBarTimeout);
-      }
+      clearTimeout(hideTimeout);
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseleave', handleMouseLeave);
     };
-  }, [controlBarTimeout]);
+  }, []);
+
+  // Mode plein écran système (pas navigateur)
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        // Entrer en mode plein écran système
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) {
+          await elem.requestFullscreen();
+        } else if ((elem as any).webkitRequestFullscreen) {
+          await (elem as any).webkitRequestFullscreen();
+        } else if ((elem as any).mozRequestFullScreen) {
+          await (elem as any).mozRequestFullScreen();
+        } else if ((elem as any).msRequestFullscreen) {
+          await (elem as any).msRequestFullscreen();
+        }
+        setIsFullscreen(true);
+        toast({ title: "Mode plein écran activé" });
+      } else {
+        // Sortir du mode plein écran
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        } else if ((document as any).mozCancelFullScreen) {
+          await (document as any).mozCancelFullScreen();
+        } else if ((document as any).msExitFullscreen) {
+          await (document as any).msExitFullscreen();
+        }
+        setIsFullscreen(false);
+        toast({ title: "Mode plein écran désactivé" });
+      }
+    } catch (error) {
+      console.error('Erreur plein écran:', error);
+      toast({
+        title: "Erreur plein écran",
+        description: "Impossible d'activer le mode plein écran",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Écouter les changements de plein écran
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
 
   // Raccourcis clavier
   useEffect(() => {
@@ -689,7 +917,13 @@ const VideoConferenceWebRTC: React.FC = () => {
           break;
         case 'f':
           event.preventDefault();
-          setIsFullscreen(!isFullscreen);
+          toggleFullscreen();
+          break;
+        case 'escape':
+          if (isFullscreen) {
+            event.preventDefault();
+            toggleFullscreen();
+          }
           break;
       }
     };
@@ -731,22 +965,20 @@ const VideoConferenceWebRTC: React.FC = () => {
 
   return (
     <TooltipProvider>
-      <div className={`h-screen w-screen bg-black text-white flex flex-col overflow-hidden relative ${
-        isMinimized ? 'fixed bottom-4 right-4 w-96 h-64 z-50 rounded-xl shadow-2xl border border-gray-600' : ''
-      } ${isFullscreen ? 'fixed inset-0 z-[9999]' : ''}`}>
+      <div className="h-screen w-screen bg-black text-white overflow-hidden relative">
         
-        {/* Barre de navigation ultra-transparente */}
-        <div className={`absolute top-0 left-0 right-0 z-30 transition-all duration-300 ${
-          showControlBar ? 'bg-black/20 backdrop-blur-sm' : 'bg-transparent'
+        {/* Barre de navigation ultra-transparente - invisible par défaut */}
+        <div className={`absolute top-0 left-0 right-0 z-30 transition-all duration-500 ${
+          showControlBar ? 'opacity-100 bg-black/10 backdrop-blur-sm' : 'opacity-0 pointer-events-none'
         }`}>
-          <div className="px-6 py-3 flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+          <div className="px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-2">
-                <div className={`w-2 h-2 rounded-full ${
-                  connectionStatus === 'connected' ? 'bg-green-500' : 
-                  connectionStatus === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
+                <div className={`w-1.5 h-1.5 rounded-full ${
+                  connectionStatus === 'connected' ? 'bg-green-400' : 
+                  connectionStatus === 'connecting' ? 'bg-yellow-400' : 'bg-red-400'
                 }`}></div>
-                <h1 className="font-bold text-sm bg-gradient-to-r from-blue-400 to-green-400 bg-clip-text text-transparent">
+                <h1 className="font-medium text-xs text-white/80">
                   RonyMeet Pro
                 </h1>
               </div>
@@ -755,16 +987,16 @@ const VideoConferenceWebRTC: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={copyRoomCode}
-                className="text-xs border border-gray-600/50 hover:bg-gray-700/30 h-8"
+                className="text-xs border border-white/20 hover:bg-white/10 h-6 px-2 text-white/70"
               >
-                <Copy className="h-3 w-3 mr-1" />
+                <Copy className="h-2.5 w-2.5 mr-1" />
                 {roomCode}
               </Button>
               
-              <Badge variant="secondary" className="bg-blue-600/20 border-blue-600 text-blue-200 text-xs">
-                <Users className="h-3 w-3 mr-1" />
+              <div className="bg-white/10 px-2 py-1 rounded text-xs text-white/70">
+                <Users className="h-2.5 w-2.5 mr-1 inline" />
                 {participants.size + 1}
-              </Badge>
+              </div>
             </div>
             
             <div className="flex items-center space-x-1">
@@ -772,97 +1004,109 @@ const VideoConferenceWebRTC: React.FC = () => {
                 variant="ghost" 
                 size="sm" 
                 onClick={() => setLayoutMode(layoutMode === 'grid' ? 'speaker' : 'grid')}
-                className="hover:bg-gray-700/30 h-8 w-8 p-0"
+                className="hover:bg-white/10 h-6 w-6 p-0 text-white/70"
               >
-                {layoutMode === 'grid' ? <PictureInPicture className="h-3 w-3" /> : <Grid3X3 className="h-3 w-3" />}
+                {layoutMode === 'grid' ? <PictureInPicture className="h-2.5 w-2.5" /> : <Grid3X3 className="h-2.5 w-2.5" />}
               </Button>
               
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                className="hover:bg-gray-700/30 h-8 w-8 p-0"
+                onClick={toggleFullscreen}
+                className="hover:bg-white/10 h-6 w-6 p-0 text-white/70"
               >
-                {isFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+                {isFullscreen ? <Minimize2 className="h-2.5 w-2.5" /> : <Maximize2 className="h-2.5 w-2.5" />}
               </Button>
               
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={leaveRoom} 
-                className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8 p-0"
+                className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-6 w-6 p-0"
               >
-                <X className="h-3 w-3" />
+                <X className="h-2.5 w-2.5" />
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Zone vidéo principale - plein écran */}
+        {/* Zone vidéo principale - ultra-transparente et légère */}
         <div className="absolute inset-0 bg-black">
-          {/* Grille des participants - occupe tout l'écran */}
-          <div className={`h-full ${getGridLayout()}`} style={{paddingTop: '48px'}}>
-            {/* Vidéo locale */}
+          {/* Grille des participants - interface minimale */}
+          <div className={`h-full ${getGridLayout()}`} style={{padding: participants.size === 0 ? '20px' : '4px'}}>
+            {/* Vidéo locale - ultra-légère */}
             <div className="relative group">
-              <div className="relative bg-gray-900/50 rounded-lg overflow-hidden h-full">
+              <div className="relative bg-transparent overflow-hidden h-full rounded-sm">
                 <video
                   ref={localVideoRef}
                   autoPlay
                   muted
                   playsInline
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover rounded-sm"
+                  style={{
+                    filter: 'brightness(1.1) contrast(1.05)',
+                    transform: 'scale(1.01)'
+                  }}
                 />
                 
-                {/* Overlay informations */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent">
-                  <div className="absolute bottom-2 left-2">
-                    <div className="bg-black/60 backdrop-blur-sm px-2 py-1 rounded text-xs">
-                      <span className="text-white font-medium">
+                {/* Overlay ultra-transparent - n'apparaît qu'au survol */}
+                <div className={`absolute inset-0 transition-all duration-300 ${
+                  showControlBar ? 'bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-100' : 'opacity-0'
+                }`}>
+                  <div className="absolute bottom-1 left-1">
+                    <div className="bg-black/30 backdrop-blur-sm px-1.5 py-0.5 rounded text-xs">
+                      <span className="text-white/90 font-medium text-xs">
                         {localParticipant?.name} (Vous)
                       </span>
                     </div>
                   </div>
                 </div>
                 
-                {/* Indicateurs d'état */}
-                <div className="absolute top-2 right-2 flex space-x-1">
+                {/* Indicateurs d'état ultra-minimalistes */}
+                <div className={`absolute top-1 right-1 flex space-x-0.5 transition-opacity duration-300 ${
+                  showControlBar ? 'opacity-100' : 'opacity-30'
+                }`}>
                   {!isAudioEnabled && (
-                    <div className="bg-red-600/90 p-1 rounded">
-                      <MicOff className="h-3 w-3 text-white" />
+                    <div className="bg-red-500/80 p-0.5 rounded-sm">
+                      <MicOff className="h-2.5 w-2.5 text-white" />
                     </div>
                   )}
                   {isScreenSharing && (
-                    <div className="bg-blue-600/90 p-1 rounded">
-                      <ScreenShare className="h-3 w-3 text-white" />
+                    <div className="bg-blue-500/80 p-0.5 rounded-sm">
+                      <ScreenShare className="h-2.5 w-2.5 text-white" />
                     </div>
                   )}
                   {isHandRaised && (
-                    <div className="bg-yellow-500/90 p-1 rounded">
-                      <Hand className="h-3 w-3 text-white" />
+                    <div className="bg-yellow-500/80 p-0.5 rounded-sm">
+                      <Hand className="h-2.5 w-2.5 text-white" />
                     </div>
                   )}
                 </div>
                 
-                {/* Placeholder vidéo désactivée */}
+                {/* Placeholder vidéo désactivée - ultra-minimaliste */}
                 {!isVideoEnabled && (
-                  <div className="absolute inset-0 bg-gray-800 flex flex-col items-center justify-center">
-                    <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mb-2">
-                      <Camera className="h-8 w-8 text-gray-400" />
+                  <div className="absolute inset-0 bg-gray-900/90 flex flex-col items-center justify-center">
+                    <div className="w-12 h-12 bg-gray-700/50 rounded-full flex items-center justify-center mb-1">
+                      <Camera className="h-6 w-6 text-gray-400" />
                     </div>
-                    <p className="text-gray-400 text-sm">Caméra désactivée</p>
+                    <p className="text-gray-400 text-xs">Caméra désactivée</p>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Vidéos des participants distants */}
+            {/* Vidéos des participants distants - ultra-légères */}
             {Array.from(participants.values()).map((participant) => (
               <div key={participant.id} className="relative group">
-                <div className="relative bg-gray-900/50 rounded-lg overflow-hidden h-full">
+                <div className="relative bg-transparent overflow-hidden h-full rounded-sm">
                   <video
                     autoPlay
                     playsInline
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover rounded-sm"
+                    style={{
+                      filter: 'brightness(1.1) contrast(1.05)',
+                      transform: 'scale(1.01)'
+                    }}
                     ref={(video) => {
                       if (video && participant.stream) {
                         video.srcObject = participant.stream;
@@ -870,33 +1114,37 @@ const VideoConferenceWebRTC: React.FC = () => {
                     }}
                   />
                   
-                  {/* Overlay informations */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent">
-                    <div className="absolute bottom-2 left-2">
-                      <div className="bg-black/60 backdrop-blur-sm px-2 py-1 rounded text-xs">
-                        <span className="text-white font-medium">
+                  {/* Overlay ultra-transparent */}
+                  <div className={`absolute inset-0 transition-all duration-300 ${
+                    showControlBar ? 'bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-100' : 'opacity-0'
+                  }`}>
+                    <div className="absolute bottom-1 left-1">
+                      <div className="bg-black/30 backdrop-blur-sm px-1.5 py-0.5 rounded text-xs">
+                        <span className="text-white/90 font-medium text-xs">
                           {participant.name}
                         </span>
                       </div>
                     </div>
                   </div>
                   
-                  {/* Indicateurs d'état */}
-                  <div className="absolute top-2 right-2 flex space-x-1">
+                  {/* Indicateurs d'état minimalistes */}
+                  <div className={`absolute top-1 right-1 flex space-x-0.5 transition-opacity duration-300 ${
+                    showControlBar ? 'opacity-100' : 'opacity-30'
+                  }`}>
                     {!participant.audioEnabled && (
-                      <div className="bg-red-600/90 p-1 rounded">
-                        <MicOff className="h-3 w-3 text-white" />
+                      <div className="bg-red-500/80 p-0.5 rounded-sm">
+                        <MicOff className="h-2.5 w-2.5 text-white" />
                       </div>
                     )}
                   </div>
                   
-                  {/* Placeholder vidéo désactivée */}
+                  {/* Placeholder vidéo désactivée - minimaliste */}
                   {!participant.videoEnabled && (
-                    <div className="absolute inset-0 bg-gray-800 flex flex-col items-center justify-center">
-                      <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mb-2">
-                        <Users className="h-8 w-8 text-gray-400" />
+                    <div className="absolute inset-0 bg-gray-900/90 flex flex-col items-center justify-center">
+                      <div className="w-12 h-12 bg-gray-700/50 rounded-full flex items-center justify-center mb-1">
+                        <Users className="h-6 w-6 text-gray-400" />
                       </div>
-                      <p className="text-gray-400 text-sm">{participant.name}</p>
+                      <p className="text-gray-400 text-xs">{participant.name}</p>
                     </div>
                   )}
                 </div>
@@ -904,167 +1152,148 @@ const VideoConferenceWebRTC: React.FC = () => {
             ))}
           </div>
 
-          {/* Barre de contrôles dynamique comme Jitsi */}
+          {/* Barre de contrôles ultra-transparente comme Jitsi */}
           <div 
             className={`absolute bottom-0 left-0 right-0 z-40 transition-all duration-500 ease-in-out ${
-              showControlBar ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
+              showControlBar ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'
             }`}
-            onMouseEnter={() => {
-              setShowControlBar(true);
-              if (controlBarTimeout) {
-                clearTimeout(controlBarTimeout);
-                setControlBarTimeout(null);
-              }
-            }}
-            onMouseLeave={() => {
-              const timeout = setTimeout(() => setShowControlBar(false), 3000);
-              setControlBarTimeout(timeout);
-            }}
           >
-            <div className="bg-gradient-to-t from-black/80 via-black/60 to-transparent pt-20 pb-6">
+            <div className="bg-gradient-to-t from-black/40 via-black/20 to-transparent pt-16 pb-4">
               <div className="flex justify-center">
-                <div className="bg-black/30 backdrop-blur-xl rounded-2xl px-6 py-3 border border-gray-700/20 shadow-2xl">
-                  <div className="flex items-center space-x-3">
-                    {/* Contrôles principaux */}
+                <div className="bg-black/20 backdrop-blur-md rounded-full px-4 py-2 border border-white/10 shadow-xl">
+                  <div className="flex items-center space-x-2">
+                    {/* Contrôles principaux ultra-compacts */}
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
-                          variant={isAudioEnabled ? "secondary" : "destructive"}
-                          size="lg"
+                          variant={isAudioEnabled ? "ghost" : "destructive"}
+                          size="sm"
                           onClick={toggleAudio}
-                          className="rounded-full w-12 h-12 p-0 transition-all duration-200 hover:scale-105"
+                          className={`rounded-full w-9 h-9 p-0 transition-all duration-200 hover:scale-110 ${
+                            isAudioEnabled ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-red-500/80 hover:bg-red-500'
+                          }`}
                         >
-                          {isAudioEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+                          {isAudioEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>
-                        {isAudioEnabled ? "Désactiver le micro" : "Activer le micro"}
+                      <TooltipContent side="top" className="bg-black/80 text-white border-white/20">
+                        {isAudioEnabled ? "Désactiver le micro (M)" : "Activer le micro (M)"}
                       </TooltipContent>
                     </Tooltip>
                     
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
-                          variant={isVideoEnabled ? "secondary" : "destructive"}
-                          size="lg"
+                          variant={isVideoEnabled ? "ghost" : "destructive"}
+                          size="sm"
                           onClick={toggleVideo}
-                          className="rounded-full w-12 h-12 p-0 transition-all duration-200 hover:scale-105"
+                          className={`rounded-full w-9 h-9 p-0 transition-all duration-200 hover:scale-110 ${
+                            isVideoEnabled ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-red-500/80 hover:bg-red-500'
+                          }`}
                         >
-                          {isVideoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+                          {isVideoEnabled ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>
-                        {isVideoEnabled ? "Désactiver la caméra" : "Activer la caméra"}
+                      <TooltipContent side="top" className="bg-black/80 text-white border-white/20">
+                        {isVideoEnabled ? "Désactiver la caméra (V)" : "Activer la caméra (V)"}
                       </TooltipContent>
                     </Tooltip>
+                    
+                    <div className="w-px h-6 bg-white/20"></div>
                     
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
-                          variant={isScreenSharing ? "default" : "secondary"}
+                          variant="ghost"
                           size="sm"
                           onClick={startScreenShare}
-                          className="rounded-full w-10 h-10 p-0 transition-all duration-200 hover:scale-105"
+                          className={`rounded-full w-8 h-8 p-0 transition-all duration-200 hover:scale-110 ${
+                            isScreenSharing ? 'bg-blue-500/80 text-white' : 'bg-white/10 hover:bg-white/20 text-white/80'
+                          }`}
                         >
-                          {isScreenSharing ? <ScreenShareOff className="h-4 w-4" /> : <ScreenShare className="h-4 w-4" />}
+                          {isScreenSharing ? <ScreenShareOff className="h-3.5 w-3.5" /> : <ScreenShare className="h-3.5 w-3.5" />}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>
-                        {isScreenSharing ? "Arrêter le partage" : "Partager l'écran"}
+                      <TooltipContent side="top" className="bg-black/80 text-white border-white/20">
+                        {isScreenSharing ? "Arrêter le partage (S)" : "Partager l'écran (S)"}
                       </TooltipContent>
                     </Tooltip>
                     
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
-                          variant={isRecording ? "destructive" : "secondary"}
-                          size="sm"
-                          onClick={toggleRecording}
-                          className="rounded-full w-10 h-10 p-0 transition-all duration-200 hover:scale-105"
-                        >
-                          <Circle className={`h-4 w-4 ${isRecording ? 'animate-pulse' : ''}`} />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {isRecording ? "Arrêter l'enregistrement" : "Démarrer l'enregistrement"}
-                      </TooltipContent>
-                    </Tooltip>
-                    
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant={isHandRaised ? "default" : "secondary"}
+                          variant="ghost"
                           size="sm"
                           onClick={() => setIsHandRaised(!isHandRaised)}
-                          className="rounded-full w-10 h-10 p-0 transition-all duration-200 hover:scale-105"
+                          className={`rounded-full w-8 h-8 p-0 transition-all duration-200 hover:scale-110 ${
+                            isHandRaised ? 'bg-yellow-500/80 text-white' : 'bg-white/10 hover:bg-white/20 text-white/80'
+                          }`}
                         >
-                          <Hand className="h-4 w-4" />
+                          <Hand className="h-3.5 w-3.5" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>
-                        {isHandRaised ? "Baisser la main" : "Lever la main"}
+                      <TooltipContent side="top" className="bg-black/80 text-white border-white/20">
+                        {isHandRaised ? "Baisser la main (R)" : "Lever la main (R)"}
                       </TooltipContent>
                     </Tooltip>
                     
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
-                          variant={showParticipants ? "default" : "secondary"}
+                          variant="ghost"
                           size="sm"
                           onClick={() => setShowParticipants(!showParticipants)}
-                          className="rounded-full w-10 h-10 p-0 transition-all duration-200 hover:scale-105"
+                          className={`rounded-full w-8 h-8 p-0 transition-all duration-200 hover:scale-110 ${
+                            showParticipants ? 'bg-green-500/80 text-white' : 'bg-white/10 hover:bg-white/20 text-white/80'
+                          }`}
                         >
-                          <Users className="h-4 w-4" />
+                          <Users className="h-3.5 w-3.5" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Participants</TooltipContent>
+                      <TooltipContent side="top" className="bg-black/80 text-white border-white/20">
+                        Participants ({participants.size + 1})
+                      </TooltipContent>
                     </Tooltip>
                     
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
-                          variant={showChat ? "default" : "secondary"}
+                          variant="ghost"
                           size="sm"
                           onClick={() => setShowChat(!showChat)}
-                          className="rounded-full w-10 h-10 p-0 transition-all duration-200 hover:scale-105 relative"
+                          className={`rounded-full w-8 h-8 p-0 transition-all duration-200 hover:scale-110 relative ${
+                            showChat ? 'bg-blue-500/80 text-white' : 'bg-white/10 hover:bg-white/20 text-white/80'
+                          }`}
                         >
-                          <MessageSquare className="h-4 w-4" />
+                          <MessageSquare className="h-3.5 w-3.5" />
                           {chatMessages.length > 0 && (
-                            <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                              {chatMessages.length}
+                            <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-3 h-3 flex items-center justify-center">
+                              {chatMessages.length > 9 ? '9+' : chatMessages.length}
                             </div>
                           )}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Chat</TooltipContent>
+                      <TooltipContent side="top" className="bg-black/80 text-white border-white/20">
+                        Chat {chatMessages.length > 0 && `(${chatMessages.length})`}
+                      </TooltipContent>
                     </Tooltip>
                     
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant={showSettings ? "default" : "secondary"}
-                          size="sm"
-                          onClick={() => setShowSettings(!showSettings)}
-                          className="rounded-full w-10 h-10 p-0 transition-all duration-200 hover:scale-105"
-                        >
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Paramètres</TooltipContent>
-                    </Tooltip>
+                    <div className="w-px h-6 bg-white/20"></div>
                     
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
                           variant="destructive"
-                          size="lg"
+                          size="sm"
                           onClick={leaveRoom}
-                          className="rounded-full w-12 h-12 p-0 transition-all duration-200 hover:scale-105"
+                          className="rounded-full w-9 h-9 p-0 transition-all duration-200 hover:scale-110 bg-red-500/80 hover:bg-red-500"
                         >
-                          <PhoneOff className="h-5 w-5" />
+                          <PhoneOff className="h-4 w-4" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Quitter la réunion</TooltipContent>
+                      <TooltipContent side="top" className="bg-black/80 text-white border-white/20">
+                        Quitter la réunion
+                      </TooltipContent>
                     </Tooltip>
                   </div>
                 </div>
