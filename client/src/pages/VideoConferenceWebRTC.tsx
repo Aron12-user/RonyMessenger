@@ -808,31 +808,40 @@ const VideoConferenceWebRTC: React.FC = () => {
       switch (videoQuality) {
         case '8k':
           return [
-            // 8K Ultra HD avec gestion intelligente des bugs
+            // 8K Ultra HD avec gestion ultra-intelligente des bugs
             {
-              width: { ideal: 7680, max: 7680 },
-              height: { ideal: 4320, max: 4320 },
-              frameRate: { ideal: 120, max: 120 },
-              facingMode: 'user'
+              width: { ideal: 7680, max: 7680, min: 3840 },
+              height: { ideal: 4320, max: 4320, min: 2160 },
+              frameRate: { ideal: 120, max: 120, min: 60 },
+              facingMode: 'user',
+              aspectRatio: 1.777777778
             },
             {
-              width: { ideal: 7680, max: 7680 },
-              height: { ideal: 4320, max: 4320 },
-              frameRate: { ideal: 60, max: 60 },
+              width: { ideal: 7680, max: 7680, min: 3840 },
+              height: { ideal: 4320, max: 4320, min: 2160 },
+              frameRate: { ideal: 60, max: 60, min: 30 },
+              facingMode: 'user',
+              aspectRatio: 1.777777778
+            },
+            // 6K fallback intelligent
+            {
+              width: { ideal: 6144, max: 6144, min: 3840 },
+              height: { ideal: 3456, max: 3456, min: 2160 },
+              frameRate: { ideal: 60, min: 30 },
               facingMode: 'user'
             },
             // 5K fallback
             {
-              width: { ideal: 5120, max: 5120 },
-              height: { ideal: 2880, max: 2880 },
-              frameRate: { ideal: 60 },
+              width: { ideal: 5120, max: 5120, min: 2560 },
+              height: { ideal: 2880, max: 2880, min: 1440 },
+              frameRate: { ideal: 60, min: 30 },
               facingMode: 'user'
             },
-            // 4K fallback
+            // 4K fallback robuste
             {
-              width: { ideal: 3840, max: 3840 },
-              height: { ideal: 2160, max: 2160 },
-              frameRate: { ideal: 60 },
+              width: { ideal: 3840, max: 3840, min: 1920 },
+              height: { ideal: 2160, max: 2160, min: 1080 },
+              frameRate: { ideal: 60, min: 30 },
               facingMode: 'user'
             }
           ];
@@ -868,25 +877,27 @@ const VideoConferenceWebRTC: React.FC = () => {
           ];
         case 'high':
           return [
-            // Full HD 120fps
+            // Full HD 120fps avec gestion intelligente des bugs
             {
-              width: { ideal: 1920, max: 1920 },
-              height: { ideal: 1080, max: 1080 },
-              frameRate: { ideal: 120 },
-              facingMode: 'user'
+              width: { ideal: 1920, max: 1920, min: 1280 },
+              height: { ideal: 1080, max: 1080, min: 720 },
+              frameRate: { ideal: 120, max: 120, min: 60 },
+              facingMode: 'user',
+              aspectRatio: 1.777777778
             },
             // Full HD 60fps
             {
-              width: { ideal: 1920, max: 1920 },
-              height: { ideal: 1080, max: 1080 },
-              frameRate: { ideal: 60 },
-              facingMode: 'user'
+              width: { ideal: 1920, max: 1920, min: 1280 },
+              height: { ideal: 1080, max: 1080, min: 720 },
+              frameRate: { ideal: 60, max: 60, min: 30 },
+              facingMode: 'user',
+              aspectRatio: 1.777777778
             },
-            // Full HD 30fps
+            // Full HD 30fps robuste
             {
-              width: { ideal: 1920, max: 1920 },
-              height: { ideal: 1080, max: 1080 },
-              frameRate: { ideal: 30 },
+              width: { ideal: 1920, max: 1920, min: 1280 },
+              height: { ideal: 1080, max: 1080, min: 720 },
+              frameRate: { ideal: 30, max: 30, min: 24 },
               facingMode: 'user'
             }
           ];
@@ -1244,13 +1255,18 @@ const VideoConferenceWebRTC: React.FC = () => {
       console.log('Envoi message chat:', chatMsg);
       wsRef.current.send(JSON.stringify(chatMsg));
       
-      // Ajouter immédiatement le message localement
-      setChatMessages(prev => [...prev, {
-        id: chatMsg.message.id,
-        sender: chatMsg.message.sender,
-        message: chatMsg.message.text,
-        timestamp: new Date()
-      }]);
+      // Ajouter immédiatement le message localement pour éviter les délais
+      setChatMessages(prev => {
+        const exists = prev.find(msg => msg.id === chatMsg.message.id);
+        if (exists) return prev;
+        
+        return [...prev, {
+          id: chatMsg.message.id,
+          sender: chatMsg.message.sender,
+          message: chatMsg.message.text,
+          timestamp: new Date()
+        }];
+      });
       
       setNewMessage('');
       
@@ -1400,44 +1416,7 @@ const VideoConferenceWebRTC: React.FC = () => {
     };
   }, []);
 
-  // Raccourcis clavier
-  useEffect(() => {
-    const handleKeyPress = (event: KeyboardEvent) => {
-      if (event.ctrlKey || event.metaKey || event.altKey) return;
-      
-      switch (event.key.toLowerCase()) {
-        case 'm':
-          event.preventDefault();
-          toggleAudio();
-          break;
-        case 'v':
-          event.preventDefault();
-          toggleVideo();
-          break;
-        case 's':
-          event.preventDefault();
-          startScreenShare();
-          break;
-        case 'r':
-          event.preventDefault();
-          setIsHandRaised(!isHandRaised);
-          break;
-        case 'f':
-          event.preventDefault();
-          toggleFullscreen();
-          break;
-        case 'escape':
-          if (isFullscreen) {
-            event.preventDefault();
-            toggleFullscreen();
-          }
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isHandRaised, isFullscreen]);
+  // Raccourcis clavier SUPPRIMÉS pour éviter les conflits avec le chat
 
   // Initialisation
   useEffect(() => {
@@ -1684,7 +1663,7 @@ const VideoConferenceWebRTC: React.FC = () => {
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="bg-black/80 text-white border-white/20">
-                        {isAudioEnabled ? "Désactiver le micro (M)" : "Activer le micro (M)"}
+                        {isAudioEnabled ? "Désactiver le micro" : "Activer le micro"}
                       </TooltipContent>
                     </Tooltip>
                     
@@ -1702,7 +1681,7 @@ const VideoConferenceWebRTC: React.FC = () => {
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="bg-black/80 text-white border-white/20">
-                        {isVideoEnabled ? "Désactiver la caméra (V)" : "Activer la caméra (V)"}
+                        {isVideoEnabled ? "Désactiver la caméra" : "Activer la caméra"}
                       </TooltipContent>
                     </Tooltip>
                     
@@ -1722,7 +1701,7 @@ const VideoConferenceWebRTC: React.FC = () => {
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="bg-black/80 text-white border-white/20">
-                        {isScreenSharing ? "Arrêter le partage (S)" : "Partager l'écran (S)"}
+                        {isScreenSharing ? "Arrêter le partage" : "Partager l'écran"}
                       </TooltipContent>
                     </Tooltip>
                     
@@ -1740,7 +1719,7 @@ const VideoConferenceWebRTC: React.FC = () => {
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="bg-black/80 text-white border-white/20">
-                        {isHandRaised ? "Baisser la main (R)" : "Lever la main (R)"}
+                        {isHandRaised ? "Baisser la main" : "Lever la main"}
                       </TooltipContent>
                     </Tooltip>
                     
@@ -2051,18 +2030,32 @@ const VideoConferenceWebRTC: React.FC = () => {
                         }}
                         ref={(video) => {
                           if (video && participant.stream) {
-                            // IMPORTANT: Toujours utiliser la caméra du participant, jamais le partage d'écran
-                            const participantCameraStream = participant.stream;
+                            // PANNEAU PARTICIPANTS: Affiche UNIQUEMENT les vidéos caméra, JAMAIS le partage d'écran
+                            const participantStream = participant.stream;
                             
-                            // Vérifier si c'est un stream de caméra (pas de partage d'écran)
-                            const videoTrack = participantCameraStream.getVideoTracks()[0];
-                            if (videoTrack && videoTrack.label && !videoTrack.label.includes('screen')) {
-                              console.log(`Attribution stream CAMÉRA participant ${participant.id}:`, participantCameraStream);
-                              video.srcObject = participantCameraStream;
+                            if (participantStream) {
+                              const videoTrack = participantStream.getVideoTracks()[0];
                               
-                              video.play().catch(e => {
-                                console.log('Lecture automatique bloquée (normal):', e);
-                              });
+                              // Filtrage strict: seulement les caméras, pas les écrans partagés
+                              if (videoTrack && 
+                                  !videoTrack.label.toLowerCase().includes('screen') && 
+                                  !videoTrack.label.toLowerCase().includes('display') &&
+                                  !videoTrack.label.toLowerCase().includes('desktop') &&
+                                  !videoTrack.label.toLowerCase().includes('monitor')) {
+                                
+                                console.log(`✓ Panneau participants - Stream CAMÉRA ${participant.id}:`, {
+                                  trackLabel: videoTrack.label,
+                                  trackKind: videoTrack.kind,
+                                  readyState: videoTrack.readyState
+                                });
+                                
+                                video.srcObject = participantStream;
+                                video.play().catch(e => console.log('Lecture automatique bloquée (normal):', e));
+                              } else {
+                                console.log(`⚠️ Panneau participants - Stream rejeté (partage d'écran détecté):`, videoTrack?.label);
+                                // Ne pas afficher le partage d'écran dans le panneau participants
+                                video.srcObject = null;
+                              }
                             }
                           }
                         }}
