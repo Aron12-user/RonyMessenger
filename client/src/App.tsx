@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/AuthPage";
 import Home from "@/pages/Home";
-import JitsiDirect from "@/pages/JitsiDirect";
+import JitsiForced from "@/pages/JitsiForced";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthProvider } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
@@ -37,7 +37,7 @@ function App() {
           <Route path="/auth" component={AuthPage} />
           <Route path="/meeting/:roomCode">
             <ProtectedRoute>
-              <JitsiDirect />
+              <JitsiForced />
             </ProtectedRoute>
           </Route>
           <Route path="/">
