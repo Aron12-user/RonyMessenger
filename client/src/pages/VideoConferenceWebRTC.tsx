@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { MediaDiagnostic } from "@/components/MediaDiagnostic";
 import type { User } from "@shared/schema";
 import { 
   Mic, MicOff, Video, VideoOff, PhoneOff, Users, Share2,
@@ -214,9 +215,124 @@ const VideoConferenceWebRTC: React.FC = () => {
     }
   };
 
-  // Initialisation simplifiée sans demande automatique
+  // Diagnostic complet des périphériques média
+  const performMediaDiagnostic = async () => {
+    const results = {
+      hasCamera: false,
+      hasMicrophone: false,
+      permissions: { camera: 'unknown', microphone: 'unknown' },
+      devices: { cameras: 0, microphones: 0 },
+      errors: [] as any[]
+    };
+
+    try {
+      // Vérifier les périphériques disponibles
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      results.devices.cameras = devices.filter(d => d.kind === 'videoinput').length;
+      results.devices.microphones = devices.filter(d => d.kind === 'audioinput').length;
+      results.hasCamera = results.devices.cameras > 0;
+      results.hasMicrophone = results.devices.microphones > 0;
+
+      // Vérifier les permissions
+      if (navigator.permissions) {
+        try {
+          const cameraPermission = await navigator.permissions.query({ name: 'camera' as PermissionName });
+          const micPermission = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          results.permissions.camera = cameraPermission.state;
+          results.permissions.microphone = micPermission.state;
+        } catch (e) {
+          console.log('Permissions API non supportée');
+        }
+      }
+
+      // Test rapide d'accès
+      try {
+        const testStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { width: 320, height: 240 }, 
+          audio: true 
+        });
+        testStream.getTracks().forEach(track => track.stop());
+        console.log('✅ Accès média confirmé');
+      } catch (e) {
+        results.errors.push(e);
+      }
+
+    } catch (error) {
+      results.errors.push(error);
+      console.error('Erreur diagnostic:', error);
+    }
+
+    return results;
+  };
+
+  // Gestion unifiée des erreurs média
+  const handleMediaError = (error: any, mediaType: string) => {
+    console.error(`Erreur ${mediaType}:`, error);
+    
+    let message = `Impossible d'accéder à votre ${mediaType}`;
+    let description = '';
+    let canRetry = false;
+    
+    switch (error.name) {
+      case 'NotAllowedError':
+        message = `Autorisation ${mediaType} requise`;
+        description = `Cliquez sur l'icône de cadenas dans la barre d'adresse pour autoriser`;
+        break;
+      case 'NotFoundError':
+        message = `${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} introuvable`;
+        description = `Vérifiez qu'un ${mediaType} est connecté`;
+        break;
+      case 'NotReadableError':
+        message = `${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} occupé`;
+        description = `Fermez les autres applications utilisant votre ${mediaType}`;
+        canRetry = true;
+        break;
+      case 'OverconstrainedError':
+        message = `Qualité ${mediaType} trop élevée`;
+        description = `Réduction automatique de la qualité...`;
+        canRetry = true;
+        break;
+      case 'SecurityError':
+        message = `Connexion non sécurisée`;
+        description = `Utilisez HTTPS pour accéder aux médias`;
+        break;
+      case 'AbortError':
+        message = `Connexion ${mediaType} interrompue`;
+        description = `Tentative de reconnexion...`;
+        canRetry = true;
+        break;
+      default:
+        description = `Erreur: ${error.message || 'Erreur inconnue'}`;
+    }
+    
+    toast({
+      title: message,
+      description: description,
+      variant: "destructive",
+      duration: canRetry ? 5000 : 8000
+    });
+
+    if (canRetry && mediaType === 'caméra' && error.name === 'OverconstrainedError') {
+      setTimeout(() => {
+        setVideoQuality('low');
+        toast({
+          title: "Qualité réduite",
+          description: "Nouvelle tentative avec qualité standard..."
+        });
+      }, 2000);
+    }
+  };
+
+
+
+  // Initialisation avec diagnostic automatique
   const initializeLocalStream = async () => {
     try {
+      // Effectuer diagnostic
+      const diagnostic = await performMediaDiagnostic();
+      
+      console.log('Diagnostic média:', diagnostic);
+      
       const local: Participant = {
         id: authUser?.id.toString() || 'local',
         name: authUser?.displayName || authUser?.username || 'Vous',
@@ -230,10 +346,44 @@ const VideoConferenceWebRTC: React.FC = () => {
       setIsAudioEnabled(false);
       setIsVideoEnabled(false);
 
-      toast({
-        title: "Vidéoconférence prête",
-        description: "Cliquez sur les boutons pour activer micro/caméra"
-      });
+      // Messages d'information basés sur le diagnostic
+      if (!diagnostic.hasCamera && !diagnostic.hasMicrophone) {
+        toast({
+          title: "Aucun périphérique détecté",
+          description: "Connectez une caméra et un microphone pour participer",
+          variant: "destructive",
+          duration: 10000
+        });
+      } else if (!diagnostic.hasCamera) {
+        toast({
+          title: "Caméra non détectée",
+          description: "Vous pourrez participer en audio uniquement",
+          duration: 8000
+        });
+      } else if (!diagnostic.hasMicrophone) {
+        toast({
+          title: "Microphone non détecté",
+          description: "Vous pourrez participer en vidéo uniquement",
+          duration: 8000
+        });
+      } else {
+        toast({
+          title: "Vidéoconférence prête",
+          description: `${diagnostic.devices.cameras} caméra(s) et ${diagnostic.devices.microphones} micro(s) détecté(s)`
+        });
+      }
+
+      // Afficher les permissions si nécessaire
+      if (diagnostic.permissions.camera === 'denied' || diagnostic.permissions.microphone === 'denied') {
+        setTimeout(() => {
+          toast({
+            title: "Permissions refusées",
+            description: "Actualisez la page après avoir autorisé l'accès aux médias",
+            variant: "destructive",
+            duration: 10000
+          });
+        }, 3000);
+      }
 
     } catch (error) {
       console.error('Erreur initialisation:', error);
@@ -463,7 +613,12 @@ const VideoConferenceWebRTC: React.FC = () => {
       toast({ title: "Microphone activé" });
       
     } catch (error) {
-      handleMediaError(error, 'microphone');
+      console.error('Erreur microphone:', error);
+      toast({
+        title: "Microphone inaccessible",
+        description: "Vérifiez les permissions dans votre navigateur",
+        variant: "destructive"
+      });
     }
   };
 
@@ -509,117 +664,125 @@ const VideoConferenceWebRTC: React.FC = () => {
       
     } catch (error) {
       console.error('Erreur toggle vidéo:', error);
-      handleMediaError(error, 'caméra');
+      toast({
+        title: "Caméra inaccessible",
+        description: "Vérifiez les permissions dans votre navigateur",
+        variant: "destructive"
+      });
     }
   };
 
-  // Fonction pour ajouter un track vidéo avec gestion robuste
+  // Fonction pour ajouter un track vidéo avec fallbacks progressifs
   const addVideoTrack = async () => {
-    try {
-      // Contraintes vidéo basées sur la qualité sélectionnée
-      const getVideoConstraints = () => {
-        switch (videoQuality) {
-          case 'high':
-            return {
-              width: { ideal: 1920, max: 1920 },
-              height: { ideal: 1080, max: 1080 },
-              frameRate: { ideal: 30 }
-            };
-          case 'medium':
-            return {
-              width: { ideal: 1280, max: 1280 },
-              height: { ideal: 720, max: 720 },
-              frameRate: { ideal: 30 }
-            };
-          default:
-            return {
-              width: { ideal: 640, max: 640 },
-              height: { ideal: 480, max: 480 },
-              frameRate: { ideal: 30 }
-            };
-        }
-      };
-
-      const videoStream = await navigator.mediaDevices.getUserMedia({ 
-        video: {
-          ...getVideoConstraints(),
-          facingMode: 'user'
-        }
-      });
-      
-      const videoTrack = videoStream.getVideoTracks()[0];
-      
-      if (localStreamRef.current) {
-        // Retirer l'ancien track vidéo s'il existe
-        const oldVideoTrack = localStreamRef.current.getVideoTracks()[0];
-        if (oldVideoTrack) {
-          localStreamRef.current.removeTrack(oldVideoTrack);
-          oldVideoTrack.stop();
-        }
-        localStreamRef.current.addTrack(videoTrack);
-      } else {
-        localStreamRef.current = videoStream;
-      }
-      
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = localStreamRef.current;
-      }
-      
-      setIsVideoEnabled(true);
-      
-      // Ajouter aux connexions peer
-      peerConnectionsRef.current.forEach(pc => {
-        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-        if (sender) {
-          sender.replaceTrack(videoTrack);
-        } else {
-          pc.addTrack(videoTrack, localStreamRef.current!);
-        }
-      });
-      
-      const settings = videoTrack.getSettings();
-      toast({ 
-        title: "Caméra activée", 
-        description: `${settings.width}x${settings.height} @ ${settings.frameRate}fps`
-      });
-      
-    } catch (error) {
-      console.error('Erreur activation caméra:', error);
-      handleMediaError(error, 'caméra');
-    }
-  };
-
-  // Gestion des erreurs média unifiée
-  const handleMediaError = (error: any, device: string) => {
-    if (error instanceof DOMException) {
-      switch (error.name) {
-        case 'NotAllowedError':
-          toast({
-            title: `Permission ${device} refusée`,
-            description: `Autorisez l'accès au ${device} dans votre navigateur`,
-            variant: "destructive"
-          });
-          break;
-        case 'NotFoundError':
-          toast({
-            title: `${device} non trouvé`,
-            description: `Aucun ${device} détecté sur cet appareil`,
-            variant: "destructive"
-          });
-          break;
-        case 'NotReadableError':
-          toast({
-            title: `${device} occupé`,
-            description: `Le ${device} est utilisé par une autre application`,
-            variant: "destructive"
-          });
-          break;
+    const getConstraintsByQuality = (quality: string) => {
+      switch (quality) {
+        case 'high':
+          return {
+            width: { ideal: 1920, max: 1920 },
+            height: { ideal: 1080, max: 1080 },
+            frameRate: { ideal: 30 }
+          };
+        case 'medium':
+          return {
+            width: { ideal: 1280, max: 1280 },
+            height: { ideal: 720, max: 720 },
+            frameRate: { ideal: 30 }
+          };
         default:
+          return {
+            width: { ideal: 640, max: 640 },
+            height: { ideal: 480, max: 480 },
+            frameRate: { ideal: 30 }
+          };
+      }
+    };
+
+    const constraints = [
+      // Tentative avec qualité demandée
+      {
+        ...getConstraintsByQuality(videoQuality),
+        facingMode: 'user'
+      },
+      // Fallback 1: qualité réduite
+      {
+        width: { ideal: 640, max: 640 },
+        height: { ideal: 480, max: 480 },
+        frameRate: { ideal: 30 },
+        facingMode: 'user'
+      },
+      // Fallback 2: contraintes minimales
+      {
+        width: { ideal: 320, max: 320 },
+        height: { ideal: 240, max: 240 },
+        facingMode: 'user'
+      },
+      // Fallback 3: aucune contrainte spécifique
+      {
+        facingMode: 'user'
+      },
+      // Fallback 4: vraiment basique
+      true
+    ];
+
+    for (let i = 0; i < constraints.length; i++) {
+      try {
+        console.log(`Tentative vidéo ${i + 1}/${constraints.length}:`, constraints[i]);
+        
+        const videoStream = await navigator.mediaDevices.getUserMedia({ 
+          video: constraints[i]
+        });
+        
+        const videoTrack = videoStream.getVideoTracks()[0];
+        
+        if (localStreamRef.current) {
+          // Retirer l'ancien track vidéo s'il existe
+          const oldVideoTrack = localStreamRef.current.getVideoTracks()[0];
+          if (oldVideoTrack) {
+            localStreamRef.current.removeTrack(oldVideoTrack);
+            oldVideoTrack.stop();
+          }
+          localStreamRef.current.addTrack(videoTrack);
+        } else {
+          localStreamRef.current = videoStream;
+        }
+        
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = localStreamRef.current;
+        }
+        
+        setIsVideoEnabled(true);
+        
+        // Ajouter aux connexions peer
+        peerConnectionsRef.current.forEach(pc => {
+          const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+          if (sender) {
+            sender.replaceTrack(videoTrack);
+          } else {
+            pc.addTrack(videoTrack, localStreamRef.current!);
+          }
+        });
+        
+        const settings = videoTrack.getSettings();
+        const qualityText = i > 0 ? " (qualité réduite)" : "";
+        toast({ 
+          title: "Caméra activée", 
+          description: `${settings.width}x${settings.height}${qualityText}`
+        });
+        
+        return; // Succès, sortir de la boucle
+        
+      } catch (error) {
+        console.error(`Tentative vidéo ${i + 1} échouée:`, error);
+        
+        // Si c'est la dernière tentative, afficher l'erreur
+        if (i === constraints.length - 1) {
+          console.error('Échec de toutes les tentatives vidéo:', error);
           toast({
-            title: `Erreur ${device}`,
-            description: `Impossible d'accéder au ${device}`,
+            title: "Caméra inaccessible",
+            description: "Vérifiez les permissions dans votre navigateur",
             variant: "destructive"
           });
+        }
       }
     }
   };
@@ -1817,6 +1980,14 @@ const VideoConferenceWebRTC: React.FC = () => {
                     <span className="text-gray-400">Durée:</span>
                     <span className="text-white">{Math.floor(Date.now() / 60000)} min</span>
                   </div>
+                </div>
+              </div>
+
+              {/* Diagnostic des périphériques */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-300">Diagnostic</label>
+                <div className="p-3 border border-gray-600 rounded-lg">
+                  <MediaDiagnostic />
                 </div>
               </div>
 
