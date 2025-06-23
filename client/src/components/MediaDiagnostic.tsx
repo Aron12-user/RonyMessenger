@@ -203,3 +203,53 @@ export function MediaDiagnostic() {
     </Card>
   );
 }
+
+// Export standalone diagnostic function for VideoConferenceWebRTC
+export async function performMediaDiagnostic() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    
+    const cameras = devices.filter(d => d.kind === 'videoinput');
+    const microphones = devices.filter(d => d.kind === 'audioinput');
+    
+    let hasCamera = false;
+    let hasMicrophone = false;
+    
+    // Test camera access
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      hasCamera = true;
+      stream.getTracks().forEach(track => track.stop());
+    } catch (error) {
+      console.warn('Camera test failed:', error);
+    }
+    
+    // Test microphone access
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      hasMicrophone = true;
+      stream.getTracks().forEach(track => track.stop());
+    } catch (error) {
+      console.warn('Microphone test failed:', error);
+    }
+    
+    return {
+      hasCamera,
+      hasMicrophone,
+      devices: {
+        cameras: cameras.length,
+        microphones: microphones.length
+      }
+    };
+  } catch (error) {
+    console.error('Media diagnostic failed:', error);
+    return {
+      hasCamera: false,
+      hasMicrophone: false,
+      devices: {
+        cameras: 0,
+        microphones: 0
+      }
+    };
+  }
+}
