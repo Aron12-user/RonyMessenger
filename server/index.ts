@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { JitsiServer } from "./jitsi-server";
 import session from 'express-session';
 import MemoryStore from 'memorystore';
 
@@ -68,6 +69,9 @@ app.use('/uploads', express.static('uploads'));
   }
 
   const server = await registerRoutes(app);
+
+  // Initialize Jitsi Server
+  const jitsiServer = new JitsiServer(server);
 
   if (app.get("env") === "development") {
     await setupVite(app, server);
