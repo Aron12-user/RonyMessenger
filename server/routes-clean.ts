@@ -341,8 +341,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('[upload] Request body:', Object.keys(req.body));
 
       if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
-        console.log('[upload] No files provided in request');
-        return res.status(400).json({ error: "Fichier non sélectionné" });
+        console.log('[upload] No files provided in request. req.files:', req.files);
+        console.log('[upload] typeof req.files:', typeof req.files);
+        console.log('[upload] Array.isArray(req.files):', Array.isArray(req.files));
+        return res.status(400).json({ error: "Aucun fichier sélectionné" });
       }
 
       // Validation des fichiers
