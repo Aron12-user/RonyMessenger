@@ -37,7 +37,7 @@ import {
 import folderOrangeIcon from "@assets/icons8-dossier-mac-94_1750386744627.png";
 import folderBlueIcon from "@assets/icons8-dossier-mac-64_1750386753922.png";
 import folderArchiveIcon from "@assets/icons8-dossier-mac-48_1750386762042.png";
-import cloudBackgroundImage from "@assets/5590894_1750468773239.jpg";
+
 
 // Import des icônes de fichiers
 import imageIcon from "@assets/icons8-image-50_1750773959798.png";
@@ -86,12 +86,12 @@ export default function CloudStorage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedFiles, setSelectedFiles] = useState<Record<number, boolean>>({});
-  
+
   // États des dialogues
   const [isCreateFolderDialogOpen, setIsCreateFolderDialogOpen] = useState(false);
   const [isIconSelectorOpen, setIsIconSelectorOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  
+
   // États pour les actions
   const [newFolderName, setNewFolderName] = useState("");
   const [selectedFolderIcon, setSelectedFolderIcon] = useState<string>("orange");
@@ -236,20 +236,20 @@ export default function CloudStorage() {
       setTotalFiles(files.length);
       setUploadingFiles(0);
       setUploadProgress(0);
-      
+
       const formData = new FormData();
       const folderStructure: { [key: string]: string[] } = {};
       const filePaths: string[] = [];
-      
+
       // Traitement rapide des fichiers
       Array.from(files).forEach((file, index) => {
         const relativePath = file.webkitRelativePath || file.name;
         const pathParts = relativePath.split('/');
         const folderPath = pathParts.slice(0, -1).join('/');
-        
+
         formData.append('files', file);
         filePaths.push(relativePath);
-        
+
         if (folderPath && !folderStructure[folderPath]) {
           folderStructure[folderPath] = [];
         }
@@ -257,25 +257,25 @@ export default function CloudStorage() {
           folderStructure[folderPath].push(relativePath);
         }
       });
-      
+
       filePaths.forEach(path => {
         formData.append('filePaths', path);
       });
-      
+
       formData.append('folderId', currentFolderId?.toString() || 'null');
       formData.append('folderStructure', JSON.stringify(folderStructure));
-      
+
       // Créer un XMLHttpRequest pour suivre la progression
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        
+
         xhr.upload.addEventListener('progress', (event) => {
           if (event.lengthComputable) {
             const progress = Math.round((event.loaded / event.total) * 100);
             setUploadProgress(progress);
           }
         });
-        
+
         xhr.addEventListener('load', () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
@@ -293,11 +293,11 @@ export default function CloudStorage() {
             }
           }
         });
-        
+
         xhr.addEventListener('error', () => {
           reject(new Error('Network error during upload'));
         });
-        
+
         xhr.open('POST', '/api/upload-folder');
         xhr.send(formData);
       });
@@ -306,14 +306,14 @@ export default function CloudStorage() {
       setUploadProgress(100);
       queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
       queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
-      
+
       const message = `Upload terminé! ${data.foldersCreated || 0} dossier(s), ${data.filesUploaded || 0} fichier(s)`;
       toast({ title: message });
-      
+
       if (folderInputRef.current) {
         folderInputRef.current.value = '';
       }
-      
+
       // Reset progress après 2 secondes
       setTimeout(() => {
         setUploadProgress(0);
@@ -338,13 +338,13 @@ export default function CloudStorage() {
     mutationFn: async () => {
       setIsSyncing(true);
       setSyncProgress(0);
-      
+
       // Créer un input pour sélectionner les fichiers du bureau
       const input = document.createElement('input');
       input.type = 'file';
       input.multiple = true;
       input.webkitdirectory = true;
-      
+
       return new Promise((resolve, reject) => {
         input.onchange = async (event) => {
           const files = (event.target as HTMLInputElement).files;
@@ -352,58 +352,58 @@ export default function CloudStorage() {
             reject(new Error('Aucun fichier sélectionné'));
             return;
           }
-          
+
           try {
             // Récupérer la liste des fichiers déjà synchronisés
             const existingFilesResponse = await fetch('/api/sync/files');
             const existingFiles = existingFilesResponse.ok ? await existingFilesResponse.json() : [];
-            
+
             // Créer une carte des fichiers existants avec nom et taille pour éviter les doublons
             const existingFileMap = new Map();
             existingFiles.forEach((f: any) => {
               const key = `${f.name}_${f.size}`;
               existingFileMap.set(key, f);
             });
-            
+
             // Filtrer les nouveaux fichiers uniquement (basé sur nom + taille)
             const newFiles = Array.from(files).filter(file => {
               const key = `${file.name}_${file.size}`;
               return !existingFileMap.has(key) && !syncedFiles.has(file.name);
             });
-            
+
             if (newFiles.length === 0) {
               toast({ title: "Synchronisation terminée", description: "Aucun nouveau fichier à synchroniser" });
               resolve({ message: 'No new files', filesUploaded: 0 });
               return;
             }
-            
+
             // Créer le FormData pour l'upload
             const formData = new FormData();
             const filePaths: string[] = [];
-            
+
             newFiles.forEach((file) => {
               const relativePath = file.webkitRelativePath || file.name;
               formData.append('files', file);
               filePaths.push(relativePath);
             });
-            
+
             filePaths.forEach(path => {
               formData.append('filePaths', path);
             });
-            
+
             formData.append('folderId', 'sync');
             formData.append('isSync', 'true');
-            
+
             // Upload avec suivi de progression
             const xhr = new XMLHttpRequest();
-            
+
             xhr.upload.addEventListener('progress', (event) => {
               if (event.lengthComputable) {
                 const progress = Math.round((event.loaded / event.total) * 100);
                 setSyncProgress(progress);
               }
             });
-            
+
             xhr.addEventListener('load', () => {
               if (xhr.status >= 200 && xhr.status < 300) {
                 try {
@@ -420,19 +420,19 @@ export default function CloudStorage() {
                 reject(new Error('Échec de la synchronisation'));
               }
             });
-            
+
             xhr.addEventListener('error', () => {
               reject(new Error('Erreur réseau lors de la synchronisation'));
             });
-            
+
             xhr.open('POST', '/api/upload-folder');
             xhr.send(formData);
-            
+
           } catch (error) {
             reject(error);
           }
         };
-        
+
         input.click();
       });
     },
@@ -441,10 +441,10 @@ export default function CloudStorage() {
       setIsSyncing(false);
       queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
       queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
-      
+
       const message = `Synchronisation terminée! ${data.filesUploaded || 0} nouveau(x) fichier(s) synchronisé(s)`;
       toast({ title: message });
-      
+
       setTimeout(() => {
         setSyncProgress(0);
       }, 2000);
@@ -494,9 +494,9 @@ export default function CloudStorage() {
       if (!userRes.ok) throw new Error("Adresse Rony introuvable");
       const users = await userRes.json();
       if (!users.data || users.data.length === 0) throw new Error("Adresse Rony introuvable");
-      
+
       const sharedWithId = users.data[0].id;
-      
+
       // Share the file/folder
       const endpoint = isFolder ? "/api/folders/share" : "/api/files/share";
       const res = await apiRequest("POST", endpoint, {
@@ -544,7 +544,7 @@ export default function CloudStorage() {
   });
 
   // Fonctions utilitaires
-  const getFileIcon = (type: string) => {
+  const getFileIcon = (type: string, fileName: string) => {
     if (type.startsWith('image/')) return <Image className="h-8 w-8 text-blue-500" />;
     if (type.startsWith('video/')) return <Video className="h-8 w-8 text-red-500" />;
     if (type.startsWith('audio/')) return <Music className="h-8 w-8 text-green-500" />;
@@ -611,7 +611,7 @@ export default function CloudStorage() {
     if (files && files.length > 0) {
       // Vérifier que les fichiers ont des chemins relatifs (webkitRelativePath)
       const hasValidPaths = Array.from(files).some(file => file.webkitRelativePath);
-      
+
       if (!hasValidPaths) {
         toast({ 
           title: "Erreur de sélection", 
@@ -620,7 +620,7 @@ export default function CloudStorage() {
         });
         return;
       }
-      
+
       console.log(`Uploading folder with ${files.length} files`);
       uploadFolderMutation.mutate(files);
     }
@@ -677,16 +677,8 @@ export default function CloudStorage() {
   );
 
   return (
-    <div 
-      className="flex-1 p-1 flex flex-col overflow-hidden"
-      style={{
-        backgroundImage: `url(${cloudBackgroundImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
-      }}
-    >
-      <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg shadow p-2 flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 p-4 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 flex-1 flex flex-col overflow-hidden">
         <div className="max-w-7xl mx-auto flex flex-col h-full overflow-hidden">
           {/* Header avec titre et actions principales */}
           <div className="flex flex-wrap justify-between items-center mb-6">
@@ -742,7 +734,7 @@ export default function CloudStorage() {
                   <span>{isSyncing ? `Synchronisation... ${syncProgress}%` : 'Sync Bureau'}</span>
                 </Button>
               </div>
-              
+
               {/* Barre de progression pour l'upload */}
               {uploadFolderMutation.isPending && totalFiles > 0 && (
                 <div className="w-full max-w-md">
@@ -756,7 +748,7 @@ export default function CloudStorage() {
                   </div>
                 </div>
               )}
-              
+
               {/* Barre de progression pour la synchronisation */}
               {isSyncing && (
                 <div className="w-full max-w-md">
@@ -786,7 +778,7 @@ export default function CloudStorage() {
                 />
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <Button
                 variant={viewMode === 'grid' ? 'default' : 'ghost'}
@@ -807,6 +799,7 @@ export default function CloudStorage() {
 
           {/* Navigation breadcrumb avec bouton retour */}
           <div className="mb-6">
+```text
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">
                 {folderStack.map((folder, index) => (
@@ -825,7 +818,7 @@ export default function CloudStorage() {
                   </div>
                 ))}
               </div>
-              
+
               {/* Bouton Retour */}
               {folderStack.length > 1 && (
                 <Button
@@ -854,7 +847,7 @@ export default function CloudStorage() {
             {(foldersError || filesError) && (
               <div className="text-sm text-red-600 mb-2">Erreur de chargement</div>
             )}
-            
+
             {/* Grille des dossiers */}
             {filteredFolders.length > 0 && (
               <div className="mb-6">
@@ -1216,29 +1209,43 @@ export default function CloudStorage() {
 
           {/* Contenu moderne amélioré */}
           <div className="space-y-3">
-            {/* Champ destinataire avec suggestions */}
-            <div className="space-y-1">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium w-8 text-gray-700">À:</span>
-                <div className="flex-1 relative">
-                  <Input
-                    value={shareEmail}
-                    onChange={(e) => setShareEmail(e.target.value)}
-                    placeholder="Destinataire (ex: nom@rony.com)"
-                    className="text-sm pr-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                  />
-                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium w-8 text-gray-700">À:</span>
+                  <div className="flex-1 relative">
+                    <Input
+                      value={shareEmail}
+                      onChange={(e) => setShareEmail(e.target.value)}
+                      placeholder="Destinataire (ex: nom@rony.com)"
+                      className="text-sm pr-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                      {shareEmail && shareEmail.includes('@') && shareEmail.includes('rony.com') ? (
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      ) : shareEmail && shareEmail.includes('@') ? (
+                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                      ) : (
+                        <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+                      )}
+                    </div>
                   </div>
                 </div>
+                {shareEmail && shareEmail.includes('@') && (
+                  <div className="ml-10 text-xs flex items-center space-x-1">
+                    {shareEmail.includes('rony.com') ? (
+                      <>
+                        <span className="text-green-600">✓</span>
+                        <span className="text-green-600">Adresse Rony valide</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-orange-600">⚠</span>
+                        <span className="text-orange-600">Utilisez une adresse @rony.com</span>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
-              {shareEmail && shareEmail.includes('@') && (
-                <div className="ml-10 text-xs text-green-600 flex items-center space-x-1">
-                  <span>✓</span>
-                  <span>Adresse valide</span>
-                </div>
-              )}
-            </div>
 
             {/* Options de priorité simplifiées */}
             <div className="flex items-center space-x-2">
@@ -1325,7 +1332,7 @@ export default function CloudStorage() {
                       subject: shareSubject.trim(),  
                       message: shareMessage.trim()
                     };
-                    
+
                     apiRequest("POST", endpoint, payload).then(() => {
                       queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
                       queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });

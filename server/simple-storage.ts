@@ -441,12 +441,12 @@ export class SimpleStorage implements IStorage {
       id: this.folderId++,
       name: folderData.name,
       path: folderData.path || '/',
-      ownerId: folderData.ownerId,
+      ownerId: folderData.ownerId || folderData.userId || 0,
       parentId: folderData.parentId || null,
       iconType: folderData.iconType || null,
       createdAt: folderData.createdAt || new Date(),
       updatedAt: folderData.updatedAt || new Date(),
-      isShared: folderData.isShared || null
+      isShared: folderData.isShared || false
     };
     this.folders.set(folder.id, folder);
     console.log(`[storage] Created folder: ${folder.name} (ID: ${folder.id}), parentId: ${folder.parentId}, ownerId: ${folder.ownerId}`);
