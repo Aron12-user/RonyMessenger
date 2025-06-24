@@ -488,6 +488,183 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Route pour renommer un fichier
+  app.patch("/api/files/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const fileId = parseInt(req.params.id);
+      if (isNaN(fileId) || fileId <= 0) {
+        return res.status(400).json({ error: "ID de fichier invalide" });
+      }
+
+      const { name } = req.body;
+      if (!name || typeof name !== 'string' || !name.trim()) {
+        return res.status(400).json({ error: "Nom de fichier requis" });
+      }
+
+      const trimmedName = name.trim();
+      if (trimmedName.length > 255) {
+        return res.status(400).json({ error: "Nom de fichier trop long (maximum 255 caractères)" });
+      }
+
+      console.log(`[files] Renaming file ${fileId} to "${trimmedName}"`);
+      const updatedFile = await storage.updateFile(fileId, { name: trimmedName });
+      console.log(`[files] File renamed successfully:`, updatedFile);
+      res.json({ success: true, file: updatedFile, message: "Fichier renommé avec succès" });
+    } catch (error: any) {
+      console.error('Erreur lors du renommage du fichier:', error);
+      res.status(500).json({ error: error.message || "Erreur lors du renommage" });
+    }
+  });
+
+  // Route pour supprimer un fichier
+  app.delete("/api/files/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const fileId = parseInt(req.params.id);
+      if (isNaN(fileId) || fileId <= 0) {
+        return res.status(400).json({ error: "ID de fichier invalide" });
+      }
+
+      console.log(`[files] Deleting file ${fileId}`);
+      await storage.deleteFile(fileId);
+      console.log(`[files] File ${fileId} deleted successfully`);
+      res.json({ success: true, message: "Fichier supprimé avec succès" });
+    } catch (error: any) {
+      console.error('Erreur lors de la suppression du fichier:', error);
+      res.status(500).json({ error: error.message || "Erreur lors de la suppression" });
+    }
+  });
+
+  // Route pour renommer un dossier
+  app.patch("/api/folders/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const folderId = parseInt(req.params.id);
+      if (isNaN(folderId) || folderId <= 0) {
+        return res.status(400).json({ error: "ID de dossier invalide" });
+      }
+
+      const { name } = req.body;
+      if (!name || typeof name !== 'string' || !name.trim()) {
+        return res.status(400).json({ error: "Nom de dossier requis" });
+      }
+
+      const trimmedName = name.trim();
+      if (trimmedName.length > 255) {
+        return res.status(400).json({ error: "Nom de dossier trop long (maximum 255 caractères)" });
+      }
+
+      console.log(`[folders] Renaming folder ${folderId} to "${trimmedName}"`);
+      const updatedFolder = await storage.updateFolder(folderId, trimmedName);
+      console.log(`[folders] Folder renamed successfully:`, updatedFolder);
+      res.json({ success: true, folder: updatedFolder, message: "Dossier renommé avec succès" });
+    } catch (error: any) {
+      console.error('Erreur lors du renommage du dossier:', error);
+      res.status(500).json({ error: error.message || "Erreur lors du renommage" });
+    }
+  });
+
+  // Route pour partager un fichier
+  app.post("/api/files/share", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const { fileId, sharedWithId, permission, subject, message } = req.body;
+      
+      // Vérifier que l'utilisateur destinataire existe vraiment
+      const targetUser = await storage.getUser(sharedWithId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "Utilisateur destinataire introuvable" });
+      }
+
+      // Vérifier que le fichier existe et appartient à l'utilisateur
+      const file = await storage.getFileById(fileId);
+      if (!file) {
+        return res.status(404).json({ error: "Fichier introuvable" });
+      }
+
+      if (file.uploaderId !== userId) {
+        return res.status(403).json({ error: "Vous n'avez pas l'autorisation de partager ce fichier" });
+      }
+
+      console.log(`[files] Sharing file ${fileId} with user ${sharedWithId}`);
+      const sharing = await storage.shareFile({
+        fileId,
+        sharedWithId,
+        permission: permission || 'read',
+        ownerId: userId,
+        createdAt: new Date()
+      });
+
+      console.log(`[files] File shared successfully:`, sharing);
+      res.json({ success: true, sharing, message: "Fichier partagé avec succès" });
+    } catch (error: any) {
+      console.error('Erreur lors du partage du fichier:', error);
+      res.status(500).json({ error: error.message || "Erreur lors du partage" });
+    }
+  });
+
+  // Route pour partager un dossier
+  app.post("/api/folders/share", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const { folderId, sharedWithId, permission, subject, message } = req.body;
+      
+      // Vérifier que l'utilisateur destinataire existe vraiment
+      const targetUser = await storage.getUser(sharedWithId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "Utilisateur destinataire introuvable" });
+      }
+
+      // Vérifier que le dossier existe et appartient à l'utilisateur
+      const folder = await storage.getFolderById(folderId);
+      if (!folder) {
+        return res.status(404).json({ error: "Dossier introuvable" });
+      }
+
+      if (folder.ownerId !== userId) {
+        return res.status(403).json({ error: "Vous n'avez pas l'autorisation de partager ce dossier" });
+      }
+
+      console.log(`[folders] Sharing folder ${folderId} with user ${sharedWithId}`);
+      
+      res.json({ 
+        success: true, 
+        message: "Dossier partagé avec succès",
+        sharing: {
+          folderId,
+          sharedWithId,
+          permission: permission || 'read',
+          ownerId: userId,
+          createdAt: new Date()
+        }
+      });
+    } catch (error: any) {
+      console.error('Erreur lors du partage du dossier:', error);
+      res.status(500).json({ error: error.message || "Erreur lors du partage" });
+    }
+  });
+
   app.post("/api/files/:id/share", async (req, res) => {
     try {
       const userId = req.user?.id;

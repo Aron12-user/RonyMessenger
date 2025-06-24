@@ -405,14 +405,29 @@ export class SimpleStorage implements IStorage {
   }
 
   async updateFile(fileId: number, data: Partial<InsertFile>): Promise<File> {
+    console.log(`[storage] Updating file ${fileId} with data:`, data);
     const file = this.files.get(fileId);
-    if (!file) throw new Error('File not found');
+    if (!file) {
+      console.log(`[storage] File ${fileId} not found`);
+      throw new Error("Fichier non trouvé");
+    }
+
+    const oldName = file.name;
     Object.assign(file, data);
+    file.updatedAt = new Date();
+    
+    console.log(`[storage] File ${fileId} updated. Name changed from "${oldName}" to "${file.name}"`);
     return file;
   }
 
   async deleteFile(fileId: number): Promise<void> {
-    this.files.delete(fileId);
+    console.log(`[storage] Deleting file ${fileId}`);
+    const deleted = this.files.delete(fileId);
+    if (deleted) {
+      console.log(`[storage] File ${fileId} deleted successfully`);
+    } else {
+      console.log(`[storage] File ${fileId} not found for deletion`);
+    }
   }
 
   async getSharedFiles(userId: number): Promise<File[]> {
@@ -456,10 +471,18 @@ export class SimpleStorage implements IStorage {
   }
 
   async updateFolder(folderId: number, name: string): Promise<Folder> {
+    console.log(`[storage] Updating folder ${folderId} to name "${name}"`);
     const folder = this.folders.get(folderId);
-    if (!folder) throw new Error('Folder not found');
+    if (!folder) {
+      console.log(`[storage] Folder ${folderId} not found`);
+      throw new Error("Dossier non trouvé");
+    }
+
+    const oldName = folder.name;
     folder.name = name;
     folder.updatedAt = new Date();
+    
+    console.log(`[storage] Folder ${folderId} renamed from "${oldName}" to "${name}"`);
     return folder;
   }
 
@@ -471,7 +494,13 @@ export class SimpleStorage implements IStorage {
   }
 
   async deleteFolder(folderId: number): Promise<void> {
-    this.folders.delete(folderId);
+    console.log(`[storage] Deleting folder ${folderId}`);
+    const deleted = this.folders.delete(folderId);
+    if (deleted) {
+      console.log(`[storage] Folder ${folderId} deleted successfully`);
+    } else {
+      console.log(`[storage] Folder ${folderId} not found for deletion`);
+    }
   }
 
   async shareFile(sharingData: InsertFileSharing): Promise<FileSharing> {
