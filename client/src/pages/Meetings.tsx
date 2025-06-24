@@ -192,7 +192,6 @@ export default function Meetings() {
     setNewMeetingDate("");
     setNewMeetingTime("");
     setNewMeetingDuration("60");
-    setActiveTab("scheduled");
   };
 
   // Mutation pour supprimer une réunion
@@ -548,25 +547,25 @@ export default function Meetings() {
               </ScrollArea>
             </TabsContent>
 
-            <TabsContent value="schedule" className="h-full flex flex-col">
-              {/* Header compact sans débordement */}
-              <div className="flex-shrink-0 p-2 border-b bg-white dark:bg-gray-900">
-                <div className="flex items-center space-x-2">
-                  <div className="bg-blue-100 dark:bg-blue-900 p-1.5 rounded-lg">
+            <TabsContent value="schedule" className="h-full">
+              {/* Conteneur avec hauteurs fixes calculées */}
+              <div className="h-full flex flex-col" style={{ height: 'calc(100vh - 180px)' }}>
+                {/* Header ultra-compact */}
+                <div className="flex-shrink-0 h-12 p-2 border-b bg-white dark:bg-gray-900 flex items-center">
+                  <div className="bg-blue-100 dark:bg-blue-900 p-1 rounded">
                     <CalendarDays className="h-3 w-3 text-blue-600" />
                   </div>
-                  <div>
-                    <h2 className="text-sm font-semibold">Programmer une réunion</h2>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      Configurez les détails
-                    </p>
+                  <div className="ml-2">
+                    <h2 className="text-xs font-semibold">Programmer une réunion</h2>
                   </div>
                 </div>
-              </div>
 
-              {/* Contenu avec défilement flex */}
-              <div className="flex-1 overflow-y-auto p-2">
-                <div className="space-y-2 max-w-2xl mx-auto pb-4">
+                {/* Zone de défilement avec hauteur calculée */}
+                <div 
+                  className="flex-1 overflow-y-auto p-2" 
+                  style={{ height: 'calc(100vh - 230px)', minHeight: '400px' }}
+                >
+                  <div className="space-y-2 max-w-xl mx-auto">
                     <Card className="border border-blue-200 dark:border-blue-800 shadow-sm">
                       <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
                         <CardTitle className="flex items-center text-base text-blue-900 dark:text-blue-100">
@@ -688,30 +687,30 @@ export default function Meetings() {
 
                     {/* Guide compact */}
                     <Card className="border border-green-200 dark:border-green-800">
-                      <CardContent className="p-3">
-                        <h4 className="font-medium text-green-900 dark:text-green-100 mb-2 flex items-center text-sm">
-                          <MapPin className="h-3 w-3 mr-2 text-green-600" />
-                          Guide d'utilisation
+                      <CardContent className="p-2">
+                        <h4 className="font-medium text-green-900 dark:text-green-100 mb-2 flex items-center text-xs">
+                          <MapPin className="h-3 w-3 mr-1 text-green-600" />
+                          Guide
                         </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                           <div className="space-y-1">
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-1">
                               <div className="h-1 w-1 bg-green-600 rounded-full"></div>
-                              <span className="text-green-700 dark:text-green-300">Génération automatique du code</span>
+                              <span className="text-green-700 dark:text-green-300">Code automatique</span>
                             </div>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-1">
                               <div className="h-1 w-1 bg-green-600 rounded-full"></div>
-                              <span className="text-green-700 dark:text-green-300">Transfert automatique 5 min avant</span>
+                              <span className="text-green-700 dark:text-green-300">Transfert auto 5min</span>
                             </div>
                           </div>
                           <div className="space-y-1">
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-1">
                               <div className="h-1 w-1 bg-green-600 rounded-full"></div>
-                              <span className="text-green-700 dark:text-green-300">Partage facile du code</span>
+                              <span className="text-green-700 dark:text-green-300">Partage facile</span>
                             </div>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-1">
                               <div className="h-1 w-1 bg-green-600 rounded-full"></div>
-                              <span className="text-green-700 dark:text-green-300">Suppression automatique après</span>
+                              <span className="text-green-700 dark:text-green-300">Suppression auto</span>
                             </div>
                           </div>
                         </div>
@@ -719,6 +718,7 @@ export default function Meetings() {
                     </Card>
                   </div>
                 </div>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
