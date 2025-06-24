@@ -307,9 +307,9 @@ export default function Meetings() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden" style={{ height: 'calc(100vh - 110px)' }}>
-          <Tabs defaultValue="active" className="h-full flex flex-col">
-            <div className="px-6 pt-4 pb-0 flex-shrink-0">
+        <div className="flex-1 flex flex-col" style={{ height: 'calc(100vh - 100px)' }}>
+          <Tabs defaultValue="active" className="flex-1 flex flex-col">
+            <div className="px-6 pt-4 pb-2 flex-shrink-0">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="active" className="text-sm">
                   Réunions actives
@@ -323,8 +323,8 @@ export default function Meetings() {
               </TabsList>
             </div>
 
-            <TabsContent value="active" className="flex-1 flex flex-col overflow-hidden">
-              <div className="p-6 pb-2 flex-shrink-0">
+            <TabsContent value="active" className="flex-1 flex flex-col">
+              <div className="px-6 pb-2 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-medium">Réunions en cours</h2>
                   <Badge variant="secondary" className="text-xs">
@@ -333,10 +333,10 @@ export default function Meetings() {
                 </div>
               </div>
 
-              {loadingActive ? (
-                <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4" style={{ maxHeight: 'calc(100vh - 180px)', minHeight: '400px' }}>
-                  <div className="pb-16">
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="flex-1 min-h-0">
+                {loadingActive ? (
+                  <div className="h-full overflow-y-auto px-6">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pb-20">
                       {[1, 2, 3].map((i) => (
                         <Card key={i} className="animate-pulse">
                           <CardContent className="p-6">
@@ -348,27 +348,25 @@ export default function Meetings() {
                       ))}
                     </div>
                   </div>
-                </div>
-              ) : activeRooms.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center p-6">
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <Video className="h-16 w-16 text-gray-400 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                      Aucune réunion active
-                    </h3>
-                    <p className="text-gray-500 text-center mb-6 max-w-md">
-                      Créez une nouvelle réunion pour commencer
-                    </p>
-                    <Button onClick={createInstantMeeting}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Nouvelle réunion
-                    </Button>
+                ) : activeRooms.length === 0 ? (
+                  <div className="h-full flex items-center justify-center px-6">
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <Video className="h-16 w-16 text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                        Aucune réunion active
+                      </h3>
+                      <p className="text-gray-500 text-center mb-6 max-w-md">
+                        Créez une nouvelle réunion pour commencer
+                      </p>
+                      <Button onClick={createInstantMeeting}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Nouvelle réunion
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4" style={{ maxHeight: 'calc(100vh - 180px)', minHeight: '400px' }}>
-                  <div className="pb-16">
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                ) : (
+                  <div className="h-full overflow-y-auto px-6">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pb-20">
                       {activeRooms.map((room: ActiveRoom) => (
                       <Card key={room.roomCode} className="hover:shadow-lg transition-all duration-200 border border-green-200 dark:border-green-700">
                         <CardContent className="p-6">
@@ -413,12 +411,12 @@ export default function Meetings() {
                     ))}
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </TabsContent>
 
-            <TabsContent value="scheduled" className="flex-1 flex flex-col overflow-hidden">
-              <div className="p-6 pb-2 flex-shrink-0">
+            <TabsContent value="scheduled" className="flex-1 flex flex-col">
+              <div className="px-6 pb-2 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-medium">Réunions programmées</h2>
                   <Badge variant="secondary" className="text-xs">
@@ -427,10 +425,10 @@ export default function Meetings() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4" style={{ maxHeight: 'calc(100vh - 180px)', minHeight: '400px' }}>
-                <div className="pb-16">
-                  {loadingScheduled ? (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="flex-1 min-h-0">
+                {loadingScheduled ? (
+                  <div className="h-full overflow-y-auto px-6">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pb-20">
                       {[1, 2, 3].map((i) => (
                         <Card key={i} className="animate-pulse">
                           <CardContent className="p-6">
@@ -441,7 +439,9 @@ export default function Meetings() {
                         </Card>
                       ))}
                     </div>
-                  ) : scheduledMeetings.length === 0 ? (
+                  </div>
+                ) : scheduledMeetings.length === 0 ? (
+                  <div className="h-full flex items-center justify-center px-6">
                     <div className="flex flex-col items-center justify-center py-12">
                       <Calendar className="h-16 w-16 text-gray-400 mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -455,8 +455,10 @@ export default function Meetings() {
                         Nouvelle réunion
                       </Button>
                     </div>
-                  ) : (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  </div>
+                ) : (
+                  <div className="h-full overflow-y-auto px-6">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pb-20">
                       {scheduledMeetings.map((meeting: Meeting) => (
                         <Card key={meeting.id} className="hover:shadow-lg transition-all duration-200 border border-gray-200 dark:border-gray-700">
                           <CardContent className="p-6">
@@ -532,19 +534,19 @@ export default function Meetings() {
                         </Card>
                       ))}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </TabsContent>
 
-            <TabsContent value="schedule" className="flex-1 flex flex-col overflow-hidden">
+            <TabsContent value="schedule" className="flex-1 flex flex-col">
               <div className="h-8 flex items-center px-6 border-b bg-white dark:bg-gray-900 flex-shrink-0">
                 <CalendarDays className="h-3 w-3 text-blue-600 mr-2" />
                 <h2 className="text-xs font-semibold">Programmer une réunion</h2>
               </div>
 
-              <div className="flex-1 overflow-y-auto overflow-x-hidden p-4" style={{ maxHeight: 'calc(100vh - 180px)', minHeight: '400px' }}>
-                <div className="space-y-2 max-w-lg mx-auto pb-32">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4">
+                <div className="space-y-2 max-w-lg mx-auto pb-40">
                   <div className="space-y-3">
                     <div>
                       <Label htmlFor="newMeetingTitle" className="text-xs">Titre de la réunion</Label>
