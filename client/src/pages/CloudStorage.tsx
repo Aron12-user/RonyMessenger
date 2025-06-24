@@ -954,24 +954,24 @@ export default function CloudStorage() {
                       key={file.id} 
                       className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
                     >
-                      <div className="h-32 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                      <div className="h-20 bg-gray-100 dark:bg-gray-700 flex items-center justify-center p-2">
                         {file.type.startsWith('image/') ? (
-                          <img src={file.url} alt={file.name} className="h-full w-full object-cover" />
+                          <img src={file.url} alt={file.name} className="h-12 w-12 object-cover rounded" />
                         ) : (
-                          getFileIcon(file.type)
+                          getFileIcon(file.type, file.name)
                         )}
                       </div>
-                      <div className="p-3">
-                        <div className="flex justify-between items-start">
-                          <h4 className="font-medium truncate flex-1">{file.name}</h4>
+                      <div className="p-2">
+                        <div className="flex justify-between items-start mb-1">
+                          <h4 className="font-medium text-sm truncate flex-1 mr-1" title={file.name}>{file.name}</h4>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0"
+                                className="h-6 w-6 p-0 flex-shrink-0"
                               >
-                                <MoreVertical className="h-4 w-4" />
+                                <MoreVertical className="h-3 w-3" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
@@ -1003,8 +1003,8 @@ export default function CloudStorage() {
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {formatFileSize(file.size)} • {formatDate(file.uploadedAt)}
+                        <p className="text-xs text-gray-500">
+                          {formatFileSize(file.size)}
                         </p>
                       </div>
                     </div>

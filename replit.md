@@ -144,6 +144,8 @@ Changelog:
 - June 24, 2025. Optimized file and folder display with compact grid layout (6-8 columns) for better space utilization
 - June 24, 2025. Integrated custom file type icons (image, Excel, PowerPoint, CSV, audio, video) with 32px size
 - June 24, 2025. Improved interface responsiveness with smaller cards and better visual hierarchy
+- June 24, 2025. Fixed image file display size issue - reduced from full size to 48px (h-12 w-12) thumbnails
+- June 24, 2025. Optimized file card layout with compact design (6-8 columns) and reduced heights
 ```
 
 ## User Preferences
