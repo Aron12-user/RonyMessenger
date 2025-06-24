@@ -68,7 +68,7 @@ const avatarUpload = multer({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
-  setupSimpleAuth(app);
+  const { requireAuth } = setupSimpleAuth(app);
 
   const httpServer = createServer(app);
 
@@ -211,7 +211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // File and folder routes
-  app.get("/api/folders", async (req, res) => {
+  app.get("/api/folders", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -227,7 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/folders", async (req, res) => {
+  app.post("/api/folders", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -260,7 +260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/folders/:id", async (req, res) => {
+  app.put("/api/folders/:id", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -282,7 +282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/folders/:id", async (req, res) => {
+  app.delete("/api/folders/:id", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -298,7 +298,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/files", async (req, res) => {
+  app.get("/api/files", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -315,7 +315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Multi-file upload endpoint
-  app.post("/api/upload", upload.array('files'), async (req, res) => {
+  app.post("/api/upload", requireAuth, upload.array('files'), async (req, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -411,7 +411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Single file upload (legacy support)
-  app.post("/api/files/upload", upload.single('file'), async (req, res) => {
+  app.post("/api/files/upload", requireAuth, upload.single('file'), async (req, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -441,7 +441,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/files/shared", async (req, res) => {
+  app.get("/api/files/shared", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
