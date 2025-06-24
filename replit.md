@@ -126,6 +126,8 @@ Changelog:
 - June 24, 2025. Implemented auto-transition of scheduled meetings to active when 5 minutes before start time
 - June 24, 2025. Fixed form overflow issues with optimized CSS heights and padding
 - June 24, 2025. Added in-memory storage for meetings with automatic data persistence
+- June 24, 2025. Fixed vertical scrolling implementation with precise CSS height constraints
+- June 24, 2025. Preserved original card grid layout while enabling overflow-y-auto functionality
 ```
 
 ## User Preferences

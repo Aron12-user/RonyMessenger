@@ -307,9 +307,9 @@ export default function Meetings() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden" style={{ height: 'calc(100vh - 140px)' }}>
           <Tabs defaultValue="active" className="h-full flex flex-col">
-            <div className="px-6 pt-4 pb-0">
+            <div className="px-6 pt-4 pb-0 flex-shrink-0">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="active" className="text-sm">
                   Réunions actives
@@ -323,7 +323,7 @@ export default function Meetings() {
               </TabsList>
             </div>
 
-            <TabsContent value="active" className="h-full flex flex-col">
+            <TabsContent value="active" className="flex-1 flex flex-col overflow-hidden">
               <div className="p-6 pb-2 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-medium">Réunions en cours</h2>
@@ -334,17 +334,19 @@ export default function Meetings() {
               </div>
 
               {loadingActive ? (
-                <div className="p-6">
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <Card key={i} className="animate-pulse">
-                        <CardContent className="p-6">
-                          <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                          <div className="h-3 bg-gray-200 rounded w-2/3 mb-4"></div>
-                          <div className="h-9 bg-gray-200 rounded"></div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                <div className="flex-1 overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(100vh - 240px)' }}>
+                  <div className="pb-6">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {[1, 2, 3].map((i) => (
+                        <Card key={i} className="animate-pulse">
+                          <CardContent className="p-6">
+                            <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                            <div className="h-3 bg-gray-200 rounded w-2/3 mb-4"></div>
+                            <div className="h-9 bg-gray-200 rounded"></div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
                   </div>
                 </div>
               ) : activeRooms.length === 0 ? (
@@ -364,9 +366,10 @@ export default function Meetings() {
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 overflow-y-auto px-6 pb-6">
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {activeRooms.map((room: ActiveRoom) => (
+                <div className="flex-1 overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(100vh - 240px)' }}>
+                  <div className="pb-6">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {activeRooms.map((room: ActiveRoom) => (
                       <Card key={room.roomCode} className="hover:shadow-lg transition-all duration-200 border border-green-200 dark:border-green-700">
                         <CardContent className="p-6">
                           <div className="flex items-center justify-between mb-4">
@@ -408,12 +411,13 @@ export default function Meetings() {
                         </CardContent>
                       </Card>
                     ))}
+                    </div>
                   </div>
                 </div>
               )}
             </TabsContent>
 
-            <TabsContent value="scheduled" className="h-full flex flex-col">
+            <TabsContent value="scheduled" className="flex-1 flex flex-col overflow-hidden">
               <div className="p-6 pb-2 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-medium">Réunions programmées</h2>
@@ -423,7 +427,7 @@ export default function Meetings() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-6">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(100vh - 240px)' }}>
                 <div className="pb-6">
                   {loadingScheduled ? (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -533,100 +537,89 @@ export default function Meetings() {
               </div>
             </TabsContent>
 
-            <TabsContent value="schedule" className="h-full">
-              <div className="h-full flex flex-col">
-                {/* Header minimaliste */}
-                <div className="h-8 flex items-center px-6 border-b bg-white dark:bg-gray-900 flex-shrink-0">
-                  <CalendarDays className="h-3 w-3 text-blue-600 mr-2" />
-                  <h2 className="text-xs font-semibold">Programmer une réunion</h2>
-                </div>
+            <TabsContent value="schedule" className="flex-1 flex flex-col overflow-hidden">
+              <div className="h-8 flex items-center px-6 border-b bg-white dark:bg-gray-900 flex-shrink-0">
+                <CalendarDays className="h-3 w-3 text-blue-600 mr-2" />
+                <h2 className="text-xs font-semibold">Programmer une réunion</h2>
+              </div>
 
-                {/* Zone de défilement sans débordement */}
-                <div 
-                  className="flex-1 overflow-y-auto overflow-x-hidden p-2" 
-                  style={{ 
-                    height: 'calc(100vh - 220px)', 
-                    maxHeight: 'calc(100vh - 220px)',
-                    minHeight: '280px' 
-                  }}
-                >
-                  <div className="space-y-2 max-w-lg mx-auto pb-16">
-                    <div className="space-y-3">
-                      <div>
-                        <Label htmlFor="newMeetingTitle" className="text-xs">Titre de la réunion</Label>
-                        <Input
-                          id="newMeetingTitle"
-                          value={newMeetingTitle}
-                          onChange={(e) => setNewMeetingTitle(e.target.value)}
-                          placeholder="Nom de la réunion"
-                          className="h-8 text-sm"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="newMeetingDescription" className="text-xs">Description (optionnel)</Label>
-                        <Textarea
-                          id="newMeetingDescription"
-                          value={newMeetingDescription}
-                          onChange={(e) => setNewMeetingDescription(e.target.value)}
-                          placeholder="Description de la réunion..."
-                          className="h-16 text-sm resize-none"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label htmlFor="newMeetingDate" className="text-xs">Date</Label>
-                          <Input
-                            id="newMeetingDate"
-                            type="date"
-                            value={newMeetingDate}
-                            onChange={(e) => setNewMeetingDate(e.target.value)}
-                            className="h-8 text-sm"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="newMeetingTime" className="text-xs">Heure</Label>
-                          <Input
-                            id="newMeetingTime"
-                            type="time"
-                            value={newMeetingTime}
-                            onChange={(e) => setNewMeetingTime(e.target.value)}
-                            className="h-8 text-sm"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="newMeetingDuration" className="text-xs">Durée (minutes)</Label>
-                        <Input
-                          id="newMeetingDuration"
-                          type="number"
-                          value={newMeetingDuration}
-                          onChange={(e) => setNewMeetingDuration(e.target.value)}
-                          placeholder="60"
-                          className="h-8 text-sm"
-                        />
-                      </div>
-
-                      <Button 
-                        onClick={scheduleMeeting}
-                        disabled={createMeetingMutation.isPending || !newMeetingTitle.trim()}
-                        className="w-full h-8 text-sm bg-blue-600 hover:bg-blue-700"
-                      >
-                        {createMeetingMutation.isPending ? (
-                          <>
-                            <Clock className="h-3 w-3 mr-2 animate-spin" />
-                            Programmation...
-                          </>
-                        ) : (
-                          <>
-                            <CalendarDays className="h-3 w-3 mr-2" />
-                            Programmer la réunion
-                          </>
-                        )}
-                      </Button>
+              <div className="flex-1 overflow-y-auto overflow-x-hidden p-2" style={{ maxHeight: 'calc(100vh - 240px)' }}>
+                <div className="space-y-2 max-w-lg mx-auto pb-16">
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="newMeetingTitle" className="text-xs">Titre de la réunion</Label>
+                      <Input
+                        id="newMeetingTitle"
+                        value={newMeetingTitle}
+                        onChange={(e) => setNewMeetingTitle(e.target.value)}
+                        placeholder="Nom de la réunion"
+                        className="h-8 text-sm"
+                      />
                     </div>
+
+                    <div>
+                      <Label htmlFor="newMeetingDescription" className="text-xs">Description (optionnel)</Label>
+                      <Textarea
+                        id="newMeetingDescription"
+                        value={newMeetingDescription}
+                        onChange={(e) => setNewMeetingDescription(e.target.value)}
+                        placeholder="Description de la réunion..."
+                        className="h-16 text-sm resize-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label htmlFor="newMeetingDate" className="text-xs">Date</Label>
+                        <Input
+                          id="newMeetingDate"
+                          type="date"
+                          value={newMeetingDate}
+                          onChange={(e) => setNewMeetingDate(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="newMeetingTime" className="text-xs">Heure</Label>
+                        <Input
+                          id="newMeetingTime"
+                          type="time"
+                          value={newMeetingTime}
+                          onChange={(e) => setNewMeetingTime(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="newMeetingDuration" className="text-xs">Durée (minutes)</Label>
+                      <Input
+                        id="newMeetingDuration"
+                        type="number"
+                        value={newMeetingDuration}
+                        onChange={(e) => setNewMeetingDuration(e.target.value)}
+                        placeholder="60"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+
+                    <Button 
+                      onClick={scheduleMeeting}
+                      disabled={createMeetingMutation.isPending || !newMeetingTitle.trim()}
+                      className="w-full h-8 text-sm bg-blue-600 hover:bg-blue-700"
+                    >
+                      {createMeetingMutation.isPending ? (
+                        <>
+                          <Clock className="h-3 w-3 mr-2 animate-spin" />
+                          Programmation...
+                        </>
+                      ) : (
+                        <>
+                          <CalendarDays className="h-3 w-3 mr-2" />
+                          Programmer la réunion
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </div>
               </div>
