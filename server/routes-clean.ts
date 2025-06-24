@@ -419,8 +419,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Meeting routes - Simple Jitsi Meet integration
   app.get("/api/meetings/active", async (req, res) => {
     try {
-      // Retourner les salles actives (pour l'instant vide, sera peuplé par l'usage)
-      res.json({ success: true, rooms: [] });
+      // Vérifier les réunions programmées qui doivent devenir actives (5 minutes avant l'heure de début)
+      const now = new Date();
+      const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
+      
+      const meetingsToActivate: string[] = [];
+      
+      scheduledMeetings.forEach((meeting, roomCode) => {
+        const startTime = new Date(meeting.startTime);
+        if (startTime <= fiveMinutesFromNow && startTime > now) {
+          // Déplacer vers les réunions actives
+          meeting.status = 'active';
+          activeMeetings.set(roomCode, meeting);
+          meetingsToActivate.push(roomCode);
+        }
+      });
+      
+      // Supprimer les réunions activées de la liste programmée
+      meetingsToActivate.forEach(roomCode => {
+        scheduledMeetings.delete(roomCode);
+        console.log(`[meetings] Réunion activée automatiquement: ${roomCode}`);
+      });
+      
+      // Retourner les réunions actives
+      const activeRooms = Array.from(activeMeetings.values()).map(meeting => ({
+        roomCode: meeting.roomCode,
+        title: meeting.title,
+        startTime: meeting.startTime,
+        participants: 0 // Sera mis à jour par l'usage réel
+      }));
+      
+      res.json({ success: true, rooms: activeRooms });
     } catch (error) {
       console.error('Error fetching active meetings:', error);
       res.status(500).json({ error: 'Internal server error' });

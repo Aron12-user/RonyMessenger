@@ -66,11 +66,11 @@ export default function Meetings() {
   const [joinCode, setJoinCode] = useState("");
   const [showJoinDialog, setShowJoinDialog] = useState(false);
 
-  // Récupérer les réunions actives avec refetch automatique
+  // Récupérer les réunions actives avec refetch automatique et gestion des transitions
   const { data: activeRoomsData, isLoading: loadingActive, refetch: refetchActive } = useQuery({
     queryKey: ['/api/meetings/active'],
     enabled: !!user,
-    refetchInterval: 5000, // Refetch automatique toutes les 5 secondes
+    refetchInterval: 30000, // Refetch automatique toutes les 30 secondes pour vérifier les transitions
     staleTime: 0 // Considérer les données comme obsolètes immédiatement
   });
 
@@ -87,26 +87,17 @@ export default function Meetings() {
   const activeRooms = (activeRoomsData as any)?.rooms || [];
   const scheduledMeetings = (scheduledMeetingsData as any)?.meetings || [];
 
-  // Mutation pour créer une réunion
+  // Créer une réunion programmée
   const createMeetingMutation = useMutation({
-    mutationFn: async (meetingData: { 
-      title: string; 
-      description?: string; 
-      roomCode: string; 
-      startTime?: string; 
-      duration?: number; 
-    }) => {
-      const response = await fetch('/api/meetings/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+    mutationFn: async (meetingData: any) => {
+      const response = await fetch("/api/meetings/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(meetingData),
-        credentials: 'include'
       });
       
       if (!response.ok) {
-        throw new Error('Erreur lors de la création de la réunion');
+        throw new Error('Failed to create meeting');
       }
       
       return response.json();
@@ -140,93 +131,21 @@ export default function Meetings() {
     onError: (error: any) => {
       toast({
         title: "Erreur",
-        description: error.message || "Impossible de créer la réunion",
+        description: "Impossible de créer la réunion. Veuillez réessayer.",
         variant: "destructive"
       });
     }
   });
 
-  // Générer un code de réunion unique
-  const generateRoomCode = () => {
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2, 6);
-    return `${timestamp}-${random}`.toUpperCase();
-  };
-
-  // Créer une réunion instantanée
-  const createInstantMeeting = async () => {
-    if (!user) return;
-    
-    setIsCreating(true);
-    try {
-      const roomCode = generateRoomCode();
-      const meetingUrl = `https://meet.jit.si/${roomCode}`;
-      
-      // Créer la réunion dans l'API
-      await createMeetingMutation.mutateAsync({
-        title: "Réunion instantanée",
-        roomCode
-      });
-      
-      // Ouvrir Jitsi Meet
-      window.open(meetingUrl, '_blank');
-      
-    } catch (error) {
-      console.error('Erreur lors de la création de la réunion:', error);
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  // Créer une réunion programmée
-  const createScheduledMeeting = async () => {
-    if (!newMeetingTitle.trim()) {
-      toast({
-        title: "Erreur",
-        description: "Le titre de la réunion est requis",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!newMeetingDate || !newMeetingTime) {
-      toast({
-        title: "Erreur",
-        description: "La date et l'heure sont requises",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const roomCode = generateRoomCode();
-    const startDateTime = new Date(`${newMeetingDate}T${newMeetingTime}`);
-    
-    await createMeetingMutation.mutateAsync({
-      title: newMeetingTitle,
-      description: newMeetingDescription,
-      roomCode,
-      startTime: startDateTime.toISOString(),
-      duration: parseInt(newMeetingDuration)
-    });
-    
-    // Reset form et rediriger vers l'onglet programmées
-    setNewMeetingTitle("");
-    setNewMeetingDescription("");
-    setNewMeetingDate("");
-    setNewMeetingTime("");
-    setNewMeetingDuration("60");
-  };
-
-  // Mutation pour supprimer une réunion
+  // Supprimer une réunion
   const deleteMeetingMutation = useMutation({
     mutationFn: async (meetingId: string) => {
       const response = await fetch(`/api/meetings/${meetingId}`, {
-        method: 'DELETE',
-        credentials: 'include'
+        method: "DELETE",
       });
       
       if (!response.ok) {
-        throw new Error('Erreur lors de la suppression de la réunion');
+        throw new Error('Failed to delete meeting');
       }
       
       return response.json();
@@ -247,35 +166,67 @@ export default function Meetings() {
     onError: (error: any) => {
       toast({
         title: "Erreur",
-        description: error.message || "Impossible de supprimer la réunion",
+        description: "Impossible de supprimer la réunion",
         variant: "destructive"
       });
     }
   });
 
-  // Rejoindre une réunion avec un code
-  const joinMeetingWithCode = () => {
-    if (!joinCode.trim()) {
-      toast({
-        title: "Erreur",
-        description: "Veuillez entrer un code de réunion",
-        variant: "destructive"
-      });
-      return;
+  // Générer un code de réunion unique
+  const generateRoomCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 2; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-
-    const meetingUrl = `https://meet.jit.si/${joinCode}`;
-    window.open(meetingUrl, '_blank');
-    setJoinCode("");
-    setShowJoinDialog(false);
-    
-    toast({
-      title: "Rejoindre la réunion",
-      description: "Ouverture de la réunion dans un nouvel onglet"
-    });
+    result += Math.random().toString(36).substr(2, 7).toUpperCase();
+    return result;
   };
 
-  // Supprimer une réunion programmée
+  // Programmer une réunion
+  const scheduleMeeting = () => {
+    if (!newMeetingTitle.trim()) return;
+
+    const roomCode = generateRoomCode();
+    const startDateTime = newMeetingDate && newMeetingTime 
+      ? new Date(`${newMeetingDate}T${newMeetingTime}:00`)
+      : new Date();
+
+    const meetingData = {
+      title: newMeetingTitle,
+      description: newMeetingDescription,
+      roomCode,
+      startTime: startDateTime.toISOString(),
+      duration: parseInt(newMeetingDuration) || 60
+    };
+
+    createMeetingMutation.mutate(meetingData);
+
+    // Réinitialiser le formulaire
+    setNewMeetingTitle("");
+    setNewMeetingDescription("");
+    setNewMeetingDate("");
+    setNewMeetingTime("");
+    setNewMeetingDuration("60");
+  };
+
+  // Créer une réunion instantanée
+  const createInstantMeeting = () => {
+    const roomCode = generateRoomCode();
+    const meetingUrl = `https://meet.jit.si/${roomCode}`;
+    window.open(meetingUrl, '_blank');
+  };
+
+  // Rejoindre une réunion avec code
+  const joinMeetingWithCode = () => {
+    if (!joinCode.trim()) return;
+    const meetingUrl = `https://meet.jit.si/${joinCode}`;
+    window.open(meetingUrl, '_blank');
+    setShowJoinDialog(false);
+    setJoinCode("");
+  };
+
+  // Supprimer une réunion
   const deleteMeeting = (meetingId: string) => {
     deleteMeetingMutation.mutate(meetingId);
   };
@@ -348,20 +299,18 @@ export default function Meetings() {
 
             <Button 
               onClick={createInstantMeeting}
-              disabled={isCreating}
               className="bg-blue-600 hover:bg-blue-700"
             >
               <Video className="h-4 w-4 mr-2" />
-              {isCreating ? "Création..." : "Nouvelle réunion"}
+              Nouvelle réunion
             </Button>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-auto">
-          <Tabs defaultValue="active" className="h-full">
-            <div className="border-b px-6">
-              <TabsList className="h-10">
+        <div className="flex-1 overflow-hidden">
+          <Tabs defaultValue="active" className="h-full flex flex-col">
+            <div className="px-6 pt-4 pb-0">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="active" className="text-sm">
                   Réunions actives
                 </TabsTrigger>
@@ -374,85 +323,98 @@ export default function Meetings() {
               </TabsList>
             </div>
 
-            <TabsContent value="active" className="p-6 space-y-6 h-full">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-medium">Réunions en cours</h2>
-                <Badge variant="secondary" className="text-xs">
-                  {activeRooms.length} active{activeRooms.length !== 1 ? 's' : ''}
-                </Badge>
+            <TabsContent value="active" className="h-full flex flex-col">
+              <div className="p-6 pb-2 flex-shrink-0">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-medium">Réunions en cours</h2>
+                  <Badge variant="secondary" className="text-xs">
+                    {activeRooms.length} active{activeRooms.length !== 1 ? 's' : ''}
+                  </Badge>
+                </div>
               </div>
 
               {loadingActive ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {[1, 2, 3].map((i) => (
-                    <Card key={i} className="animate-pulse">
-                      <CardContent className="p-6">
-                        <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                        <div className="h-3 bg-gray-200 rounded w-2/3 mb-4"></div>
-                        <div className="h-9 bg-gray-200 rounded"></div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                <div className="p-6">
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <Card key={i} className="animate-pulse">
+                        <CardContent className="p-6">
+                          <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                          <div className="h-3 bg-gray-200 rounded w-2/3 mb-4"></div>
+                          <div className="h-9 bg-gray-200 rounded"></div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
               ) : activeRooms.length === 0 ? (
-                <EmptyState
-                  title="Aucune réunion active"
-                  description="Créez une nouvelle réunion pour commencer"
-                  action={{
-                    label: "Nouvelle réunion",
-                    onClick: createInstantMeeting
-                  }}
-                />
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <Video className="h-16 w-16 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                      Aucune réunion active
+                    </h3>
+                    <p className="text-gray-500 text-center mb-6 max-w-md">
+                      Créez une nouvelle réunion pour commencer
+                    </p>
+                    <Button onClick={createInstantMeeting}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Nouvelle réunion
+                    </Button>
+                  </div>
+                </div>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {activeRooms.map((room: ActiveRoom) => (
-                    <Card key={room.roomCode} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between mb-4">
-                          <div>
-                            <h3 className="font-medium text-gray-900 dark:text-white">
-                              {room.title}
-                            </h3>
-                            <div className="flex items-center text-sm text-gray-500 mt-1">
-                              <Users className="h-4 w-4 mr-1" />
-                              {room.participants} participant{room.participants !== 1 ? 's' : ''}
+                <div className="flex-1 overflow-y-auto px-6 pb-6">
+                  <div className="space-y-4">
+                    {activeRooms.map((room: ActiveRoom) => (
+                      <Card key={room.roomCode} className="hover:shadow-lg transition-all duration-200 border border-green-200 dark:border-green-700">
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-gray-900 dark:text-white text-base mb-1 truncate">
+                                {room.title}
+                              </h3>
+                              <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                                <Users className="h-4 w-4 mr-2 text-green-600" />
+                                <span>{room.participants} participant{room.participants !== 1 ? 's' : ''}</span>
+                              </div>
                             </div>
+                            <Badge className="bg-green-100 text-green-800 text-xs">
+                              En cours
+                            </Badge>
                           </div>
-                          <Badge className="bg-green-100 text-green-800 text-xs">
-                            En cours
-                          </Badge>
-                        </div>
 
-                        <div className="flex items-center text-sm text-gray-500 mb-4">
-                          <Clock className="h-4 w-4 mr-1" />
-                          Commencée à {new Date(room.startTime).toLocaleTimeString()}
-                        </div>
+                          <div className="flex items-center text-sm text-gray-500 mb-4">
+                            <Clock className="h-4 w-4 mr-1" />
+                            Commencée à {new Date(room.startTime).toLocaleTimeString()}
+                          </div>
 
-                        <div className="flex gap-2">
-                          <Button 
-                            onClick={() => joinMeeting(room.roomCode)}
-                            className="flex-1 bg-blue-600 hover:bg-blue-700"
-                          >
-                            <Video className="h-4 w-4 mr-2" />
-                            Rejoindre
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => copyMeetingLink(room.roomCode)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                          <div className="flex gap-2">
+                            <Button 
+                              onClick={() => joinMeeting(room.roomCode)}
+                              className="flex-1 bg-blue-600 hover:bg-blue-700"
+                            >
+                              <Video className="h-4 w-4 mr-2" />
+                              Rejoindre
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => copyMeetingLink(room.roomCode)}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
               )}
             </TabsContent>
 
-            <TabsContent value="scheduled" className="h-full">
-              <div className="p-6 pb-2">
+            <TabsContent value="scheduled" className="h-full flex flex-col">
+              <div className="p-6 pb-2 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-medium">Réunions programmées</h2>
                   <Badge variant="secondary" className="text-xs">
@@ -461,10 +423,10 @@ export default function Meetings() {
                 </div>
               </div>
 
-              <ScrollArea className="h-[calc(100%-5rem)] px-6">
+              <div className="flex-1 overflow-y-auto px-6">
                 <div className="pb-6">
                   {loadingScheduled ? (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="space-y-4">
                       {[1, 2, 3].map((i) => (
                         <Card key={i} className="animate-pulse">
                           <CardContent className="p-6">
@@ -490,7 +452,7 @@ export default function Meetings() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="space-y-4">
                       {scheduledMeetings.map((meeting: Meeting) => (
                         <Card key={meeting.id} className="hover:shadow-lg transition-all duration-200 border border-gray-200 dark:border-gray-700">
                           <CardContent className="p-6">
@@ -518,18 +480,13 @@ export default function Meetings() {
                                     weekday: 'short',
                                     day: 'numeric',
                                     month: 'short'
-                                  })}
+                                  })} à {new Date(meeting.startTime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                               </div>
-                              
+
                               <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                                 <Clock className="h-4 w-4 mr-2 text-green-600" />
-                                <span>
-                                  {new Date(meeting.startTime).toLocaleTimeString('fr-FR', {
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                </span>
+                                <span>Durée: {meeting.duration || 60} minutes</span>
                               </div>
 
                               <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
@@ -573,14 +530,13 @@ export default function Meetings() {
                     </div>
                   )}
                 </div>
-              </ScrollArea>
+              </div>
             </TabsContent>
 
             <TabsContent value="schedule" className="h-full">
-              {/* Conteneur avec hauteurs fixes optimisées */}
-              <div className="h-full flex flex-col" style={{ height: 'calc(100vh - 160px)' }}>
+              <div className="h-full flex flex-col">
                 {/* Header minimaliste */}
-                <div className="flex-shrink-0 h-8 px-2 py-1 border-b bg-white dark:bg-gray-900 flex items-center">
+                <div className="h-8 flex items-center px-6 border-b bg-white dark:bg-gray-900 flex-shrink-0">
                   <CalendarDays className="h-3 w-3 text-blue-600 mr-2" />
                   <h2 className="text-xs font-semibold">Programmer une réunion</h2>
                 </div>
@@ -595,124 +551,82 @@ export default function Meetings() {
                   }}
                 >
                   <div className="space-y-2 max-w-lg mx-auto pb-16">
-                    <Card className="border border-blue-200 dark:border-blue-800 shadow-sm">
-                      <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
-                        <CardTitle className="flex items-center text-base text-blue-900 dark:text-blue-100">
-                          <CalendarDays className="h-4 w-4 mr-2 text-blue-600" />
-                          Nouvelle réunion programmée
-                        </CardTitle>
-                      </CardHeader>
-                      
-                      <CardContent className="p-3 space-y-3">
-                        {/* Informations de base */}
-                        <div className="space-y-2">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            <div className="space-y-1">
-                              <Label htmlFor="meetingTitle" className="text-xs text-gray-700 dark:text-gray-300">
-                                Titre *
-                              </Label>
-                              <Input
-                                id="meetingTitle"
-                                value={newMeetingTitle}
-                                onChange={(e) => setNewMeetingTitle(e.target.value)}
-                                placeholder="Réunion équipe"
-                                className="h-7 text-xs"
-                              />
-                            </div>
-                            
-                            <div className="space-y-1">
-                              <Label htmlFor="meetingDuration" className="text-xs text-gray-700 dark:text-gray-300">
-                                Durée (min)
-                              </Label>
-                              <Input
-                                id="meetingDuration"
-                                type="number"
-                                value={newMeetingDuration}
-                                onChange={(e) => setNewMeetingDuration(e.target.value)}
-                                placeholder="60"
-                                min="15"
-                                max="480"
-                                className="h-7 text-xs"
-                              />
-                            </div>
-                          </div>
+                    <div className="space-y-3">
+                      <div>
+                        <Label htmlFor="newMeetingTitle" className="text-xs">Titre de la réunion</Label>
+                        <Input
+                          id="newMeetingTitle"
+                          value={newMeetingTitle}
+                          onChange={(e) => setNewMeetingTitle(e.target.value)}
+                          placeholder="Nom de la réunion"
+                          className="h-8 text-sm"
+                        />
+                      </div>
 
-                          <div className="space-y-1">
-                            <Label htmlFor="meetingDescription" className="text-xs text-gray-700 dark:text-gray-300">
-                              Description
-                            </Label>
-                            <Textarea
-                              id="meetingDescription"
-                              value={newMeetingDescription}
-                              onChange={(e) => setNewMeetingDescription(e.target.value)}
-                              placeholder="Objectif de la réunion..."
-                              rows={2}
-                              className="resize-none text-xs"
-                            />
-                          </div>
-                        </div>
+                      <div>
+                        <Label htmlFor="newMeetingDescription" className="text-xs">Description (optionnel)</Label>
+                        <Textarea
+                          id="newMeetingDescription"
+                          value={newMeetingDescription}
+                          onChange={(e) => setNewMeetingDescription(e.target.value)}
+                          placeholder="Description de la réunion..."
+                          className="h-16 text-sm resize-none"
+                        />
+                      </div>
 
-                        {/* Planification */}
-                        <div className="space-y-2">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            <div className="space-y-1">
-                              <Label htmlFor="meetingDate" className="text-xs text-gray-700 dark:text-gray-300">
-                                Date *
-                              </Label>
-                              <Input
-                                id="meetingDate"
-                                type="date"
-                                value={newMeetingDate}
-                                onChange={(e) => setNewMeetingDate(e.target.value)}
-                                min={new Date().toISOString().split('T')[0]}
-                                className="h-7 text-xs"
-                              />
-                            </div>
-                            
-                            <div className="space-y-1">
-                              <Label htmlFor="meetingTime" className="text-xs text-gray-700 dark:text-gray-300">
-                                Heure *
-                              </Label>
-                              <Input
-                                id="meetingTime"
-                                type="time"
-                                value={newMeetingTime}
-                                onChange={(e) => setNewMeetingTime(e.target.value)}
-                                className="h-7 text-xs"
-                              />
-                            </div>
-                          </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label htmlFor="newMeetingDate" className="text-xs">Date</Label>
+                          <Input
+                            id="newMeetingDate"
+                            type="date"
+                            value={newMeetingDate}
+                            onChange={(e) => setNewMeetingDate(e.target.value)}
+                            className="h-8 text-sm"
+                          />
                         </div>
+                        <div>
+                          <Label htmlFor="newMeetingTime" className="text-xs">Heure</Label>
+                          <Input
+                            id="newMeetingTime"
+                            type="time"
+                            value={newMeetingTime}
+                            onChange={(e) => setNewMeetingTime(e.target.value)}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      </div>
 
-                        {/* Actions */}
-                        <div className="flex gap-2 pt-2 border-t">
-                          <Button 
-                            onClick={createScheduledMeeting}
-                            disabled={createMeetingMutation.isPending || !newMeetingTitle.trim() || !newMeetingDate || !newMeetingTime}
-                            className="flex-1 h-7 bg-blue-600 hover:bg-blue-700 text-xs"
-                            size="sm"
-                          >
-                            <Calendar className="h-3 w-3 mr-1" />
-                            {createMeetingMutation.isPending ? "Création..." : "Programmer"}
-                          </Button>
-                          <Button 
-                            variant="outline"
-                            onClick={() => {
-                              setNewMeetingTitle("");
-                              setNewMeetingDescription("");
-                              setNewMeetingDate("");
-                              setNewMeetingTime("");
-                              setNewMeetingDuration("60");
-                            }}
-                            disabled={createMeetingMutation.isPending}
-                            className="px-3 h-7 text-xs"
-                            size="sm"
-                          >
-                            Effacer
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+                      <div>
+                        <Label htmlFor="newMeetingDuration" className="text-xs">Durée (minutes)</Label>
+                        <Input
+                          id="newMeetingDuration"
+                          type="number"
+                          value={newMeetingDuration}
+                          onChange={(e) => setNewMeetingDuration(e.target.value)}
+                          placeholder="60"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+
+                      <Button 
+                        onClick={scheduleMeeting}
+                        disabled={createMeetingMutation.isPending || !newMeetingTitle.trim()}
+                        className="w-full h-8 text-sm bg-blue-600 hover:bg-blue-700"
+                      >
+                        {createMeetingMutation.isPending ? (
+                          <>
+                            <Clock className="h-3 w-3 mr-2 animate-spin" />
+                            Programmation...
+                          </>
+                        ) : (
+                          <>
+                            <CalendarDays className="h-3 w-3 mr-2" />
+                            Programmer la réunion
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
