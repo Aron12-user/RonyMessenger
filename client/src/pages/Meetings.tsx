@@ -333,9 +333,9 @@ export default function Meetings() {
                 </div>
               </div>
 
-              <div className="flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto min-h-0">
                 {loadingActive ? (
-                  <div className="h-full overflow-y-auto px-6">
+                  <div className="px-6 py-4">
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pb-20">
                       {[1, 2, 3].map((i) => (
                         <Card key={i} className="animate-pulse">
@@ -349,8 +349,8 @@ export default function Meetings() {
                     </div>
                   </div>
                 ) : activeRooms.length === 0 ? (
-                  <div className="h-full flex items-center justify-center px-6">
-                    <div className="flex flex-col items-center justify-center py-12">
+                  <div className="flex items-center justify-center px-6 py-12">
+                    <div className="flex flex-col items-center justify-center">
                       <Video className="h-16 w-16 text-gray-400 mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                         Aucune réunion active
@@ -365,7 +365,7 @@ export default function Meetings() {
                     </div>
                   </div>
                 ) : (
-                  <div className="h-full overflow-y-auto px-6">
+                  <div className="px-6 py-4">
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pb-20">
                       {activeRooms.map((room: ActiveRoom) => (
                       <Card key={room.roomCode} className="hover:shadow-lg transition-all duration-200 border border-green-200 dark:border-green-700">
@@ -425,9 +425,9 @@ export default function Meetings() {
                 </div>
               </div>
 
-              <div className="flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto min-h-0">
                 {loadingScheduled ? (
-                  <div className="h-full overflow-y-auto px-6">
+                  <div className="px-6 py-4">
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pb-20">
                       {[1, 2, 3].map((i) => (
                         <Card key={i} className="animate-pulse">
@@ -441,8 +441,8 @@ export default function Meetings() {
                     </div>
                   </div>
                 ) : scheduledMeetings.length === 0 ? (
-                  <div className="h-full flex items-center justify-center px-6">
-                    <div className="flex flex-col items-center justify-center py-12">
+                  <div className="flex items-center justify-center px-6 py-12">
+                    <div className="flex flex-col items-center justify-center">
                       <Calendar className="h-16 w-16 text-gray-400 mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                         Aucune réunion programmée
@@ -457,7 +457,7 @@ export default function Meetings() {
                     </div>
                   </div>
                 ) : (
-                  <div className="h-full overflow-y-auto px-6">
+                  <div className="px-6 py-4">
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pb-20">
                       {scheduledMeetings.map((meeting: Meeting) => (
                         <Card key={meeting.id} className="hover:shadow-lg transition-all duration-200 border border-gray-200 dark:border-gray-700">
@@ -545,8 +545,9 @@ export default function Meetings() {
                 <h2 className="text-xs font-semibold">Programmer une réunion</h2>
               </div>
 
-              <div className="flex-1 min-h-0 overflow-y-auto p-4">
-                <div className="space-y-2 max-w-lg mx-auto pb-40">
+              <div className="flex-1 overflow-y-auto min-h-0">
+                <div className="p-4">
+                  <div className="space-y-2 max-w-lg mx-auto pb-40">
                   <div className="space-y-3">
                     <div>
                       <Label htmlFor="newMeetingTitle" className="text-xs">Titre de la réunion</Label>
@@ -622,6 +623,7 @@ export default function Meetings() {
                         </>
                       )}
                     </Button>
+                  </div>
                   </div>
                 </div>
               </div>
