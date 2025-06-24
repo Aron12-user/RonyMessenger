@@ -53,7 +53,7 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
                 size="lg"
                 onClick={onToggleAudio}
                 className={`rounded-full w-12 h-12 p-0 transition-all duration-200 hover:scale-105 ${
-                  isAudioEnabled ? 'bg-gray-700 hover:bg-gray-600 text-white' : ''
+                  isAudioEnabled ? 'hover:bg-gray-600 text-white' : ''
                 }`}
               >
                 {isAudioEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
@@ -72,7 +72,7 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
                 size="lg"
                 onClick={onToggleVideo}
                 className={`rounded-full w-12 h-12 p-0 transition-all duration-200 hover:scale-105 ${
-                  isVideoEnabled ? 'bg-gray-700 hover:bg-gray-600 text-white' : ''
+                  isVideoEnabled ? 'hover:bg-gray-600 text-white' : ''
                 }`}
               >
                 {isVideoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
