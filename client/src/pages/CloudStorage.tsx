@@ -505,7 +505,7 @@ export default function CloudStorage() {
       console.log('[share] Starting share process for', isFolder ? 'folder' : 'file', fileId, 'with', email);
       
       // Get user by email/username with proper validation
-      const userRes = await fetch(`/api/users?email=${email}`, { credentials: 'include' });
+      const userRes = await fetch(`/api/users?email=${encodeURIComponent(email)}`, { credentials: 'include' });
       if (!userRes.ok) {
         const errorText = await userRes.text();
         console.error('User lookup error:', userRes.status, errorText);
@@ -515,12 +515,19 @@ export default function CloudStorage() {
       const users = await userRes.json();
       console.log('[share] User lookup result:', users);
       
+      // Vérification stricte de l'existence de l'utilisateur
       if (!users.data || users.data.length === 0) {
         throw new Error("Adresse Rony introuvable - aucun utilisateur trouvé avec cette adresse");
       }
 
-      const sharedWithId = users.data[0].id;
-      console.log('[share] Found target user ID:', sharedWithId);
+      // Vérifier que l'utilisateur trouvé correspond exactement à l'email recherché
+      const targetUser = users.data.find(u => u.username === email || u.email === email);
+      if (!targetUser) {
+        throw new Error("Adresse Rony introuvable - correspondance exacte requise");
+      }
+
+      const sharedWithId = targetUser.id;
+      console.log('[share] Found target user ID:', sharedWithId, 'for email:', email);
 
       // Share the file/folder
       const endpoint = isFolder ? "/api/folders/share" : "/api/files/share";
