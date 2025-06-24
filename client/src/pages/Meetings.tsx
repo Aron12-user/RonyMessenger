@@ -66,16 +66,20 @@ export default function Meetings() {
   const [joinCode, setJoinCode] = useState("");
   const [showJoinDialog, setShowJoinDialog] = useState(false);
 
-  // Récupérer les réunions actives
-  const { data: activeRoomsData, isLoading: loadingActive } = useQuery({
+  // Récupérer les réunions actives avec refetch automatique
+  const { data: activeRoomsData, isLoading: loadingActive, refetch: refetchActive } = useQuery({
     queryKey: ['/api/meetings/active'],
-    enabled: !!user
+    enabled: !!user,
+    refetchInterval: 5000, // Refetch automatique toutes les 5 secondes
+    staleTime: 0 // Considérer les données comme obsolètes immédiatement
   });
 
-  // Récupérer les réunions programmées
-  const { data: scheduledMeetingsData, isLoading: loadingScheduled } = useQuery({
+  // Récupérer les réunions programmées avec refetch automatique
+  const { data: scheduledMeetingsData, isLoading: loadingScheduled, refetch: refetchScheduled } = useQuery({
     queryKey: ['/api/meetings/scheduled'],
-    enabled: !!user
+    enabled: !!user,
+    refetchInterval: 5000, // Refetch automatique toutes les 5 secondes
+    staleTime: 0 // Considérer les données comme obsolètes immédiatement
   });
 
   const activeRooms = (activeRoomsData as any)?.rooms || [];
@@ -112,8 +116,8 @@ export default function Meetings() {
       queryClient.invalidateQueries({ queryKey: ['/api/meetings/active'] });
       
       // Forcer un refetch immédiat des données
-      queryClient.refetchQueries({ queryKey: ['/api/meetings/scheduled'] });
-      queryClient.refetchQueries({ queryKey: ['/api/meetings/active'] });
+      refetchScheduled();
+      refetchActive();
       
       toast({
         title: "Réunion créée",
@@ -219,8 +223,8 @@ export default function Meetings() {
       queryClient.invalidateQueries({ queryKey: ['/api/meetings'] });
       queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
       queryClient.invalidateQueries({ queryKey: ['/api/meetings/active'] });
-      queryClient.refetchQueries({ queryKey: ['/api/meetings/scheduled'] });
-      queryClient.refetchQueries({ queryKey: ['/api/meetings/active'] });
+      refetchScheduled();
+      refetchActive();
       
       toast({
         title: "Réunion supprimée",
@@ -560,24 +564,24 @@ export default function Meetings() {
             </TabsContent>
 
             <TabsContent value="schedule" className="h-full">
-              {/* Conteneur avec hauteurs fixes calculées */}
-              <div className="h-full flex flex-col" style={{ height: 'calc(100vh - 180px)' }}>
-                {/* Header ultra-compact */}
-                <div className="flex-shrink-0 h-12 p-2 border-b bg-white dark:bg-gray-900 flex items-center">
-                  <div className="bg-blue-100 dark:bg-blue-900 p-1 rounded">
-                    <CalendarDays className="h-3 w-3 text-blue-600" />
-                  </div>
-                  <div className="ml-2">
-                    <h2 className="text-xs font-semibold">Programmer une réunion</h2>
-                  </div>
+              {/* Conteneur avec hauteurs fixes optimisées */}
+              <div className="h-full flex flex-col" style={{ height: 'calc(100vh - 160px)' }}>
+                {/* Header minimaliste */}
+                <div className="flex-shrink-0 h-8 px-2 py-1 border-b bg-white dark:bg-gray-900 flex items-center">
+                  <CalendarDays className="h-3 w-3 text-blue-600 mr-2" />
+                  <h2 className="text-xs font-semibold">Programmer une réunion</h2>
                 </div>
 
-                {/* Zone de défilement avec hauteur calculée */}
+                {/* Zone de défilement optimisée */}
                 <div 
                   className="flex-1 overflow-y-auto p-2" 
-                  style={{ height: 'calc(100vh - 230px)', minHeight: '400px' }}
+                  style={{ 
+                    height: 'calc(100vh - 200px)', 
+                    maxHeight: 'calc(100vh - 200px)',
+                    minHeight: '300px' 
+                  }}
                 >
-                  <div className="space-y-2 max-w-xl mx-auto">
+                  <div className="space-y-2 max-w-lg mx-auto pb-8">
                     <Card className="border border-blue-200 dark:border-blue-800 shadow-sm">
                       <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
                         <CardTitle className="flex items-center text-base text-blue-900 dark:text-blue-100">
