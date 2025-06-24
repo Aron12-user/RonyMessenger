@@ -904,6 +904,19 @@ export default function CloudStorage() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      toast({ 
+                                        title: "Téléchargement", 
+                                        description: "Le téléchargement de dossiers sera bientôt disponible", 
+                                        variant: "destructive" 
+                                      });
+                                    }}
+                                  >
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Télécharger
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleRenameItem(folder.id, folder.name, true);
@@ -952,11 +965,13 @@ export default function CloudStorage() {
                         key={file.id} 
                         className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
                       >
-                        <div className="h-16 bg-gray-100 dark:bg-gray-700 flex items-center justify-center p-2">
+                        <div className="h-12 bg-gray-100 dark:bg-gray-700 flex items-center justify-center p-2">
                           {file.type.startsWith('image/') ? (
-                            <img src={file.url} alt={file.name} className="h-12 w-12 object-cover rounded" />
+                            <img src={file.url} alt={file.name} className="h-8 w-8 object-cover rounded" />
                           ) : (
-                            getFileIcon(file.type, file.name)
+                            <div className="w-6 h-6">
+                              {getFileIcon(file.type, file.name)}
+                            </div>
                           )}
                         </div>
                         <div className="p-2">
