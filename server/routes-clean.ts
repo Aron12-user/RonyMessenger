@@ -77,7 +77,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
-  
+
   const multerStorage = multer.diskStorage({
     destination: (req, file, cb) => {
       cb(null, uploadsDir);
@@ -87,7 +87,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       cb(null, uniqueFilename);
     }
   });
-  
+
   const upload = multer({ 
     storage: multerStorage,
     limits: { 
@@ -221,7 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const parentIdParam = req.query.parentId as string;
       const parentId = parentIdParam && parentIdParam !== 'null' ? parseInt(parentIdParam) : null;
       console.log(`[routes] Getting folders for parentId: ${parentId} (param: ${parentIdParam}), userId: ${userId}`);
-      
+
       const folders = await storage.getFoldersByParent(parentId, userId);
       console.log(`[routes] Returning ${folders.length} folders`);
       res.json(folders);
@@ -239,7 +239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { name, parentId, iconType } = req.body;
-      
+
       if (!name) {
         return res.status(400).json({ error: "Nom du dossier requis" });
       }
@@ -312,7 +312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const folderIdParam = req.query.folderId as string;
       const folderId = folderIdParam && folderIdParam !== 'null' ? parseInt(folderIdParam) : null;
       console.log(`[routes] Getting files for folderId: ${folderId} (param: ${folderIdParam}), userId: ${userId}`);
-      
+
       const files = await storage.getFilesByFolder(folderId);
       console.log(`[routes] Returning ${files.length} files`);
       res.json(files);
@@ -334,10 +334,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Aucun fichier fourni" });
       }
 
+      // Validation des fichiers
+      const maxSize = 100 * 1024 * 1024; // 100MB
+      const allowedTypes = [
+        'image/', 'video/', 'audio/', 'text/', 'application/pdf',
+        'application/msword', 'application/vnd.openxmlformats-officedocument',
+        'application/vnd.ms-excel', 'application/vnd.ms-powerpoint',
+        'application/zip', 'application/x-rar-compressed'
+      ];
+
+      for (const file of req.files) {
+        if (file.size > maxSize) {
+          return res.status(400).json({ 
+            error: `Le fichier "${file.originalname}" dépasse la taille limite de 100MB` 
+          });
+        }
+
+        const isAllowed = allowedTypes.some(type => file.mimetype.startsWith(type));
+        if (!isAllowed) {
+          return res.status(400).json({ 
+            error: `Le type de fichier "${file.mimetype}" n'est pas autorisé pour "${file.originalname}"` 
+          });
+        }
+      }
+
       const folderId = req.body.folderId && req.body.folderId !== 'null' ? parseInt(req.body.folderId) : null;
       const filePaths = req.body.filePaths;
       const folderStructure = req.body.folderStructure ? JSON.parse(req.body.folderStructure) : {};
-      
+
       console.log('Upload request:', { folderId, filesCount: req.files.length, folderStructure });
 
       const uploadedFiles = [];
@@ -353,7 +377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const part of pathParts) {
             if (!part) continue;
             currentPath = currentPath ? `${currentPath}/${part}` : part;
-            
+
             if (!createdFolders.has(currentPath)) {
               const folderData = {
                 name: part,
@@ -365,7 +389,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 updatedAt: new Date(),
                 isShared: false
               };
-              
+
               const folder = await storage.createFolder(folderData);
               createdFolders.set(currentPath, folder);
               currentParentId = folder.id;
@@ -384,7 +408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const pathParts = relativePath.split('/');
         const fileName = pathParts[pathParts.length - 1];
         const folderPath = pathParts.slice(0, -1).join('/');
-        
+
         let targetFolderId = folderId;
         if (folderPath && createdFolders.has(folderPath)) {
           targetFolderId = createdFolders.get(folderPath)!.id;
@@ -527,9 +551,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Vérifier les réunions programmées qui doivent devenir actives (5 minutes avant l'heure de début)
       const now = new Date();
       const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
-      
+
       const meetingsToActivate: string[] = [];
-      
+
       scheduledMeetings.forEach((meeting, roomCode) => {
         const startTime = new Date(meeting.startTime);
         if (startTime <= fiveMinutesFromNow && startTime > now) {
@@ -539,13 +563,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           meetingsToActivate.push(roomCode);
         }
       });
-      
+
       // Supprimer les réunions activées de la liste programmée
       meetingsToActivate.forEach(roomCode => {
         scheduledMeetings.delete(roomCode);
         console.log(`[meetings] Réunion activée automatiquement: ${roomCode}`);
       });
-      
+
       // Retourner les réunions actives
       const activeRooms = Array.from(activeMeetings.values()).map(meeting => ({
         roomCode: meeting.roomCode,
@@ -553,7 +577,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         startTime: meeting.startTime,
         participants: 0 // Sera mis à jour par l'usage réel
       }));
-      
+
       res.json({ success: true, rooms: activeRooms });
     } catch (error) {
       console.error('Error fetching active meetings:', error);
@@ -570,7 +594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         maxParticipants: 50,
         isActive: false
       }));
-      
+
       res.json({ success: true, meetings });
     } catch (error) {
       console.error('Error fetching scheduled meetings:', error);
@@ -581,14 +605,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/meetings/create", async (req, res) => {
     try {
       const { title, description, roomCode, startTime, duration } = req.body;
-      
+
       if (!roomCode) {
         return res.status(400).json({ error: 'Room code is required' });
       }
 
       // Simple création de réunion avec Jitsi Meet
       const meetingUrl = `https://meet.jit.si/${roomCode}`;
-      
+
       const meeting: StoredMeeting = {
         id: roomCode,
         title: title || 'Nouvelle réunion',
@@ -604,9 +628,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Stocker la réunion en mémoire
       scheduledMeetings.set(roomCode, meeting);
-      
+
       console.log(`[meetings] Réunion créée: ${meeting.title} (${roomCode}). Total: ${scheduledMeetings.size}`);
-      
+
       res.json({
         success: true,
         meeting: {
@@ -625,15 +649,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/meetings/:meetingId", async (req, res) => {
     try {
       const { meetingId } = req.params;
-      
+
       // Supprimer la réunion du stockage en mémoire
       const deleted = scheduledMeetings.delete(meetingId);
       activeMeetings.delete(meetingId);
-      
+
       if (deleted) {
         console.log(`[meetings] Réunion supprimée: ${meetingId}. Total: ${scheduledMeetings.size}`);
       }
-      
+
       res.json({
         success: true,
         message: 'Meeting deleted successfully'
