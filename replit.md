@@ -149,6 +149,10 @@ Changelog:
 - June 24, 2025. Fixed file deletion errors with proper headers and error handling
 - June 24, 2025. Improved sharing system to work only with authenticated users in database
 - June 24, 2025. Added user selection dialog for sharing files and folders
+- June 24, 2025. Removed background image from Cloud interface for cleaner appearance
+- June 24, 2025. Enhanced error handling for all CRUD operations with proper text parsing
+- June 24, 2025. Added confirmation dialogs for delete and rename operations
+- June 24, 2025. Improved file grid layout with more compact design (8 columns)
 ```
 
 ## User Preferences

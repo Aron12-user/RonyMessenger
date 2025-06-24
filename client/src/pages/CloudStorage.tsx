@@ -37,7 +37,7 @@ import {
 import folderOrangeIcon from "@assets/icons8-dossier-mac-94_1750386744627.png";
 import folderBlueIcon from "@assets/icons8-dossier-mac-64_1750386753922.png";
 import folderArchiveIcon from "@assets/icons8-dossier-mac-48_1750386762042.png";
-import cloudBackgroundImage from "@assets/5590894_1750468773239.jpg";
+
 
 // Import des icônes de fichiers
 import imageIcon from "@assets/icons8-image-50_1750773959798.png";
@@ -677,16 +677,8 @@ export default function CloudStorage() {
   );
 
   return (
-    <div 
-      className="flex-1 p-1 flex flex-col overflow-hidden"
-      style={{
-        backgroundImage: `url(${cloudBackgroundImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
-      }}
-    >
-      <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg shadow p-2 flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 p-4 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 flex-1 flex flex-col overflow-hidden">
         <div className="max-w-7xl mx-auto flex flex-col h-full overflow-hidden">
           {/* Header avec titre et actions principales */}
           <div className="flex flex-wrap justify-between items-center mb-6">
