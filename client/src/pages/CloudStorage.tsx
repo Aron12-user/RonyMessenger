@@ -226,6 +226,14 @@ export default function CloudStorage() {
       }
 
       console.log('[upload] Sending request to /api/upload');
+      console.log('[upload] FormData entries:');
+      for (let pair of formData.entries()) {
+        console.log('[upload] FormData entry:', pair[0], typeof pair[1] === 'object' ? 'File object' : pair[1]);
+        if (pair[1] instanceof File) {
+          console.log('[upload] File details:', pair[1].name, pair[1].size, pair[1].type);
+        }
+      }
+      
       const response = await fetch('/api/upload', {
         method: 'POST',
         credentials: 'include',
@@ -643,15 +651,29 @@ export default function CloudStorage() {
     console.log('[ui] File input change event triggered');
     const files = event.target.files;
     console.log('[ui] Files from input:', files ? files.length : 0, 'files');
+    console.log('[ui] Event target:', event.target);
+    console.log('[ui] Files object:', files);
     
     if (files && files.length > 0) {
       console.log('[ui] Starting file upload for', files.length, 'files');
       Array.from(files).forEach((file, index) => {
         console.log(`[ui] File ${index + 1}:`, file.name, file.type, file.size);
       });
-      uploadMutation.mutate(files);
+      
+      // Convert FileList to Array for better handling
+      const fileArray = Array.from(files);
+      console.log('[ui] File array created:', fileArray.length, 'files');
+      
+      // Create a new FileList-like object that works with FormData
+      const dt = new DataTransfer();
+      fileArray.forEach(file => dt.items.add(file));
+      const newFileList = dt.files;
+      
+      console.log('[ui] New FileList created:', newFileList.length, 'files');
+      uploadMutation.mutate(newFileList);
     } else {
       console.warn('[ui] No files selected or files is null');
+      console.warn('[ui] Event.target.files:', event.target.files);
     }
     
     // Reset input
