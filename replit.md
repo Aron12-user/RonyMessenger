@@ -122,6 +122,10 @@ Changelog:
 - June 23, 2025. Completely removed WebRTC and all video conferencing functionality
 - June 23, 2025. Restored meetings interface with simple Jitsi Meet integration
 - June 23, 2025. Implemented lightweight meeting API using public Jitsi servers
+- June 24, 2025. Added vertical scrolling for meeting lists (active & scheduled)
+- June 24, 2025. Implemented auto-transition of scheduled meetings to active when 5 minutes before start time
+- June 24, 2025. Fixed form overflow issues with optimized CSS heights and padding
+- June 24, 2025. Added in-memory storage for meetings with automatic data persistence
 ```
 
 ## User Preferences
