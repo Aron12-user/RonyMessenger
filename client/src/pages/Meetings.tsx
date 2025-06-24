@@ -307,8 +307,8 @@ export default function Meetings() {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col" style={{ height: 'calc(100vh - 100px)' }}>
-          <Tabs defaultValue="active" className="flex-1 flex flex-col">
+        <div className="flex-1 overflow-hidden">
+          <Tabs defaultValue="active" className="h-full flex flex-col">
             <div className="px-6 pt-4 pb-2 flex-shrink-0">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="active" className="text-sm">
@@ -323,7 +323,7 @@ export default function Meetings() {
               </TabsList>
             </div>
 
-            <TabsContent value="active" className="flex-1 flex flex-col">
+            <TabsContent value="active" className="flex-1 flex flex-col overflow-hidden">
               <div className="px-6 pb-2 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-medium">Réunions en cours</h2>
@@ -333,41 +333,40 @@ export default function Meetings() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto min-h-0">
-                {loadingActive ? (
-                  <div className="px-6 py-4">
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pb-20">
-                      {[1, 2, 3].map((i) => (
-                        <Card key={i} className="animate-pulse">
-                          <CardContent className="p-6">
-                            <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                            <div className="h-3 bg-gray-200 rounded w-2/3 mb-4"></div>
-                            <div className="h-9 bg-gray-200 rounded"></div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+              {loadingActive ? (
+                <div className="flex-1 overflow-y-auto px-6">
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pb-20 py-4">
+                    {[1, 2, 3].map((i) => (
+                      <Card key={i} className="animate-pulse">
+                        <CardContent className="p-6">
+                          <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                          <div className="h-3 bg-gray-200 rounded w-2/3 mb-4"></div>
+                          <div className="h-9 bg-gray-200 rounded"></div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
-                ) : activeRooms.length === 0 ? (
-                  <div className="flex items-center justify-center px-6 py-12">
-                    <div className="flex flex-col items-center justify-center">
-                      <Video className="h-16 w-16 text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                        Aucune réunion active
-                      </h3>
-                      <p className="text-gray-500 text-center mb-6 max-w-md">
-                        Créez une nouvelle réunion pour commencer
-                      </p>
-                      <Button onClick={createInstantMeeting}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Nouvelle réunion
-                      </Button>
-                    </div>
+                </div>
+              ) : activeRooms.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center px-6">
+                  <div className="flex flex-col items-center justify-center">
+                    <Video className="h-16 w-16 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                      Aucune réunion active
+                    </h3>
+                    <p className="text-gray-500 text-center mb-6 max-w-md">
+                      Créez une nouvelle réunion pour commencer
+                    </p>
+                    <Button onClick={createInstantMeeting}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Nouvelle réunion
+                    </Button>
                   </div>
-                ) : (
-                  <div className="px-6 py-4">
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pb-20">
-                      {activeRooms.map((room: ActiveRoom) => (
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto px-6">
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pb-20 py-4">
+                    {activeRooms.map((room: ActiveRoom) => (
                       <Card key={room.roomCode} className="hover:shadow-lg transition-all duration-200 border border-green-200 dark:border-green-700">
                         <CardContent className="p-6">
                           <div className="flex items-center justify-between mb-4">
@@ -409,13 +408,12 @@ export default function Meetings() {
                         </CardContent>
                       </Card>
                     ))}
-                    </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </TabsContent>
 
-            <TabsContent value="scheduled" className="flex-1 flex flex-col">
+            <TabsContent value="scheduled" className="flex-1 flex flex-col overflow-hidden">
               <div className="px-6 pb-2 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-medium">Réunions programmées</h2>
@@ -425,41 +423,40 @@ export default function Meetings() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto min-h-0">
-                {loadingScheduled ? (
-                  <div className="px-6 py-4">
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pb-20">
-                      {[1, 2, 3].map((i) => (
-                        <Card key={i} className="animate-pulse">
-                          <CardContent className="p-6">
-                            <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                            <div className="h-3 bg-gray-200 rounded w-2/3 mb-4"></div>
-                            <div className="h-9 bg-gray-200 rounded"></div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+              {loadingScheduled ? (
+                <div className="flex-1 overflow-y-auto px-6">
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pb-20 py-4">
+                    {[1, 2, 3].map((i) => (
+                      <Card key={i} className="animate-pulse">
+                        <CardContent className="p-6">
+                          <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                          <div className="h-3 bg-gray-200 rounded w-2/3 mb-4"></div>
+                          <div className="h-9 bg-gray-200 rounded"></div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
-                ) : scheduledMeetings.length === 0 ? (
-                  <div className="flex items-center justify-center px-6 py-12">
-                    <div className="flex flex-col items-center justify-center">
-                      <Calendar className="h-16 w-16 text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                        Aucune réunion programmée
-                      </h3>
-                      <p className="text-gray-500 text-center mb-6 max-w-md">
-                        Vous n'avez pas encore de réunions programmées. Utilisez l'onglet "Programmer une Réunion" pour commencer.
-                      </p>
-                      <Button onClick={createInstantMeeting}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Nouvelle réunion
-                      </Button>
-                    </div>
+                </div>
+              ) : scheduledMeetings.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center px-6">
+                  <div className="flex flex-col items-center justify-center">
+                    <Calendar className="h-16 w-16 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                      Aucune réunion programmée
+                    </h3>
+                    <p className="text-gray-500 text-center mb-6 max-w-md">
+                      Vous n'avez pas encore de réunions programmées. Utilisez l'onglet "Programmer une Réunion" pour commencer.
+                    </p>
+                    <Button onClick={createInstantMeeting}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Nouvelle réunion
+                    </Button>
                   </div>
-                ) : (
-                  <div className="px-6 py-4">
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pb-20">
-                      {scheduledMeetings.map((meeting: Meeting) => (
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto px-6">
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pb-20 py-4">
+                    {scheduledMeetings.map((meeting: Meeting) => (
                         <Card key={meeting.id} className="hover:shadow-lg transition-all duration-200 border border-gray-200 dark:border-gray-700">
                           <CardContent className="p-6">
                             <div className="flex items-start justify-between mb-4">
@@ -536,19 +533,18 @@ export default function Meetings() {
                     </div>
                   </div>
                 )}
-              </div>
             </TabsContent>
 
-            <TabsContent value="schedule" className="flex-1 flex flex-col">
+            <TabsContent value="schedule" className="flex-1 flex flex-col overflow-hidden">
               <div className="h-8 flex items-center px-6 border-b bg-white dark:bg-gray-900 flex-shrink-0">
                 <CalendarDays className="h-3 w-3 text-blue-600 mr-2" />
                 <h2 className="text-xs font-semibold">Programmer une réunion</h2>
               </div>
 
-              <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="flex-1 overflow-y-auto">
                 <div className="p-4">
                   <div className="space-y-2 max-w-lg mx-auto pb-40">
-                  <div className="space-y-3">
+                    <div className="space-y-3">
                     <div>
                       <Label htmlFor="newMeetingTitle" className="text-xs">Titre de la réunion</Label>
                       <Input
@@ -623,7 +619,7 @@ export default function Meetings() {
                         </>
                       )}
                     </Button>
-                  </div>
+                    </div>
                   </div>
                 </div>
               </div>
