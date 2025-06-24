@@ -307,9 +307,8 @@ export default function CloudStorage() {
         filePaths.push(relativePath);
       });
 
-      filePaths.forEach(path => {
-        formData.append('filePaths', path);
-      });
+      // Send file paths as JSON array
+      formData.append('filePaths', JSON.stringify(filePaths));
 
       if (currentFolderId) {
         console.log('[folder-upload] Setting folderId to:', currentFolderId);
@@ -869,7 +868,29 @@ export default function CloudStorage() {
         <div className="max-w-7xl mx-auto flex flex-col h-full overflow-hidden">
           {/* Header avec titre et actions principales */}
           <div className="flex flex-wrap justify-between items-center mb-6">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Cloud</h2>
+            <div className="flex items-center space-x-3">
+              {currentFolderId && (
+                <button
+                  onClick={() => {
+                    // Find parent folder ID or go back to root
+                    const currentFolder = allFolders.find(f => f.id === currentFolderId);
+                    const parentId = currentFolder?.parentId || null;
+                    setCurrentFolderId(parentId);
+                  }}
+                  className="flex items-center px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                  title="Retour"
+                >
+                  <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                  <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Retour</span>
+                </button>
+              )}
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
+                {currentFolderId ? 
+                  allFolders.find(f => f.id === currentFolderId)?.name || 'Cloud' : 
+                  'Cloud'
+                }
+              </h2>
+            </div>
             <div className="flex flex-col space-y-3">
               <div className="flex space-x-3">
                 <input 
