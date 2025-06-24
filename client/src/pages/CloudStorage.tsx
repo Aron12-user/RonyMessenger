@@ -458,17 +458,23 @@ export default function CloudStorage() {
       
       if (!response.ok) {
         const errorText = await response.text();
-        let errorMessage = 'Failed to rename';
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch {
-          errorMessage = errorText || errorMessage;
-        }
-        throw new Error(errorMessage);
+        console.error('Rename response error:', response.status, errorText);
+        throw new Error(errorText || 'Failed to rename');
       }
       
-      return response.json();
+      // Vérifier si la réponse est du JSON valide
+      const responseText = await response.text();
+      if (!responseText) {
+        return { success: true };
+      }
+      
+      try {
+        return JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('JSON parse error in rename:', parseError, 'Response:', responseText);
+        // Si ce n'est pas du JSON, traiter comme succès si status OK
+        return { success: true, message: responseText };
+      }
     },
     onSuccess: (_, { isFolder }) => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
@@ -498,8 +504,21 @@ export default function CloudStorage() {
     }) => {
       // Get user by email/username
       const userRes = await fetch(`/api/users?email=${email}`, { credentials: 'include' });
-      if (!userRes.ok) throw new Error("Adresse Rony introuvable");
-      const users = await userRes.json();
+      if (!userRes.ok) {
+        const errorText = await userRes.text();
+        console.error('User lookup error:', userRes.status, errorText);
+        throw new Error("Adresse Rony introuvable");
+      }
+      
+      const responseText = await userRes.text();
+      let users;
+      try {
+        users = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('JSON parse error in user lookup:', parseError, 'Response:', responseText);
+        throw new Error("Erreur lors de la recherche d'utilisateur");
+      }
+      
       if (!users.data || users.data.length === 0) throw new Error("Adresse Rony introuvable");
 
       const sharedWithId = users.data[0].id;
@@ -521,10 +540,21 @@ export default function CloudStorage() {
       
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('Share response error:', response.status, errorText);
         throw new Error(errorText || "Échec du partage");
       }
       
-      return response.json();
+      const shareResponseText = await response.text();
+      if (!shareResponseText) {
+        return { success: true };
+      }
+      
+      try {
+        return JSON.parse(shareResponseText);
+      } catch (parseError) {
+        console.error('JSON parse error in share:', parseError, 'Response:', shareResponseText);
+        return { success: true, message: shareResponseText };
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
@@ -553,17 +583,22 @@ export default function CloudStorage() {
       
       if (!response.ok) {
         const errorText = await response.text();
-        let errorMessage = 'Failed to delete';
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch {
-          errorMessage = errorText || errorMessage;
-        }
-        throw new Error(errorMessage);
+        console.error('Delete response error:', response.status, errorText);
+        throw new Error(errorText || 'Failed to delete');
       }
       
-      return response.json();
+      const responseText = await response.text();
+      if (!responseText) {
+        return { success: true };
+      }
+      
+      try {
+        return JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('JSON parse error in delete:', parseError, 'Response:', responseText);
+        // Si ce n'est pas du JSON, traiter comme succès si status OK
+        return { success: true, message: responseText };
+      }
     },
     onSuccess: (_, { isFolder }) => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
@@ -950,27 +985,35 @@ export default function CloudStorage() {
                                   Partager
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  onClick={(e) => {
+                                  onClick={async (e) => {
                                     e.stopPropagation();
                                     try {
-                                      // Forcer le téléchargement
-                                      window.open(file.url, '_blank');
-                                      toast({ title: "Téléchargement", description: `Téléchargement de ${file.name} démarré` });
+                                      // Méthode de téléchargement améliorée
+                                      const link = document.createElement('a');
+                                      link.href = file.url;
+                                      link.download = file.name;
+                                      link.target = '_blank';
+                                      link.rel = 'noopener noreferrer';
+                                      link.style.display = 'none';
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      
+                                      // Nettoyer après un délai
+                                      setTimeout(() => {
+                                        document.body.removeChild(link);
+                                      }, 100);
+                                      
+                                      toast({ 
+                                        title: "Téléchargement", 
+                                        description: `Téléchargement de ${file.name} démarré` 
+                                      });
                                     } catch (error) {
                                       console.error('Download error:', error);
-                                      // Méthode alternative
-                                      try {
-                                        const link = document.createElement('a');
-                                        link.href = file.url;
-                                        link.download = file.name;
-                                        link.target = '_blank';
-                                        link.rel = 'noopener noreferrer';
-                                        document.body.appendChild(link);
-                                        link.click();
-                                        document.body.removeChild(link);
-                                      } catch (e2) {
-                                        toast({ title: "Erreur", description: "Impossible de télécharger le fichier", variant: "destructive" });
-                                      }
+                                      toast({ 
+                                        title: "Erreur", 
+                                        description: "Impossible de télécharger le fichier", 
+                                        variant: "destructive" 
+                                      });
                                     }
                                   }}
                                 >
