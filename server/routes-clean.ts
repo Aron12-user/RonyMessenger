@@ -327,10 +327,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user?.id;
       if (!userId) {
+        console.log('[upload] User not authenticated');
         return res.status(401).json({ error: "Non authentifié" });
       }
 
+      console.log('[upload] Upload request received');
+      console.log('[upload] Request files:', req.files ? req.files.length : 0);
+      console.log('[upload] Request body:', Object.keys(req.body));
+
       if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+        console.log('[upload] No files provided in request');
         return res.status(400).json({ error: "Aucun fichier fourni" });
       }
 
@@ -362,7 +368,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filePaths = req.body.filePaths;
       const folderStructure = req.body.folderStructure ? JSON.parse(req.body.folderStructure) : {};
 
-      console.log('Upload request:', { folderId, filesCount: req.files.length, folderStructure });
+      console.log('[upload] Processing upload:', { 
+        userId, 
+        folderId, 
+        filesCount: req.files.length, 
+        folderStructure,
+        fileNames: req.files.map(f => f.originalname)
+      });
 
       const uploadedFiles = [];
       const createdFolders = new Map();
@@ -429,16 +441,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         uploadedFiles.push(uploadedFile);
       }
 
-      console.log('Upload completed:', uploadedFiles.length, 'files uploaded');
+      console.log('[upload] Upload completed successfully:', uploadedFiles.length, 'files uploaded');
       res.json({ 
         success: true, 
         files: uploadedFiles,
+        filesCreated: uploadedFiles.length,
         folders: Array.from(createdFolders.values()),
         message: `${uploadedFiles.length} fichiers uploadés avec succès`
       });
     } catch (error) {
-      console.error('Error uploading files:', error);
-      res.status(500).json({ error: 'Erreur lors de l\'upload des fichiers' });
+      console.error('[upload] Upload error:', error);
+      res.status(500).json({ error: error.message || 'Erreur lors de l\'upload des fichiers' });
     }
   });
 
