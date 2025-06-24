@@ -132,6 +132,8 @@ Changelog:
 - June 24, 2025. Optimized container heights (calc(100vh - 200px)) for better content visibility
 - June 24, 2025. FINAL FIX: Restructured flex layout with min-h-0 and pb-20/pb-40 to eliminate card cutoff
 - June 24, 2025. Simplified container structure for reliable vertical scrolling without content overflow
+- June 24, 2025. RADICAL SOLUTION: Forced vertical scrolling with fixed heights (calc(100vh - 210px)) and explicit overflow-y-auto
+- June 24, 2025. Applied pb-24 padding with strict height constraints to guarantee scroll functionality in all tabs
 ```
 
 ## User Preferences
