@@ -19,6 +19,23 @@ import * as fs from "fs";
 import { v4 as uuidv4 } from "uuid";
 import { handleAIChat } from "./ai-assistant";
 
+// Stockage en mémoire pour les réunions
+interface StoredMeeting {
+  id: string;
+  title: string;
+  description: string;
+  roomCode: string;
+  url: string;
+  startTime: string;
+  duration: number;
+  status: 'scheduled' | 'active' | 'ended';
+  createdAt: Date;
+  createdBy?: number;
+}
+
+const scheduledMeetings: Map<string, StoredMeeting> = new Map();
+const activeMeetings: Map<string, StoredMeeting> = new Map();
+
 // Configure multer for avatar uploads
 const avatarStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -412,8 +429,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/meetings/scheduled", async (req, res) => {
     try {
-      // Retourner les réunions programmées (pour l'instant vide)
-      res.json({ success: true, meetings: [] });
+      // Retourner les réunions programmées depuis le stockage en mémoire
+      const meetings = Array.from(scheduledMeetings.values()).map(meeting => ({
+        ...meeting,
+        participants: 0,
+        maxParticipants: 50,
+        isActive: false
+      }));
+      
+      res.json({ success: true, meetings });
     } catch (error) {
       console.error('Error fetching scheduled meetings:', error);
       res.status(500).json({ error: 'Internal server error' });
@@ -431,18 +455,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Simple création de réunion avec Jitsi Meet
       const meetingUrl = `https://meet.jit.si/${roomCode}`;
       
+      const meeting: StoredMeeting = {
+        id: roomCode,
+        title: title || 'Nouvelle réunion',
+        description: description || '',
+        roomCode,
+        url: meetingUrl,
+        startTime: startTime || new Date().toISOString(),
+        duration: duration || 60,
+        status: 'scheduled',
+        createdAt: new Date(),
+        createdBy: req.user?.id
+      };
+
+      // Stocker la réunion en mémoire
+      scheduledMeetings.set(roomCode, meeting);
+      
+      console.log(`[meetings] Réunion créée: ${meeting.title} (${roomCode}). Total: ${scheduledMeetings.size}`);
+      
       res.json({
         success: true,
         meeting: {
-          id: roomCode,
-          title: title || 'Nouvelle réunion',
-          description: description || '',
-          roomCode,
-          url: meetingUrl,
-          startTime: startTime || new Date().toISOString(),
-          duration: duration || 60,
-          status: 'scheduled',
-          createdAt: new Date()
+          ...meeting,
+          participants: 0,
+          maxParticipants: 50,
+          isActive: false
         }
       });
     } catch (error) {
@@ -455,7 +492,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { meetingId } = req.params;
       
-      // Simulation de la suppression de réunion
+      // Supprimer la réunion du stockage en mémoire
+      const deleted = scheduledMeetings.delete(meetingId);
+      activeMeetings.delete(meetingId);
+      
+      if (deleted) {
+        console.log(`[meetings] Réunion supprimée: ${meetingId}. Total: ${scheduledMeetings.size}`);
+      }
+      
       res.json({
         success: true,
         message: 'Meeting deleted successfully'
