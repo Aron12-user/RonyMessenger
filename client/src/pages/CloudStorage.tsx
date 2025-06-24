@@ -263,6 +263,8 @@ export default function CloudStorage() {
       console.log('[upload] Upload mutation completed successfully');
       queryClient.invalidateQueries({ queryKey: ["files"] });
       queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
+      queryClient.invalidateQueries({ queryKey: ["folders"] });
+      queryClient.invalidateQueries({ queryKey: ["all-folders"] });
       setUploadProgress(0);
       setTotalFiles(0);
       setUploadingFiles(0);

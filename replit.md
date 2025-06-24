@@ -167,6 +167,9 @@ Changelog:
 - June 24, 2025. RESOLVED upload issues - fixed both file and folder upload functionality
 - June 24, 2025. Enhanced upload debugging with comprehensive logging and error handling
 - June 24, 2025. Corrected FileList handling with DataTransfer for cross-browser compatibility
+- June 24, 2025. FIXED folder upload structure - now creates proper folder hierarchy from webkitRelativePath
+- June 24, 2025. Added folder navigation with "Retour" button and proper parent/child relationships
+- June 24, 2025. Fixed vertical scrolling in Cloud interface with proper min-h-0 and maxHeight constraints
 ```
 
 ## User Preferences

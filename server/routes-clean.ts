@@ -389,14 +389,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const folderId = req.body.folderId && req.body.folderId !== 'null' ? parseInt(req.body.folderId) : null;
       const filePaths = req.body.filePaths ? JSON.parse(req.body.filePaths) : [];
-      const folderStructure = req.body.folderStructure ? JSON.parse(req.body.folderStructure) : {};
+      
+      // Build folder structure from file paths
+      let folderStructure = {};
+      if (filePaths && Array.isArray(filePaths)) {
+        filePaths.forEach(path => {
+          const pathParts = path.split('/');
+          if (pathParts.length > 1) {
+            // Remove the filename, keep only folder path
+            const folderPath = pathParts.slice(0, -1).join('/');
+            folderStructure[folderPath] = true;
+          }
+        });
+      }
 
       console.log('[upload] Processing upload:', { 
         userId, 
         folderId, 
         filesCount: req.files.length, 
         folderStructure,
-        fileNames: req.files.map(f => f.originalname)
+        fileNames: req.files.map(f => f.originalname),
+        filePaths
       });
 
       const uploadedFiles = [];
