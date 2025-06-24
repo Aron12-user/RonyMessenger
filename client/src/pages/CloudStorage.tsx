@@ -468,8 +468,8 @@ export default function CloudStorage() {
       return res.json();
     },
     onSuccess: (_, { isFolder }) => {
-      const queryKey = isFolder ? ["folders", currentFolderId] : ["files", currentFolderId];
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ["folders"] });
+      queryClient.invalidateQueries({ queryKey: ["files"] });
       setIsRenameDialogOpen(false);
       setItemToRename(null);
       setNewItemName("");
@@ -532,8 +532,8 @@ export default function CloudStorage() {
       return res.json();
     },
     onSuccess: (_, { isFolder }) => {
-      const queryKey = isFolder ? ["folders", currentFolderId] : ["files", currentFolderId];
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ["folders"] });
+      queryClient.invalidateQueries({ queryKey: ["files"] });
       setIsDeleteDialogOpen(false);
       setItemToDelete(null);
       toast({ title: "Élément supprimé avec succès" });
@@ -657,6 +657,25 @@ export default function CloudStorage() {
     setShareSubject(`Partage ${isFolder ? 'de dossier' : 'de fichier'} : ${name}`);
     setShareMessage(`Bonjour,\n\nJe partage avec vous ${isFolder ? 'le dossier' : 'le fichier'} "${name}".\n\nCordialement,`);
     setIsShareDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (itemToDelete) {
+      deleteItemMutation.mutate({ 
+        id: itemToDelete.id, 
+        isFolder: itemToDelete.isFolder 
+      });
+    }
+  };
+
+  const handleConfirmRename = () => {
+    if (itemToRename && newItemName.trim() && newItemName.trim() !== itemToRename.name) {
+      renameMutation.mutate({ 
+        id: itemToRename.id, 
+        name: newItemName.trim(), 
+        isFolder: itemToRename.isFolder 
+      });
+    }
   };
 
   const triggerFileInput = () => {
@@ -1389,14 +1408,7 @@ export default function CloudStorage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                if (itemToDelete) {
-                  deleteItemMutation.mutate({ 
-                    id: itemToDelete.id, 
-                    isFolder: itemToDelete.isFolder 
-                  });
-                }
-              }}
+              onClick={handleConfirmDelete}
               className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
               disabled={deleteItemMutation.isPending}
             >
