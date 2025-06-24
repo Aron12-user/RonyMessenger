@@ -122,7 +122,7 @@ export function setupSimpleAuth(app: Express) {
     }
   });
 
-  return requireAuth;
+  return { requireAuth };
 }
 
 declare module 'express-session' {
