@@ -119,22 +119,28 @@ export default function CloudStorage() {
   }, []);
 
   // Requêtes
-  const { data: folders = [] } = useQuery({
+  const { data: folders = [], isLoading: foldersLoading, error: foldersError } = useQuery({
     queryKey: ["folders", currentFolderId],
     queryFn: async () => {
-      const res = await fetch(`/api/folders?parentId=${currentFolderId || 'null'}`);
+      const res = await fetch(`/api/folders?parentId=${currentFolderId || 'null'}`, {
+        credentials: 'include'
+      });
       if (!res.ok) throw new Error("Failed to fetch folders");
       return res.json();
-    }
+    },
+    enabled: !!user
   });
 
-  const { data: files = [] } = useQuery({
+  const { data: files = [], isLoading: filesLoading, error: filesError } = useQuery({
     queryKey: ["files", currentFolderId],
     queryFn: async () => {
-      const res = await fetch(`/api/files?folderId=${currentFolderId || 'null'}`);
+      const res = await fetch(`/api/files?folderId=${currentFolderId || 'null'}`, {
+        credentials: 'include'
+      });
       if (!res.ok) throw new Error("Failed to fetch files");
       return res.json();
-    }
+    },
+    enabled: !!user
   });
 
   // Mutations
@@ -828,10 +834,16 @@ export default function CloudStorage() {
 
           {/* Zone de contenu avec défilement */}
           <div className="flex-1 overflow-y-auto max-h-[calc(100vh-300px)]">
+            {/* Debug info */}
+            {foldersLoading && <div>Chargement des dossiers...</div>}
+            {filesLoading && <div>Chargement des fichiers...</div>}
+            {foldersError && <div>Erreur dossiers: {String(foldersError)}</div>}
+            {filesError && <div>Erreur fichiers: {String(filesError)}</div>}
+            
             {/* Grille des dossiers */}
             {filteredFolders.length > 0 && (
               <div className="mb-6">
-                <h3 className="text-lg font-medium mb-3">Dossiers</h3>
+                <h3 className="text-lg font-medium mb-3">Dossiers ({filteredFolders.length})</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                   {filteredFolders.map((folder: Folder) => (
                     <div 
