@@ -400,6 +400,7 @@ export class SimpleStorage implements IStorage {
     this.files.set(file.id, file);
     console.log(`[storage] Created file: ${file.name} (ID: ${file.id}), folderId: ${file.folderId}, uploaderId: ${file.uploaderId}`);
     console.log(`[storage] Total files: ${this.files.size}`);
+    console.log(`[storage] All files:`, Array.from(this.files.values()).map(f => ({ id: f.id, name: f.name, folderId: f.folderId, uploaderId: f.uploaderId })));
     return file;
   }
 
@@ -448,6 +449,9 @@ export class SimpleStorage implements IStorage {
       isShared: folderData.isShared || null
     };
     this.folders.set(folder.id, folder);
+    console.log(`[storage] Created folder: ${folder.name} (ID: ${folder.id}), parentId: ${folder.parentId}, ownerId: ${folder.ownerId}`);
+    console.log(`[storage] Total folders: ${this.folders.size}`);
+    console.log(`[storage] All folders:`, Array.from(this.folders.values()).map(f => ({ id: f.id, name: f.name, parentId: f.parentId, ownerId: f.ownerId })));
     return folder;
   }
 

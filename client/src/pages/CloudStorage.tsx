@@ -150,8 +150,10 @@ export default function CloudStorage() {
       if (!res.ok) throw new Error("Failed to create folder");
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Folder created successfully:', data);
       queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
+      queryClient.invalidateQueries({ queryKey: ["folders"] });
       setIsCreateFolderDialogOpen(false);
       setNewFolderName("");
       toast({ title: "Dossier créé avec succès" });
@@ -201,8 +203,11 @@ export default function CloudStorage() {
       return res.json();
     },
     onSuccess: (data) => {
+      console.log('Files uploaded successfully:', data);
       queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
+      queryClient.invalidateQueries({ queryKey: ["files"] });
       queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
+      queryClient.invalidateQueries({ queryKey: ["folders"] });
       toast({ 
         title: "Upload réussi", 
         description: data.message || "Fichiers uploadés avec succès" 
@@ -835,10 +840,15 @@ export default function CloudStorage() {
           {/* Zone de contenu avec défilement */}
           <div className="flex-1 overflow-y-auto max-h-[calc(100vh-300px)]">
             {/* Debug info */}
-            {foldersLoading && <div>Chargement des dossiers...</div>}
-            {filesLoading && <div>Chargement des fichiers...</div>}
-            {foldersError && <div>Erreur dossiers: {String(foldersError)}</div>}
-            {filesError && <div>Erreur fichiers: {String(filesError)}</div>}
+            {foldersLoading && <div className="text-blue-600 p-2">Chargement des dossiers...</div>}
+            {filesLoading && <div className="text-blue-600 p-2">Chargement des fichiers...</div>}
+            {foldersError && <div className="text-red-600 p-2">Erreur dossiers: {String(foldersError)}</div>}
+            {filesError && <div className="text-red-600 p-2">Erreur fichiers: {String(filesError)}</div>}
+            {!foldersLoading && !filesLoading && (
+              <div className="text-green-600 p-2">
+                Données chargées: {folders.length} dossiers, {files.length} fichiers
+              </div>
+            )}
             
             {/* Grille des dossiers */}
             {filteredFolders.length > 0 && (
