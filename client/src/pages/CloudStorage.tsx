@@ -954,9 +954,9 @@ export default function CloudStorage() {
                       key={file.id} 
                       className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
                     >
-                      <div className="h-20 bg-gray-100 dark:bg-gray-700 flex items-center justify-center p-2">
+                      <div className="h-16 bg-gray-100 dark:bg-gray-700 flex items-center justify-center p-2">
                         {file.type.startsWith('image/') ? (
-                          <img src={file.url} alt={file.name} className="h-12 w-12 object-cover rounded" />
+                          <img src={file.url} alt={file.name} className="h-8 w-8 object-cover rounded" />
                         ) : (
                           getFileIcon(file.type, file.name)
                         )}
@@ -987,11 +987,21 @@ export default function CloudStorage() {
                                 <Share className="mr-2 h-4 w-4" />
                                 Partager
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const link = document.createElement('a');
+                                  link.href = file.url;
+                                  link.download = file.name;
+                                  link.target = '_blank';
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                  toast({ title: "Téléchargement", description: `Téléchargement de ${file.name} en cours...` });
+                                }}
+                              >
                                 <Download className="mr-2 h-4 w-4" />
-                                <a href={file.url} download={file.name} className="flex-1">
-                                  Télécharger
-                                </a>
+                                Télécharger
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => handleDeleteItem(file.id, file.name, false)}
