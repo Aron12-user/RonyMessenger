@@ -286,7 +286,7 @@ export default function Meetings() {
                   </div>
                   <div className="flex gap-2">
                     <Button onClick={joinMeetingWithCode} className="flex-1">
-                      <Video className="h-4 w-4 mr-2" />
+                      <Monitor className="h-4 w-4 mr-2" />
                       Rejoindre
                     </Button>
                     <Button variant="outline" onClick={() => setShowJoinDialog(false)}>
@@ -301,7 +301,7 @@ export default function Meetings() {
               onClick={createInstantMeeting}
               className="bg-blue-600 hover:bg-blue-700"
             >
-              <Video className="h-4 w-4 mr-2" />
+              <Monitor className="h-4 w-4 mr-2" />
               Nouvelle réunion
             </Button>
           </div>
