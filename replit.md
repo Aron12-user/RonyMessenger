@@ -170,6 +170,9 @@ Changelog:
 - June 24, 2025. FIXED folder upload structure - now creates proper folder hierarchy from webkitRelativePath
 - June 24, 2025. Added folder navigation with "Retour" button and proper parent/child relationships
 - June 24, 2025. Fixed vertical scrolling in Cloud interface with proper min-h-0 and maxHeight constraints
+- June 24, 2025. Eliminated "Dossier 1, 2..." text display next to return button for cleaner interface
+- June 24, 2025. Implemented hierarchical folder navigation - level by level return instead of direct to root
+- June 24, 2025. Enhanced navigation system to maintain proper parent-child folder relationships
 ```
 
 ## User Preferences

@@ -897,11 +897,11 @@ export default function CloudStorage() {
                   onClick={() => {
                     console.log('[navigation] Going back from folder:', currentFolderId);
                     console.log('[navigation] Available folders:', allFolders.length);
-                    // Find parent folder ID or go back to root
+                    // Find parent folder ID for hierarchical navigation
                     const currentFolder = allFolders.find(f => f.id === currentFolderId);
                     console.log('[navigation] Current folder found:', currentFolder);
                     const parentId = currentFolder?.parentId || null;
-                    console.log('[navigation] Navigating to parent:', parentId);
+                    console.log('[navigation] Navigating to parent folder:', parentId);
                     setCurrentFolderId(parentId);
                   }}
                   className="flex items-center px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors"
@@ -913,7 +913,7 @@ export default function CloudStorage() {
               )}
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
                 {currentFolderId ? 
-                  allFolders.find(f => f.id === currentFolderId)?.name || `Dossier ${currentFolderId}` : 
+                  allFolders.find(f => f.id === currentFolderId)?.name || 'Dossier' : 
                   'Cloud'
                 }
               </h2>
