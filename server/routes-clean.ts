@@ -91,7 +91,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const upload = multer({ 
     storage: multerStorage,
     limits: { 
-      fileSize: 100 * 1024 * 1024 // Limit to 100MB
+      fileSize: 100 * 1024 * 1024, // Limit to 100MB
+      files: 20 // Maximum 20 files per request
+    },
+    fileFilter: (req, file, cb) => {
+      console.log('[multer] Processing file:', file.originalname, 'type:', file.mimetype);
+      cb(null, true);
     }
   });
 
@@ -337,7 +342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
         console.log('[upload] No files provided in request');
-        return res.status(400).json({ error: "Aucun fichier fourni" });
+        return res.status(400).json({ error: "Fichier non sélectionné" });
       }
 
       // Validation des fichiers
