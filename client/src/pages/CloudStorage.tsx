@@ -811,6 +811,7 @@ export default function CloudStorage() {
                   onChange={handleFileUpload} 
                   className="hidden" 
                   multiple 
+                  accept="*/*"
                 />
                 <input 
                   type="file" 
@@ -819,6 +820,7 @@ export default function CloudStorage() {
                   className="hidden" 
                   {...({ webkitdirectory: "", directory: "" } as any)}
                   multiple 
+                  accept="*/*"
                 />
                 <Button
                   onClick={triggerFileInput}
