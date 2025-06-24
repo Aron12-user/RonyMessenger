@@ -146,6 +146,9 @@ Changelog:
 - June 24, 2025. Improved interface responsiveness with smaller cards and better visual hierarchy
 - June 24, 2025. Fixed image file display size issue - reduced from full size to 48px (h-12 w-12) thumbnails
 - June 24, 2025. Optimized file card layout with compact design (6-8 columns) and reduced heights
+- June 24, 2025. Fixed file deletion errors with proper headers and error handling
+- June 24, 2025. Improved sharing system to work only with authenticated users in database
+- June 24, 2025. Added user selection dialog for sharing files and folders
 ```
 
 ## User Preferences
