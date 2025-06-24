@@ -4,7 +4,7 @@ import { useTheme } from "@/lib/themes";
 import { 
   MessageCircle, 
   Phone, 
-  Video, 
+  Monitor, 
   FolderOpen, 
   Users, 
   Bot,
@@ -54,7 +54,7 @@ export default function ModernSidebar({
   const menuItems = [
     { id: "messages", label: "Messages", icon: MessageCircle, active: true },
     { id: "assistant", label: "Assistant IA", icon: Bot },
-    { id: "meetings", label: "Réunions", icon: Video },
+    { id: "meetings", label: "Réunions", icon: Monitor },
     { id: "files", label: "Cloud", icon: FolderOpen },
     { id: "mail", label: "Courrier", icon: Mail },
     { id: "contacts", label: "Contacts", icon: Users },

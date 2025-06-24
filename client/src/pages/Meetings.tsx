@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Video, 
+  Monitor, 
   Plus, 
   Users, 
   Clock, 
@@ -356,7 +356,7 @@ export default function Meetings() {
                 ) : activeRooms.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="flex flex-col items-center justify-center">
-                      <Video className="h-16 w-16 text-gray-400 mb-4" />
+                      <Monitor className="h-16 w-16 text-gray-400 mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                         Aucune réunion active
                       </h3>
@@ -399,7 +399,7 @@ export default function Meetings() {
                               onClick={() => joinMeeting(room.roomCode)}
                               className="flex-1 bg-blue-600 hover:bg-blue-700"
                             >
-                              <Video className="h-4 w-4 mr-2" />
+                              <Monitor className="h-4 w-4 mr-2" />
                               Rejoindre
                             </Button>
                             <Button

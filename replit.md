@@ -134,6 +134,8 @@ Changelog:
 - June 24, 2025. Simplified container structure for reliable vertical scrolling without content overflow
 - June 24, 2025. RADICAL SOLUTION: Forced vertical scrolling with fixed heights (calc(100vh - 210px)) and explicit overflow-y-auto
 - June 24, 2025. Applied pb-24 padding with strict height constraints to guarantee scroll functionality in all tabs
+- June 24, 2025. Replaced Video icon with Monitor icon to eliminate black square styling issues across the application
+- June 24, 2025. Updated sidebar and meetings pages with modern Monitor icon for better visual consistency
 ```
 
 ## User Preferences
