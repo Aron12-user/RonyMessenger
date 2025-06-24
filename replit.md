@@ -164,6 +164,9 @@ Changelog:
 - June 24, 2025. Improved UI with loading states, progress indicators, and better error messages
 - June 24, 2025. Added retry mechanisms and automatic refresh capabilities
 - June 24, 2025. Strengthened file upload with 100MB limit and 20 files maximum per batch
+- June 24, 2025. RESOLVED upload issues - fixed both file and folder upload functionality
+- June 24, 2025. Enhanced upload debugging with comprehensive logging and error handling
+- June 24, 2025. Corrected FileList handling with DataTransfer for cross-browser compatibility
 ```
 
 ## User Preferences

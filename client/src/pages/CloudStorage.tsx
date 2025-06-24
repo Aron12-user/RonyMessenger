@@ -282,7 +282,10 @@ export default function CloudStorage() {
 
   const uploadFolderMutation = useMutation({
     mutationFn: async (files: FileList) => {
-      if (!files.length) {
+      console.log('[folder-upload] Starting folder upload mutation with', files.length, 'files');
+      
+      if (!files || files.length === 0) {
+        console.error('[folder-upload] No files provided to folder upload mutation');
         throw new Error("Aucun fichier sélectionné");
       }
 
@@ -292,7 +295,10 @@ export default function CloudStorage() {
       const formData = new FormData();
       const filePaths: string[] = [];
 
-      Array.from(files).forEach((file) => {
+      // Log each file being added
+      Array.from(files).forEach((file, index) => {
+        console.log(`[folder-upload] Adding file ${index + 1}/${files.length}:`, file.name, 'webkitRelativePath:', file.webkitRelativePath, 'type:', file.type, 'size:', file.size);
+        
         if (file.size > 100 * 1024 * 1024) {
           throw new Error(`Le fichier ${file.name} est trop volumineux (maximum 100MB)`);
         }
@@ -306,7 +312,17 @@ export default function CloudStorage() {
       });
 
       if (currentFolderId) {
+        console.log('[folder-upload] Setting folderId to:', currentFolderId);
         formData.append('folderId', currentFolderId.toString());
+      }
+
+      console.log('[folder-upload] Sending request to /api/upload');
+      console.log('[folder-upload] FormData entries:');
+      for (let pair of formData.entries()) {
+        console.log('[folder-upload] FormData entry:', pair[0], typeof pair[1] === 'object' ? 'File object' : pair[1]);
+        if (pair[1] instanceof File) {
+          console.log('[folder-upload] File details:', pair[1].name, pair[1].size, pair[1].type);
+        }
       }
 
       const response = await fetch('/api/upload', {
@@ -315,12 +331,17 @@ export default function CloudStorage() {
         body: formData
       });
 
+      console.log('[folder-upload] Response status:', response.status, response.statusText);
+
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('[folder-upload] Server error:', response.status, errorText);
         throw new Error(errorText || 'Folder upload failed');
       }
 
-      return response.json();
+      const result = await response.json();
+      console.log('[folder-upload] Folder upload successful:', result);
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["files"] });
@@ -683,10 +704,34 @@ export default function CloudStorage() {
   };
 
   const handleFolderUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('[ui] Folder input change event triggered');
     const files = event.target.files;
+    console.log('[ui] Folder files from input:', files ? files.length : 0, 'files');
+    console.log('[ui] Folder event target:', event.target);
+    console.log('[ui] Folder files object:', files);
+    
     if (files && files.length > 0) {
-      uploadFolderMutation.mutate(files);
+      console.log('[ui] Starting folder upload for', files.length, 'files');
+      Array.from(files).forEach((file, index) => {
+        console.log(`[ui] Folder file ${index + 1}:`, file.name, file.webkitRelativePath, file.type, file.size);
+      });
+      
+      // Convert FileList to Array for better handling
+      const fileArray = Array.from(files);
+      console.log('[ui] Folder file array created:', fileArray.length, 'files');
+      
+      // Create a new FileList-like object that works with FormData
+      const dt = new DataTransfer();
+      fileArray.forEach(file => dt.items.add(file));
+      const newFileList = dt.files;
+      
+      console.log('[ui] New folder FileList created:', newFileList.length, 'files');
+      uploadFolderMutation.mutate(newFileList);
+    } else {
+      console.warn('[ui] No folder files selected or files is null');
+      console.warn('[ui] Folder event.target.files:', event.target.files);
     }
+    
     // Reset input
     if (event.target) {
       event.target.value = '';
