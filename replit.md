@@ -137,4 +137,5 @@ Changelog:
 ```
 Preferred communication style: Simple, everyday language.
 UI preferences: Preserve original card grid layout for meetings, only add vertical scrolling functionality without changing visual presentation.
+Content visibility: Ensure all meeting cards are fully visible during scrolling with adequate bottom spacing to prevent cutoff.
 ```
