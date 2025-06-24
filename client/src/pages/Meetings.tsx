@@ -106,9 +106,15 @@ export default function Meetings() {
       return response.json();
     },
     onSuccess: (data: any) => {
+      // Invalider tous les caches de réunions pour une mise à jour immédiate
       queryClient.invalidateQueries({ queryKey: ['/api/meetings'] });
       queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
       queryClient.invalidateQueries({ queryKey: ['/api/meetings/active'] });
+      
+      // Forcer un refetch immédiat des données
+      queryClient.refetchQueries({ queryKey: ['/api/meetings/scheduled'] });
+      queryClient.refetchQueries({ queryKey: ['/api/meetings/active'] });
+      
       toast({
         title: "Réunion créée",
         description: `La réunion "${data.meeting.title}" a été créée avec succès.`
@@ -209,7 +215,13 @@ export default function Meetings() {
       return response.json();
     },
     onSuccess: () => {
+      // Invalider et refetch immédiat pour mise à jour instantanée
       queryClient.invalidateQueries({ queryKey: ['/api/meetings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/meetings/active'] });
+      queryClient.refetchQueries({ queryKey: ['/api/meetings/scheduled'] });
+      queryClient.refetchQueries({ queryKey: ['/api/meetings/active'] });
+      
       toast({
         title: "Réunion supprimée",
         description: "La réunion a été supprimée avec succès"
@@ -681,38 +693,6 @@ export default function Meetings() {
                           >
                             Effacer
                           </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Guide compact */}
-                    <Card className="border border-green-200 dark:border-green-800">
-                      <CardContent className="p-2">
-                        <h4 className="font-medium text-green-900 dark:text-green-100 mb-2 flex items-center text-xs">
-                          <MapPin className="h-3 w-3 mr-1 text-green-600" />
-                          Guide
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-1">
-                              <div className="h-1 w-1 bg-green-600 rounded-full"></div>
-                              <span className="text-green-700 dark:text-green-300">Code automatique</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <div className="h-1 w-1 bg-green-600 rounded-full"></div>
-                              <span className="text-green-700 dark:text-green-300">Transfert auto 5min</span>
-                            </div>
-                          </div>
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-1">
-                              <div className="h-1 w-1 bg-green-600 rounded-full"></div>
-                              <span className="text-green-700 dark:text-green-300">Partage facile</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <div className="h-1 w-1 bg-green-600 rounded-full"></div>
-                              <span className="text-green-700 dark:text-green-300">Suppression auto</span>
-                            </div>
-                          </div>
                         </div>
                       </CardContent>
                     </Card>
