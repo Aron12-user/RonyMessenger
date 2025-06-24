@@ -307,7 +307,7 @@ export default function Meetings() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden" style={{ height: 'calc(100vh - 140px)' }}>
+        <div className="flex-1 overflow-hidden" style={{ height: 'calc(100vh - 130px)' }}>
           <Tabs defaultValue="active" className="h-full flex flex-col">
             <div className="px-6 pt-4 pb-0 flex-shrink-0">
               <TabsList className="grid w-full grid-cols-3">
@@ -334,8 +334,8 @@ export default function Meetings() {
               </div>
 
               {loadingActive ? (
-                <div className="flex-1 overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(100vh - 240px)' }}>
-                  <div className="pb-6">
+                <div className="flex-1 overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+                  <div className="pb-8">
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {[1, 2, 3].map((i) => (
                         <Card key={i} className="animate-pulse">
@@ -427,8 +427,8 @@ export default function Meetings() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(100vh - 240px)' }}>
-                <div className="pb-6">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+                <div className="pb-8">
                   {loadingScheduled ? (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {[1, 2, 3].map((i) => (
@@ -543,8 +543,8 @@ export default function Meetings() {
                 <h2 className="text-xs font-semibold">Programmer une réunion</h2>
               </div>
 
-              <div className="flex-1 overflow-y-auto overflow-x-hidden p-2" style={{ maxHeight: 'calc(100vh - 240px)' }}>
-                <div className="space-y-2 max-w-lg mx-auto pb-16">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden p-2" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+                <div className="space-y-2 max-w-lg mx-auto pb-20">
                   <div className="space-y-3">
                     <div>
                       <Label htmlFor="newMeetingTitle" className="text-xs">Titre de la réunion</Label>
