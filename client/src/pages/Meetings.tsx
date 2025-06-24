@@ -74,12 +74,14 @@ export default function Meetings() {
     staleTime: 0 // Considérer les données comme obsolètes immédiatement
   });
 
-  // Récupérer les réunions programmées avec refetch automatique
+  // Récupérer les réunions programmées avec refetch immédiat
   const { data: scheduledMeetingsData, isLoading: loadingScheduled, refetch: refetchScheduled } = useQuery({
     queryKey: ['/api/meetings/scheduled'],
     enabled: !!user,
-    refetchInterval: 5000, // Refetch automatique toutes les 5 secondes
-    staleTime: 0 // Considérer les données comme obsolètes immédiatement
+    refetchInterval: 2000, // Refetch automatique toutes les 2 secondes
+    staleTime: 0, // Considérer les données comme obsolètes immédiatement
+    cacheTime: 0, // Ne pas garder de cache
+    refetchOnWindowFocus: true // Refetch quand la fenêtre reprend le focus
   });
 
   const activeRooms = (activeRoomsData as any)?.rooms || [];
@@ -110,14 +112,25 @@ export default function Meetings() {
       return response.json();
     },
     onSuccess: (data: any) => {
-      // Invalider tous les caches de réunions pour une mise à jour immédiate
+      // Mise à jour optimiste immédiate du cache local
+      queryClient.setQueryData(['/api/meetings/scheduled'], (oldData: any) => {
+        if (!oldData) return { success: true, meetings: [data.meeting] };
+        return {
+          ...oldData,
+          meetings: [data.meeting, ...oldData.meetings]
+        };
+      });
+      
+      // Invalider et refetch pour garantir la synchronisation
       queryClient.invalidateQueries({ queryKey: ['/api/meetings'] });
       queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
       queryClient.invalidateQueries({ queryKey: ['/api/meetings/active'] });
       
-      // Forcer un refetch immédiat des données
-      refetchScheduled();
-      refetchActive();
+      // Forcer un refetch immédiat
+      setTimeout(() => {
+        refetchScheduled();
+        refetchActive();
+      }, 100);
       
       toast({
         title: "Réunion créée",
@@ -572,16 +585,16 @@ export default function Meetings() {
                   <h2 className="text-xs font-semibold">Programmer une réunion</h2>
                 </div>
 
-                {/* Zone de défilement optimisée */}
+                {/* Zone de défilement sans débordement */}
                 <div 
-                  className="flex-1 overflow-y-auto p-2" 
+                  className="flex-1 overflow-y-auto overflow-x-hidden p-2" 
                   style={{ 
-                    height: 'calc(100vh - 200px)', 
-                    maxHeight: 'calc(100vh - 200px)',
-                    minHeight: '300px' 
+                    height: 'calc(100vh - 220px)', 
+                    maxHeight: 'calc(100vh - 220px)',
+                    minHeight: '280px' 
                   }}
                 >
-                  <div className="space-y-2 max-w-lg mx-auto pb-8">
+                  <div className="space-y-2 max-w-lg mx-auto pb-16">
                     <Card className="border border-blue-200 dark:border-blue-800 shadow-sm">
                       <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
                         <CardTitle className="flex items-center text-base text-blue-900 dark:text-blue-100">
