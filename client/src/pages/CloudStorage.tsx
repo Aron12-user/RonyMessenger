@@ -1,45 +1,32 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { 
   Upload, 
   FolderPlus, 
   Search, 
-  Filter, 
   Grid3X3, 
   List, 
-  ChevronRight,
-  ChevronLeft,
   Trash2,
   Download,
   Share,
   MoreVertical,
-  Image,
-  Video,
-  Music,
-  FileText,
-  Archive,
   Edit,
-  CheckCircle,
   RefreshCw,
-  Monitor
+  Monitor,
+  AlertCircle
 } from "lucide-react";
 
-// Import des icônes personnalisées et de l'arrière-plan
+// Import des icônes personnalisées
 import folderOrangeIcon from "@assets/icons8-dossier-mac-94_1750386744627.png";
 import folderBlueIcon from "@assets/icons8-dossier-mac-64_1750386753922.png";
 import folderArchiveIcon from "@assets/icons8-dossier-mac-48_1750386762042.png";
-
-
-// Import des icônes de fichiers
 import imageIcon from "@assets/icons8-image-50_1750773959798.png";
 import excelIcon from "@assets/icons8-microsoft-excel-2019-50_1750774269876.png";
 import powerpointIcon from "@assets/icons8-ms-powerpoint-50_1750774279717.png";
@@ -47,6 +34,7 @@ import csvIcon from "@assets/icons8-fichier-csv-50_1750774291865.png";
 import audioIcon from "@assets/icons8-fichier-audio-50_1750774307203.png";
 import videoIcon from "@assets/icons8-fichier-vidéo-64_1750774317888.png";
 
+// Types
 interface Folder {
   id: number;
   name: string;
@@ -56,7 +44,7 @@ interface Folder {
   iconType: string | null;
   createdAt: Date;
   updatedAt: Date;
-  isShared: boolean | null;
+  isShared: boolean;
 }
 
 interface File {
@@ -67,665 +55,340 @@ interface File {
   url: string;
   uploaderId: number;
   updatedAt: Date;
-  isShared: boolean | null;
+  isShared: boolean;
   folderId: number | null;
   uploadedAt: Date;
 }
+
+// Utility functions
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+const getFileIcon = (fileType: string, fileName: string) => {
+  const extension = fileName.split('.').pop()?.toLowerCase() || '';
+  
+  if (fileType.startsWith('image/')) {
+    return <img src={imageIcon} alt="Image" className="h-8 w-8" />;
+  }
+  
+  switch (extension) {
+    case 'xlsx':
+    case 'xls':
+      return <img src={excelIcon} alt="Excel" className="h-8 w-8" />;
+    case 'pptx':
+    case 'ppt':
+      return <img src={powerpointIcon} alt="PowerPoint" className="h-8 w-8" />;
+    case 'csv':
+      return <img src={csvIcon} alt="CSV" className="h-8 w-8" />;
+    case 'mp3':
+    case 'wav':
+    case 'aac':
+      return <img src={audioIcon} alt="Audio" className="h-8 w-8" />;
+    case 'mp4':
+    case 'avi':
+    case 'mov':
+      return <img src={videoIcon} alt="Video" className="h-8 w-8" />;
+    default:
+      return <img src={imageIcon} alt="File" className="h-8 w-8" />;
+  }
+};
+
+const getFolderIcon = (iconType: string | null) => {
+  switch (iconType) {
+    case 'blue':
+      return <img src={folderBlueIcon} alt="Folder" className="h-12 w-12" />;
+    case 'archive':
+      return <img src={folderArchiveIcon} alt="Folder" className="h-12 w-12" />;
+    default:
+      return <img src={folderOrangeIcon} alt="Folder" className="h-12 w-12" />;
+  }
+};
+
+// API sécurisée
+const secureApiRequest = async (method: string, url: string, data?: any): Promise<Response> => {
+  const options: RequestInit = {
+    method,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  };
+
+  if (data && method !== 'GET') {
+    options.body = JSON.stringify(data);
+  }
+
+  const response = await fetch(url, options);
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+    
+    try {
+      const errorData = JSON.parse(errorText);
+      errorMessage = errorData.message || errorData.error || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    
+    throw new Error(errorMessage);
+  }
+  
+  return response;
+};
 
 export default function CloudStorage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const folderInputRef = useRef<HTMLInputElement>(null);
 
-  // États du composant
+  // États
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
-  const [currentPath, setCurrentPath] = useState<{ id: number; name: string }[]>([]);
-  const [folderStack, setFolderStack] = useState<Folder[]>([{ id: 0, name: "Cloud", path: "/", ownerId: user?.id || 0, parentId: null, iconType: null, createdAt: new Date(), updatedAt: new Date(), isShared: false }]);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [selectedFiles, setSelectedFiles] = useState<Record<number, boolean>>({});
+  const [operationInProgress, setOperationInProgress] = useState<string | null>(null);
 
   // États des dialogues
   const [isCreateFolderDialogOpen, setIsCreateFolderDialogOpen] = useState(false);
-  const [isIconSelectorOpen, setIsIconSelectorOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
 
   // États pour les actions
   const [newFolderName, setNewFolderName] = useState("");
   const [selectedFolderIcon, setSelectedFolderIcon] = useState<string>("orange");
-  const [folderToUpdateIcon, setFolderToUpdateIcon] = useState<number | null>(null);
   const [itemToDelete, setItemToDelete] = useState<{ id: number; name: string; isFolder: boolean } | null>(null);
   const [itemToRename, setItemToRename] = useState<{ id: number; name: string; isFolder: boolean } | null>(null);
   const [newItemName, setNewItemName] = useState("");
-  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
-  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [itemToShare, setItemToShare] = useState<{ id: number; name: string; isFolder: boolean } | null>(null);
-  const [sharePermission, setSharePermission] = useState<"read" | "write" | "admin">("read");
   const [shareEmail, setShareEmail] = useState("");
   const [shareSubject, setShareSubject] = useState("");
   const [shareMessage, setShareMessage] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadingFiles, setUploadingFiles] = useState(0);
-  const [totalFiles, setTotalFiles] = useState(0);
-  const [syncProgress, setSyncProgress] = useState(0);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncedFiles, setSyncedFiles] = useState<Set<string>>(new Set());
 
-  // Charger la liste des fichiers synchronisés au démarrage
-  useEffect(() => {
-    const stored = localStorage.getItem('syncedFiles');
-    if (stored) {
-      try {
-        const parsedFiles = JSON.parse(stored);
-        setSyncedFiles(new Set(parsedFiles));
-      } catch (e) {
-        console.error('Error loading synced files:', e);
-      }
-    }
-  }, []);
-
-  // Requêtes
-  const { data: folders = [], isLoading: foldersLoading, error: foldersError } = useQuery({
+  // Queries
+  const { data: folders = [], isLoading: foldersLoading, error: foldersError, refetch: refetchFolders } = useQuery({
     queryKey: ["folders", currentFolderId],
     queryFn: async () => {
-      const res = await fetch(`/api/folders?parentId=${currentFolderId || 'null'}`, {
-        credentials: 'include'
-      });
-      if (!res.ok) throw new Error("Failed to fetch folders");
-      return res.json();
+      const response = await secureApiRequest('GET', `/api/folders?parentId=${currentFolderId || 'null'}`);
+      return response.json();
     },
-    enabled: !!user
+    staleTime: 30000,
+    retry: 3,
+    retryDelay: 1000,
   });
 
-  const { data: files = [], isLoading: filesLoading, error: filesError } = useQuery({
+  const { data: files = [], isLoading: filesLoading, error: filesError, refetch: refetchFiles } = useQuery({
     queryKey: ["files", currentFolderId],
     queryFn: async () => {
-      const res = await fetch(`/api/files?folderId=${currentFolderId || 'null'}`, {
-        credentials: 'include'
-      });
-      if (!res.ok) throw new Error("Failed to fetch files");
-      return res.json();
+      const response = await secureApiRequest('GET', `/api/files?folderId=${currentFolderId || 'null'}`);
+      return response.json();
     },
-    enabled: !!user
+    staleTime: 30000,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Mutations
   const createFolderMutation = useMutation({
     mutationFn: async (folderData: { name: string; parentId: number | null; iconType: string }) => {
-      const res = await apiRequest("POST", "/api/folders", folderData);
-      if (!res.ok) throw new Error("Failed to create folder");
-      return res.json();
+      if (!folderData.name.trim()) {
+        throw new Error("Le nom du dossier ne peut pas être vide");
+      }
+      if (folderData.name.length > 255) {
+        throw new Error("Le nom du dossier est trop long (maximum 255 caractères)");
+      }
+      
+      const response = await secureApiRequest('POST', '/api/folders', folderData);
+      return response.json();
     },
-    onSuccess: (data) => {
-      console.log('Folder created successfully:', data);
-      queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
       setIsCreateFolderDialogOpen(false);
       setNewFolderName("");
-      toast({ title: "Dossier créé avec succès" });
+      setSelectedFolderIcon("orange");
+      toast({ title: "Dossier créé", description: "Le dossier a été créé avec succès." });
     },
     onError: (error: Error) => {
-      toast({ title: "Erreur lors de la création", description: error.message, variant: "destructive" });
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
     }
   });
 
-  const updateFolderIconMutation = useMutation({
-    mutationFn: async ({ folderId, iconType }: { folderId: number; iconType: string }) => {
-      const res = await apiRequest("PATCH", `/api/folders/${folderId}`, { iconType });
-      if (!res.ok) throw new Error("Failed to update folder icon");
-      return res.json();
+  const deleteMutation = useMutation({
+    mutationFn: async ({ id, isFolder }: { id: number; isFolder: boolean }) => {
+      const endpoint = isFolder ? `/api/folders/${id}` : `/api/files/${id}`;
+      const response = await secureApiRequest('DELETE', endpoint);
+      return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
-      setIsIconSelectorOpen(false);
-      setFolderToUpdateIcon(null);
-      toast({ title: "Icône mise à jour avec succès" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Erreur lors de la mise à jour", description: error.message, variant: "destructive" });
-    }
-  });
-
-  const uploadFilesMutation = useMutation({
-    mutationFn: async (files: FileList) => {
-      const formData = new FormData();
-      Array.from(files).forEach((file) => {
-        formData.append('files', file);
-      });
-      if (currentFolderId) {
-        formData.append('folderId', currentFolderId.toString());
-      }
-
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include'
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Upload failed' }));
-        throw new Error(errorData.error || 'Failed to upload files');
-      }
-      return res.json();
-    },
-    onSuccess: (data) => {
-      console.log('Files uploaded successfully:', data);
-      queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
-      queryClient.invalidateQueries({ queryKey: ["files"] });
-      queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
+    onSuccess: (_, { isFolder }) => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
+      queryClient.invalidateQueries({ queryKey: ["files"] });
+      setIsDeleteDialogOpen(false);
+      setItemToDelete(null);
       toast({ 
-        title: "Upload réussi", 
-        description: data.message || "Fichiers uploadés avec succès" 
+        title: "Supprimé", 
+        description: `${isFolder ? 'Dossier' : 'Fichier'} supprimé avec succès.` 
       });
     },
     onError: (error: Error) => {
-      console.error('Upload error:', error);
-      toast({ 
-        title: "Erreur lors de l'upload", 
-        description: error.message, 
-        variant: "destructive" 
-      });
-    }
-  });
-
-  const uploadFolderMutation = useMutation({
-    mutationFn: async (files: FileList) => {
-      setTotalFiles(files.length);
-      setUploadingFiles(0);
-      setUploadProgress(0);
-
-      const formData = new FormData();
-      const folderStructure: { [key: string]: string[] } = {};
-      const filePaths: string[] = [];
-
-      // Traitement rapide des fichiers
-      Array.from(files).forEach((file, index) => {
-        const relativePath = file.webkitRelativePath || file.name;
-        const pathParts = relativePath.split('/');
-        const folderPath = pathParts.slice(0, -1).join('/');
-
-        formData.append('files', file);
-        filePaths.push(relativePath);
-
-        if (folderPath && !folderStructure[folderPath]) {
-          folderStructure[folderPath] = [];
-        }
-        if (folderPath) {
-          folderStructure[folderPath].push(relativePath);
-        }
-      });
-
-      filePaths.forEach(path => {
-        formData.append('filePaths', path);
-      });
-
-      formData.append('folderId', currentFolderId?.toString() || 'null');
-      formData.append('folderStructure', JSON.stringify(folderStructure));
-
-      // Créer un XMLHttpRequest pour suivre la progression
-      return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-
-        xhr.upload.addEventListener('progress', (event) => {
-          if (event.lengthComputable) {
-            const progress = Math.round((event.loaded / event.total) * 100);
-            setUploadProgress(progress);
-          }
-        });
-
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              const data = JSON.parse(xhr.responseText);
-              resolve(data);
-            } catch (e) {
-              reject(new Error('Failed to parse response'));
-            }
-          } else {
-            try {
-              const errorData = JSON.parse(xhr.responseText);
-              reject(new Error(errorData.message || 'Upload failed'));
-            } catch (e) {
-              reject(new Error('Upload failed'));
-            }
-          }
-        });
-
-        xhr.addEventListener('error', () => {
-          reject(new Error('Network error during upload'));
-        });
-
-        xhr.open('POST', '/api/upload-folder');
-        xhr.send(formData);
-      });
-    },
-    onSuccess: (data: any) => {
-      setUploadProgress(100);
-      queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
-      queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
-
-      const message = `Upload terminé! ${data.foldersCreated || 0} dossier(s), ${data.filesUploaded || 0} fichier(s)`;
-      toast({ title: message });
-
-      if (folderInputRef.current) {
-        folderInputRef.current.value = '';
-      }
-
-      // Reset progress après 2 secondes
-      setTimeout(() => {
-        setUploadProgress(0);
-        setTotalFiles(0);
-        setUploadingFiles(0);
-      }, 2000);
-    },
-    onError: (error: Error) => {
-      setUploadProgress(0);
-      setTotalFiles(0);
-      setUploadingFiles(0);
-      toast({ 
-        title: "Erreur d'upload", 
-        description: error.message, 
-        variant: "destructive" 
-      });
-    }
-  });
-
-  // Mutation pour la synchronisation du bureau
-  const syncDesktopMutation = useMutation({
-    mutationFn: async () => {
-      setIsSyncing(true);
-      setSyncProgress(0);
-
-      // Créer un input pour sélectionner les fichiers du bureau
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.multiple = true;
-      input.webkitdirectory = true;
-
-      return new Promise((resolve, reject) => {
-        input.onchange = async (event) => {
-          const files = (event.target as HTMLInputElement).files;
-          if (!files || files.length === 0) {
-            reject(new Error('Aucun fichier sélectionné'));
-            return;
-          }
-
-          try {
-            // Récupérer la liste des fichiers déjà synchronisés
-            const existingFilesResponse = await fetch('/api/sync/files');
-            const existingFiles = existingFilesResponse.ok ? await existingFilesResponse.json() : [];
-
-            // Créer une carte des fichiers existants avec nom et taille pour éviter les doublons
-            const existingFileMap = new Map();
-            existingFiles.forEach((f: any) => {
-              const key = `${f.name}_${f.size}`;
-              existingFileMap.set(key, f);
-            });
-
-            // Filtrer les nouveaux fichiers uniquement (basé sur nom + taille)
-            const newFiles = Array.from(files).filter(file => {
-              const key = `${file.name}_${file.size}`;
-              return !existingFileMap.has(key) && !syncedFiles.has(file.name);
-            });
-
-            if (newFiles.length === 0) {
-              toast({ title: "Synchronisation terminée", description: "Aucun nouveau fichier à synchroniser" });
-              resolve({ message: 'No new files', filesUploaded: 0 });
-              return;
-            }
-
-            // Créer le FormData pour l'upload
-            const formData = new FormData();
-            const filePaths: string[] = [];
-
-            newFiles.forEach((file) => {
-              const relativePath = file.webkitRelativePath || file.name;
-              formData.append('files', file);
-              filePaths.push(relativePath);
-            });
-
-            filePaths.forEach(path => {
-              formData.append('filePaths', path);
-            });
-
-            formData.append('folderId', 'sync');
-            formData.append('isSync', 'true');
-
-            // Upload avec suivi de progression
-            const xhr = new XMLHttpRequest();
-
-            xhr.upload.addEventListener('progress', (event) => {
-              if (event.lengthComputable) {
-                const progress = Math.round((event.loaded / event.total) * 100);
-                setSyncProgress(progress);
-              }
-            });
-
-            xhr.addEventListener('load', () => {
-              if (xhr.status >= 200 && xhr.status < 300) {
-                try {
-                  const data = JSON.parse(xhr.responseText);
-                  // Marquer les fichiers comme synchronisés
-                  const newSyncedFiles = new Set([...syncedFiles, ...newFiles.map(f => f.name)]);
-                  setSyncedFiles(newSyncedFiles);
-                  localStorage.setItem('syncedFiles', JSON.stringify([...newSyncedFiles]));
-                  resolve(data);
-                } catch (e) {
-                  reject(new Error('Erreur de parsing de la réponse'));
-                }
-              } else {
-                reject(new Error('Échec de la synchronisation'));
-              }
-            });
-
-            xhr.addEventListener('error', () => {
-              reject(new Error('Erreur réseau lors de la synchronisation'));
-            });
-
-            xhr.open('POST', '/api/upload-folder');
-            xhr.send(formData);
-
-          } catch (error) {
-            reject(error);
-          }
-        };
-
-        input.click();
-      });
-    },
-    onSuccess: (data: any) => {
-      setSyncProgress(100);
-      setIsSyncing(false);
-      queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
-      queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
-
-      const message = `Synchronisation terminée! ${data.filesUploaded || 0} nouveau(x) fichier(s) synchronisé(s)`;
-      toast({ title: message });
-
-      setTimeout(() => {
-        setSyncProgress(0);
-      }, 2000);
-    },
-    onError: (error: Error) => {
-      setSyncProgress(0);
-      setIsSyncing(false);
-      toast({ 
-        title: "Erreur de synchronisation", 
-        description: error.message, 
-        variant: "destructive" 
-      });
+      toast({ title: "Erreur de suppression", description: error.message, variant: "destructive" });
     }
   });
 
   const renameMutation = useMutation({
     mutationFn: async ({ id, name, isFolder }: { id: number; name: string; isFolder: boolean }) => {
-      const endpoint = isFolder ? `/api/folders/${id}` : `/api/files/${id}`;
-      const response = await fetch(endpoint, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({ name })
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = 'Failed to rename item';
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.message || errorMessage;
-        } catch {
-          errorMessage = errorText || errorMessage;
-        }
-        throw new Error(errorMessage);
+      if (!name.trim()) {
+        throw new Error("Le nom ne peut pas être vide");
+      }
+      if (name.length > 255) {
+        throw new Error("Le nom est trop long (maximum 255 caractères)");
       }
       
+      const endpoint = isFolder ? `/api/folders/${id}` : `/api/files/${id}`;
+      const response = await secureApiRequest('PATCH', endpoint, { name: name.trim() });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, { isFolder }) => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
       queryClient.invalidateQueries({ queryKey: ["files"] });
       setIsRenameDialogOpen(false);
       setItemToRename(null);
       setNewItemName("");
-      toast({ title: "Renommé", description: "L'élément a été renommé avec succès." });
-    },
-    onError: (error: Error) => {
-      console.error('Rename error:', error);
-      toast({ title: "Erreur", description: error.message, variant: "destructive" });
-    }
-  });
-
-  const shareMutation = useMutation({
-    mutationFn: async ({ fileId, email, permission, subject, message, isFolder }: { 
-      fileId: number; 
-      email: string; 
-      permission: string; 
-      subject: string; 
-      message: string;
-      isFolder: boolean;
-    }) => {
-      // Get user by email/username
-      const userRes = await fetch(`/api/users?email=${email}`);
-      if (!userRes.ok) throw new Error("Adresse Rony introuvable");
-      const users = await userRes.json();
-      if (!users.data || users.data.length === 0) throw new Error("Adresse Rony introuvable");
-
-      const sharedWithId = users.data[0].id;
-
-      // Share the file/folder
-      const endpoint = isFolder ? "/api/folders/share" : "/api/files/share";
-      const res = await apiRequest("POST", endpoint, {
-        [isFolder ? "folderId" : "fileId"]: fileId,
-        sharedWithId,
-        permission,
-        subject,
-        message
+      toast({ 
+        title: "Renommé", 
+        description: `${isFolder ? 'Dossier' : 'Fichier'} renommé avec succès.` 
       });
-      if (!res.ok) throw new Error("Échec du partage");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
-      queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
-      setIsShareDialogOpen(false);
-      setItemToShare(null);
-      setShareEmail("");
-      setShareSubject("");
-      setShareMessage("");
-      toast({ title: "Envoyé avec succès dans le Courrier du destinataire" });
     },
     onError: (error: Error) => {
-      toast({ title: "Erreur lors de l'envoi", description: error.message, variant: "destructive" });
+      toast({ title: "Erreur de renommage", description: error.message, variant: "destructive" });
     }
   });
 
-  const deleteItemMutation = useMutation({
-    mutationFn: async ({ id, isFolder }: { id: number; isFolder: boolean }) => {
-      const endpoint = isFolder ? `/api/folders/${id}` : `/api/files/${id}`;
-      const response = await fetch(endpoint, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
+  const uploadMutation = useMutation({
+    mutationFn: async (files: FileList) => {
+      if (!files.length) {
+        throw new Error("Aucun fichier sélectionné");
+      }
+
+      const formData = new FormData();
+      Array.from(files).forEach(file => {
+        if (file.size > 100 * 1024 * 1024) {
+          throw new Error(`Le fichier ${file.name} est trop volumineux (maximum 100MB)`);
         }
+        formData.append('files', file);
       });
       
+      if (currentFolderId) {
+        formData.append('folderId', currentFolderId.toString());
+      }
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+
       if (!response.ok) {
         const errorText = await response.text();
-        let errorMessage = 'Failed to delete item';
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.message || errorMessage;
-        } catch {
-          errorMessage = errorText || errorMessage;
-        }
-        throw new Error(errorMessage);
+        throw new Error(errorText || 'Upload failed');
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["folders"] });
       queryClient.invalidateQueries({ queryKey: ["files"] });
-      setIsDeleteDialogOpen(false);
-      setItemToDelete(null);
-      toast({ title: "Supprimé", description: "L'élément a été supprimé avec succès." });
+      setUploadProgress(0);
+      toast({ title: "Upload terminé", description: "Tous les fichiers ont été uploadés avec succès." });
     },
     onError: (error: Error) => {
-      console.error('Delete error:', error);
-      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+      setUploadProgress(0);
+      toast({ title: "Erreur d'upload", description: error.message, variant: "destructive" });
     }
   });
 
-  // Fonctions utilitaires
-  const getFileIcon = (type: string, fileName: string) => {
-    if (type.startsWith('image/')) return <Image className="h-8 w-8 text-blue-500" />;
-    if (type.startsWith('video/')) return <Video className="h-8 w-8 text-red-500" />;
-    if (type.startsWith('audio/')) return <Music className="h-8 w-8 text-green-500" />;
-    if (type.includes('pdf') || type.includes('document') || type.includes('text')) return <FileText className="h-8 w-8 text-gray-500" />;
-    if (type.includes('zip') || type.includes('rar') || type.includes('archive')) return <Archive className="h-8 w-8 text-yellow-500" />;
-    return <FileText className="h-8 w-8 text-gray-500" />;
-  };
-
-  const getFolderIcon = (iconType: string = "orange") => {
-    const className = "h-10 w-10 object-contain";
-    switch (iconType) {
-      case "orange":
-        return <img src={folderOrangeIcon} alt="Dossier orange" className={className} />;
-      case "blue":
-        return <img src={folderBlueIcon} alt="Dossier bleu" className={className} />;
-      case "archive":
-        return <img src={folderArchiveIcon} alt="Dossier archive" className={className} />;
-      default:
-        return <img src={folderOrangeIcon} alt="Dossier" className={className} />;
-    }
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const formatDate = (date: Date | string) => {
-    const d = new Date(date);
-    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  // Handlers
-  const handleFolderClick = (folder: Folder) => {
-    setCurrentFolderId(folder.id);
-    setFolderStack([...folderStack, folder]);
-  };
-
-  const handleBreadcrumbClick = (index: number) => {
-    if (index === 0) {
-      // Retour à la racine
-      setCurrentFolderId(null);
-      setFolderStack([folderStack[0]]);
-    } else {
-      // Navigation vers un dossier parent
-      const newStack = folderStack.slice(0, index + 1);
-      setFolderStack(newStack);
-      setCurrentFolderId(newStack[newStack.length - 1].id === 0 ? null : newStack[newStack.length - 1].id);
-    }
-  };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Gestionnaires
+  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
-      uploadFilesMutation.mutate(files);
+      setOperationInProgress("upload");
+      uploadMutation.mutate(files);
     }
-  };
+    if (event.target) {
+      event.target.value = '';
+    }
+  }, [uploadMutation]);
 
-  const handleFolderUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files && files.length > 0) {
-      // Vérifier que les fichiers ont des chemins relatifs (webkitRelativePath)
-      const hasValidPaths = Array.from(files).some(file => file.webkitRelativePath);
-
-      if (!hasValidPaths) {
-        toast({ 
-          title: "Erreur de sélection", 
-          description: "Veuillez sélectionner un dossier entier, pas des fichiers individuels", 
-          variant: "destructive" 
-        });
-        return;
+  const handleDownload = useCallback(async (file: File) => {
+    try {
+      setOperationInProgress(`download-${file.id}`);
+      
+      const downloadWindow = window.open(file.url, '_blank');
+      
+      if (!downloadWindow) {
+        const link = document.createElement('a');
+        link.href = file.url;
+        link.download = file.name;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       }
-
-      console.log(`Uploading folder with ${files.length} files`);
-      uploadFolderMutation.mutate(files);
-    }
-  };
-
-  const handleCreateFolder = () => {
-    if (newFolderName.trim()) {
-      createFolderMutation.mutate({
-        name: newFolderName.trim(),
-        parentId: currentFolderId,
-        iconType: selectedFolderIcon
+      
+      toast({ 
+        title: "Téléchargement", 
+        description: `Téléchargement de ${file.name} démarré` 
       });
+    } catch (error) {
+      toast({ 
+        title: "Erreur de téléchargement", 
+        description: "Impossible de télécharger le fichier", 
+        variant: "destructive" 
+      });
+    } finally {
+      setOperationInProgress(null);
     }
-  };
+  }, [toast]);
 
-  const handleDeleteItem = (id: number, name: string, isFolder: boolean) => {
+  const handleDeleteItem = useCallback((id: number, name: string, isFolder: boolean) => {
     setItemToDelete({ id, name, isFolder });
     setIsDeleteDialogOpen(true);
-  };
+  }, []);
 
-  const handleUpdateFolderIcon = (folderId: number) => {
-    setFolderToUpdateIcon(folderId);
-    setIsIconSelectorOpen(true);
-  };
-
-  const handleRenameItem = (id: number, name: string, isFolder: boolean) => {
+  const handleRenameItem = useCallback((id: number, name: string, isFolder: boolean) => {
     setItemToRename({ id, name, isFolder });
     setNewItemName(name);
     setIsRenameDialogOpen(true);
-  };
+  }, []);
 
-  const handleShareItem = (id: number, name: string, isFolder: boolean) => {
+  const handleShareItem = useCallback((id: number, name: string, isFolder: boolean) => {
     setItemToShare({ id, name, isFolder });
     setShareSubject(`Partage ${isFolder ? 'de dossier' : 'de fichier'} : ${name}`);
     setShareMessage(`Bonjour,\n\nJe partage avec vous ${isFolder ? 'le dossier' : 'le fichier'} "${name}".\n\nCordialement,`);
     setIsShareDialogOpen(true);
-  };
+  }, []);
 
-  const handleConfirmDelete = () => {
-    if (itemToDelete) {
-      deleteItemMutation.mutate({ 
-        id: itemToDelete.id, 
-        isFolder: itemToDelete.isFolder 
+  const handleRefresh = useCallback(() => {
+    setOperationInProgress("refresh");
+    Promise.all([refetchFolders(), refetchFiles()])
+      .then(() => {
+        toast({ title: "Actualisé", description: "Les données ont été actualisées." });
+      })
+      .catch(() => {
+        toast({ title: "Erreur", description: "Impossible d'actualiser les données.", variant: "destructive" });
+      })
+      .finally(() => {
+        setOperationInProgress(null);
       });
-    }
-  };
+  }, [refetchFolders, refetchFiles, toast]);
 
-  const handleConfirmRename = () => {
-    if (itemToRename && newItemName.trim() && newItemName.trim() !== itemToRename.name) {
-      renameMutation.mutate({ 
-        id: itemToRename.id, 
-        name: newItemName.trim(), 
-        isFolder: itemToRename.isFolder 
-      });
-    }
-  };
-
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
-  };
-
-  const triggerFolderInput = () => {
-    folderInputRef.current?.click();
-  };
-
-  // Filtrage des données
+  // Filtrage
   const filteredFolders = folders.filter((folder: Folder) =>
     folder.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -734,13 +397,41 @@ export default function CloudStorage() {
     file.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Gestion des erreurs
+  if (foldersError || filesError) {
+    return (
+      <div className="flex-1 p-4 flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Erreur de chargement</h3>
+          <p className="text-gray-600 mb-4">Impossible de charger les données du Cloud.</p>
+          <Button onClick={handleRefresh} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Réessayer
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 p-4 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 flex-1 flex flex-col overflow-hidden">
         <div className="max-w-7xl mx-auto flex flex-col h-full overflow-hidden">
-          {/* Header avec titre et actions principales */}
+          
+          {/* Header */}
           <div className="flex flex-wrap justify-between items-center mb-6">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Cloud</h2>
+            <div className="flex items-center space-x-3">
+              <Monitor className="h-8 w-8 text-blue-600" />
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Cloud</h2>
+              {operationInProgress && (
+                <div className="flex items-center space-x-2 text-blue-600">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">En cours...</span>
+                </div>
+              )}
+            </div>
+            
             <div className="flex flex-col space-y-3">
               <div className="flex space-x-3">
                 <input 
@@ -749,104 +440,63 @@ export default function CloudStorage() {
                   onChange={handleFileUpload} 
                   className="hidden" 
                   multiple 
+                  accept="*/*"
                 />
-                <input 
-                  type="file" 
-                  ref={folderInputRef} 
-                  onChange={handleFolderUpload} 
-                  className="hidden" 
-                  {...({ webkitdirectory: "", directory: "" } as any)}
-                  multiple 
-                />
+                
                 <Button
-                  onClick={triggerFileInput}
+                  onClick={() => fileInputRef.current?.click()}
                   variant="outline"
                   className="flex items-center space-x-2"
+                  disabled={uploadMutation.isPending}
                 >
                   <Upload className="h-4 w-4" />
-                  <span>Upload Files</span>
+                  <span>{uploadMutation.isPending ? "Upload..." : "Upload Files"}</span>
                 </Button>
-                <Button
-                  onClick={triggerFolderInput}
-                  variant="outline"
-                  className="flex items-center space-x-2"
-                  disabled={uploadFolderMutation.isPending}
-                >
-                  <Upload className="h-4 w-4" />
-                  <span>{uploadFolderMutation.isPending ? `Uploading... ${uploadProgress}%` : 'Upload Folder'}</span>
-                </Button>
+                
                 <Button
                   onClick={() => setIsCreateFolderDialogOpen(true)}
                   className="flex items-center space-x-2"
+                  disabled={createFolderMutation.isPending}
                 >
                   <FolderPlus className="h-4 w-4" />
-                  <span>New Folder</span>
+                  <span>Nouveau Dossier</span>
                 </Button>
+                
                 <Button
-                  onClick={() => syncDesktopMutation.mutate()}
-                  variant="default"
-                  className="flex items-center space-x-2"
-                  disabled={isSyncing}
+                  onClick={handleRefresh}
+                  variant="outline"
+                  size="icon"
+                  disabled={operationInProgress === "refresh"}
                 >
-                  {isSyncing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Monitor className="h-4 w-4" />}
-                  <span>{isSyncing ? `Synchronisation... ${syncProgress}%` : 'Sync Bureau'}</span>
+                  <RefreshCw className={`h-4 w-4 ${operationInProgress === "refresh" ? "animate-spin" : ""}`} />
                 </Button>
               </div>
-
-              {/* Barre de progression pour l'upload */}
-              {uploadFolderMutation.isPending && totalFiles > 0 && (
-                <div className="w-full max-w-md">
-                  <div className="flex justify-between text-sm text-gray-600 mb-1">
-                    <span>Upload en cours...</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <Progress value={uploadProgress} className="h-1" />
-                  <div className="text-xs text-gray-500 mt-1">
-                    {totalFiles} fichier(s) à traiter
-                  </div>
-                </div>
-              )}
-
-              {/* Barre de progression pour la synchronisation */}
-              {isSyncing && (
-                <div className="w-full max-w-md">
-                  <div className="flex justify-between text-sm text-blue-600 mb-1">
-                    <span>Synchronisation bureau...</span>
-                    <span>{syncProgress}%</span>
-                  </div>
-                  <Progress value={syncProgress} className="h-1" />
-                  <div className="text-xs text-blue-500 mt-1">
-                    Analyse des nouveaux fichiers...
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Barre de recherche et filtres */}
-          <div className="flex flex-wrap gap-4 items-center mb-6">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Rechercher des fichiers et dossiers..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+          {/* Barre de recherche et contrôles */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                type="text"
+                placeholder="Rechercher des fichiers et dossiers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
-
+            
             <div className="flex items-center space-x-2">
               <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setViewMode('grid')}
               >
                 <Grid3X3 className="h-4 w-4" />
               </Button>
               <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                variant={viewMode === 'list' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setViewMode('list')}
               >
@@ -855,254 +505,218 @@ export default function CloudStorage() {
             </div>
           </div>
 
-          {/* Navigation breadcrumb avec bouton retour */}
-          <div className="mb-6">
-```text
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">
-                {folderStack.map((folder, index) => (
-                  <div key={index} className="flex items-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleBreadcrumbClick(index)}
-                      className="p-1 h-auto font-medium hover:bg-gray-100 dark:hover:bg-gray-700"
-                    >
-                      {folder.name}
-                    </Button>
-                    {index < folderStack.length - 1 && (
-                      <ChevronRight className="h-4 w-4 text-gray-400 mx-1" />
+          {/* Indicateur de progression */}
+          {uploadMutation.isPending && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Upload en cours...</span>
+                <span className="text-sm text-gray-500">{uploadProgress}%</span>
+              </div>
+              <Progress value={uploadProgress} className="w-full" />
+            </div>
+          )}
+
+          {/* Zone de contenu principal */}
+          <div className="flex-1 overflow-y-auto">
+            {(foldersLoading || filesLoading) ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+                <span className="ml-3 text-lg">Chargement...</span>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {/* Grille des dossiers */}
+                {filteredFolders.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-medium mb-4 flex items-center">
+                      <FolderPlus className="h-5 w-5 mr-2" />
+                      Dossiers ({filteredFolders.length})
+                    </h3>
+                    <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-6' : 'grid-cols-1'}`}>
+                      {filteredFolders.map((folder: Folder) => (
+                        <div 
+                          key={folder.id}
+                          className="group border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer bg-white dark:bg-gray-800"
+                          onDoubleClick={() => setCurrentFolderId(folder.id)}
+                        >
+                          <div className="flex flex-col items-center text-center space-y-2">
+                            {getFolderIcon(folder.iconType)}
+                            <div className="w-full">
+                              <p className="font-medium text-sm truncate" title={folder.name}>
+                                {folder.name}
+                              </p>
+                              <div className="flex justify-between items-center mt-2">
+                                <span className="text-xs text-gray-500">
+                                  Dossier
+                                </span>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRenameItem(folder.id, folder.name, true);
+                                      }}
+                                    >
+                                      <Edit className="mr-2 h-4 w-4" />
+                                      Renommer
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleShareItem(folder.id, folder.name, true);
+                                      }}
+                                    >
+                                      <Share className="mr-2 h-4 w-4" />
+                                      Partager
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteItem(folder.id, folder.name, true);
+                                      }}
+                                      className="text-red-600"
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Supprimer
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Grille des fichiers */}
+                {filteredFiles.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-medium mb-4 flex items-center">
+                      <Upload className="h-5 w-5 mr-2" />
+                      Fichiers ({filteredFiles.length})
+                    </h3>
+                    <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-6' : 'grid-cols-1'}`}>
+                      {filteredFiles.map((file: File) => (
+                        <div 
+                          key={file.id}
+                          className="group border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-all bg-white dark:bg-gray-800"
+                        >
+                          <div className="h-20 bg-gray-100 dark:bg-gray-700 flex items-center justify-center p-2">
+                            {file.type.startsWith('image/') ? (
+                              <img src={file.url} alt={file.name} className="h-12 w-12 object-cover rounded" />
+                            ) : (
+                              getFileIcon(file.type, file.name)
+                            )}
+                          </div>
+                          <div className="p-3">
+                            <div className="flex justify-between items-start mb-1">
+                              <h4 className="font-medium text-sm truncate flex-1" title={file.name}>
+                                {file.name}
+                              </h4>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity ml-1"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDownload(file);
+                                    }}
+                                    disabled={operationInProgress === `download-${file.id}`}
+                                  >
+                                    <Download className="mr-2 h-4 w-4" />
+                                    {operationInProgress === `download-${file.id}` ? "Téléchargement..." : "Télécharger"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRenameItem(file.id, file.name, false);
+                                    }}
+                                  >
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Renommer
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleShareItem(file.id, file.name, false);
+                                    }}
+                                  >
+                                    <Share className="mr-2 h-4 w-4" />
+                                    Partager
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteItem(file.id, file.name, false);
+                                    }}
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Supprimer
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              {formatFileSize(file.size)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Message si aucun élément */}
+                {filteredFolders.length === 0 && filteredFiles.length === 0 && !foldersLoading && !filesLoading && (
+                  <div className="text-center py-12">
+                    <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">
+                      {searchTerm ? "Aucun élément trouvé pour cette recherche." : "Ce dossier est vide."}
+                    </p>
+                    {!searchTerm && (
+                      <Button onClick={() => fileInputRef.current?.click()} variant="outline">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Commencer par uploader des fichiers
+                      </Button>
                     )}
                   </div>
-                ))}
-              </div>
-
-              {/* Bouton Retour */}
-              {folderStack.length > 1 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const newStack = folderStack.slice(0, -1);
-                    setFolderStack(newStack);
-                    setCurrentFolderId(newStack[newStack.length - 1].id === 0 ? null : newStack[newStack.length - 1].id);
-                  }}
-                  className="flex items-center space-x-2"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span>Retour</span>
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Zone de contenu avec défilement */}
-          <div className="flex-1 overflow-y-auto max-h-[calc(100vh-300px)]">
-            {/* Indicateurs de statut (plus discrets) */}
-            {(foldersLoading || filesLoading) && (
-              <div className="text-sm text-blue-600 mb-2">Chargement...</div>
-            )}
-            {(foldersError || filesError) && (
-              <div className="text-sm text-red-600 mb-2">Erreur de chargement</div>
-            )}
-
-            {/* Grille des dossiers */}
-            {filteredFolders.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-lg font-medium mb-3">Dossiers ({filteredFolders.length})</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {filteredFolders.map((folder: Folder) => (
-                    <div 
-                      key={folder.id} 
-                      className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex flex-col hover:shadow-md transition-shadow cursor-pointer"
-                    >
-                      <div className="flex items-center">
-                        <div 
-                          className="w-12 h-12 flex items-center justify-center mr-3 cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleUpdateFolderIcon(folder.id);
-                          }}
-                        >
-                          {getFolderIcon(folder.iconType || "orange")}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 
-                            className="font-medium truncate cursor-pointer"
-                            onClick={() => handleFolderClick(folder)}
-                          >
-                            {folder.name}
-                          </h4>
-                          <p className="text-sm text-gray-500">
-                            {formatDate(folder.updatedAt)}
-                          </p>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => e.stopPropagation()}
-                              className="h-8 w-8 p-0"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleUpdateFolderIcon(folder.id);
-                              }}
-                            >
-                              <Edit className="mr-2 h-4 w-4" />
-                              Changer l'icône
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRenameItem(folder.id, folder.name, true);
-                              }}
-                            >
-                              <Edit className="mr-2 h-4 w-4" />
-                              Renommer
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleShareItem(folder.id, folder.name, true);
-                              }}
-                            >
-                              <Share className="mr-2 h-4 w-4" />
-                              Partager
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteItem(folder.id, folder.name, true);
-                              }}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Supprimer
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Grille des fichiers */}
-            {filteredFiles.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-lg font-medium mb-3">Fichiers</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {filteredFiles.map((file: File) => (
-                    <div 
-                      key={file.id} 
-                      className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
-                    >
-                      <div className="h-16 bg-gray-100 dark:bg-gray-700 flex items-center justify-center p-2">
-                        {file.type.startsWith('image/') ? (
-                          <img src={file.url} alt={file.name} className="h-8 w-8 object-cover rounded" />
-                        ) : (
-                          getFileIcon(file.type, file.name)
-                        )}
-                      </div>
-                      <div className="p-2">
-                        <div className="flex justify-between items-start mb-1">
-                          <h4 className="font-medium text-sm truncate flex-1 mr-1" title={file.name}>{file.name}</h4>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 flex-shrink-0"
-                              >
-                                <MoreVertical className="h-3 w-3" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => handleRenameItem(file.id, file.name, false)}
-                              >
-                                <Edit className="mr-2 h-4 w-4" />
-                                Renommer
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleShareItem(file.id, file.name, false)}
-                              >
-                                <Share className="mr-2 h-4 w-4" />
-                                Partager
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    // Forcer le téléchargement
-                                    window.open(file.url, '_blank');
-                                    toast({ title: "Téléchargement", description: `Téléchargement de ${file.name} démarré` });
-                                  } catch (error) {
-                                    console.error('Download error:', error);
-                                    // Méthode alternative
-                                    try {
-                                      const link = document.createElement('a');
-                                      link.href = file.url;
-                                      link.download = file.name;
-                                      link.target = '_blank';
-                                      link.rel = 'noopener noreferrer';
-                                      document.body.appendChild(link);
-                                      link.click();
-                                      document.body.removeChild(link);
-                                    } catch (e2) {
-                                      toast({ title: "Erreur", description: "Impossible de télécharger le fichier", variant: "destructive" });
-                                    }
-                                  }
-                                }}
-                              >
-                                <Download className="mr-2 h-4 w-4" />
-                                Télécharger
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDeleteItem(file.id, file.name, false)}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Supprimer
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                        <p className="text-xs text-gray-500">
-                          {formatFileSize(file.size)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Message si aucun élément */}
-            {filteredFolders.length === 0 && filteredFiles.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-gray-500 dark:text-gray-400">
-                  {searchTerm ? "Aucun élément trouvé pour cette recherche." : "Ce dossier est vide."}
-                </p>
+                )}
               </div>
             )}
           </div>
         </div>
       </div>
 
+      {/* Dialogues */}
+      
       {/* Dialogue de création de dossier */}
       <Dialog open={isCreateFolderDialogOpen} onOpenChange={setIsCreateFolderDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Créer un nouveau dossier</DialogTitle>
+            <DialogDescription>
+              Choisissez un nom et une icône pour votre nouveau dossier.
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div>
@@ -1112,38 +726,44 @@ export default function CloudStorage() {
                 onChange={(e) => setNewFolderName(e.target.value)}
                 placeholder="Entrez le nom du dossier"
                 className="w-full"
+                maxLength={255}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newFolderName.trim()) {
+                    createFolderMutation.mutate({
+                      name: newFolderName.trim(),
+                      parentId: currentFolderId,
+                      iconType: selectedFolderIcon
+                    });
+                  }
+                }}
               />
+              {newFolderName.length > 200 && (
+                <p className="text-xs text-orange-500 mt-1">
+                  {255 - newFolderName.length} caractères restants
+                </p>
+              )}
             </div>
             <div>
               <label className="text-sm font-medium mb-3 block">Choisir une icône</label>
               <div className="flex gap-4 justify-center">
-                <div 
-                  className={`p-3 border-2 rounded-lg cursor-pointer transition-colors ${
-                    selectedFolderIcon === "orange" ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
-                  }`}
-                  onClick={() => setSelectedFolderIcon("orange")}
-                >
-                  <img src={folderOrangeIcon} alt="Dossier orange" className="w-12 h-12" />
-                  <p className="text-xs text-center mt-1">Orange</p>
-                </div>
-                <div 
-                  className={`p-3 border-2 rounded-lg cursor-pointer transition-colors ${
-                    selectedFolderIcon === "blue" ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
-                  }`}
-                  onClick={() => setSelectedFolderIcon("blue")}
-                >
-                  <img src={folderBlueIcon} alt="Dossier bleu" className="w-12 h-12" />
-                  <p className="text-xs text-center mt-1">Bleu</p>
-                </div>
-                <div 
-                  className={`p-3 border-2 rounded-lg cursor-pointer transition-colors ${
-                    selectedFolderIcon === "archive" ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
-                  }`}
-                  onClick={() => setSelectedFolderIcon("archive")}
-                >
-                  <img src={folderArchiveIcon} alt="Dossier archive" className="w-12 h-12" />
-                  <p className="text-xs text-center mt-1">Archive</p>
-                </div>
+                {[
+                  { type: "orange", icon: folderOrangeIcon, label: "Orange" },
+                  { type: "blue", icon: folderBlueIcon, label: "Bleu" },
+                  { type: "archive", icon: folderArchiveIcon, label: "Archive" }
+                ].map((iconOption) => (
+                  <div
+                    key={iconOption.type}
+                    className={`cursor-pointer p-2 rounded-lg border-2 transition-all ${
+                      selectedFolderIcon === iconOption.type
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                    onClick={() => setSelectedFolderIcon(iconOption.type)}
+                  >
+                    <img src={iconOption.icon} alt={iconOption.label} className="h-12 w-12" />
+                    <p className="text-xs text-center mt-1">{iconOption.label}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -1152,7 +772,15 @@ export default function CloudStorage() {
               Annuler
             </Button>
             <Button
-              onClick={handleCreateFolder}
+              onClick={() => {
+                if (newFolderName.trim()) {
+                  createFolderMutation.mutate({
+                    name: newFolderName.trim(),
+                    parentId: currentFolderId,
+                    iconType: selectedFolderIcon
+                  });
+                }
+              }}
               disabled={!newFolderName.trim() || createFolderMutation.isPending}
             >
               {createFolderMutation.isPending ? "Création..." : "Créer"}
@@ -1161,59 +789,30 @@ export default function CloudStorage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialogue de sélection d'icône */}
-      <Dialog open={isIconSelectorOpen} onOpenChange={setIsIconSelectorOpen}>
+      {/* Dialogue de suppression */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Changer l'icône du dossier</DialogTitle>
+            <DialogTitle>Confirmer la suppression</DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir supprimer {itemToDelete?.isFolder ? 'le dossier' : 'le fichier'} "{itemToDelete?.name}" ?
+              Cette action est irréversible.
+            </DialogDescription>
           </DialogHeader>
-          <div className="py-6">
-            <div className="flex gap-6 justify-center">
-              <div 
-                className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                  selectedFolderIcon === "orange" ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
-                }`}
-                onClick={() => setSelectedFolderIcon("orange")}
-              >
-                <img src={folderOrangeIcon} alt="Dossier orange" className="w-16 h-16" />
-                <p className="text-sm text-center mt-2">Orange</p>
-              </div>
-              <div 
-                className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                  selectedFolderIcon === "blue" ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
-                }`}
-                onClick={() => setSelectedFolderIcon("blue")}
-              >
-                <img src={folderBlueIcon} alt="Dossier bleu" className="w-16 h-16" />
-                <p className="text-sm text-center mt-2">Bleu</p>
-              </div>
-              <div 
-                className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                  selectedFolderIcon === "archive" ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
-                }`}
-                onClick={() => setSelectedFolderIcon("archive")}
-              >
-                <img src={folderArchiveIcon} alt="Dossier archive" className="w-16 h-16" />
-                <p className="text-sm text-center mt-2">Archive</p>
-              </div>
-            </div>
-          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsIconSelectorOpen(false)}>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
               Annuler
             </Button>
-            <Button
+            <Button 
+              variant="destructive"
               onClick={() => {
-                if (folderToUpdateIcon) {
-                  updateFolderIconMutation.mutate({ 
-                    folderId: folderToUpdateIcon, 
-                    iconType: selectedFolderIcon 
-                  });
+                if (itemToDelete) {
+                  deleteMutation.mutate(itemToDelete);
                 }
               }}
-              disabled={!folderToUpdateIcon || updateFolderIconMutation.isPending}
+              disabled={deleteMutation.isPending}
             >
-              {updateFolderIconMutation.isPending ? "Mise à jour..." : "Mettre à jour"}
+              {deleteMutation.isPending ? "Suppression..." : "Supprimer"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1224,6 +823,9 @@ export default function CloudStorage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Renommer {itemToRename?.isFolder ? "le dossier" : "le fichier"}</DialogTitle>
+            <DialogDescription>
+              Entrez le nouveau nom pour {itemToRename?.name}.
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Input
@@ -1231,20 +833,38 @@ export default function CloudStorage() {
               onChange={(e) => setNewItemName(e.target.value)}
               placeholder="Nouveau nom"
               className="w-full"
+              maxLength={255}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && newItemName.trim() && itemToRename) {
-                  handleConfirmRename();
+                  renameMutation.mutate({
+                    id: itemToRename.id,
+                    name: newItemName.trim(),
+                    isFolder: itemToRename.isFolder
+                  });
                 }
               }}
             />
+            {newItemName.length > 200 && (
+              <p className="text-xs text-orange-500 mt-1">
+                {255 - newItemName.length} caractères restants
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsRenameDialogOpen(false)}>
               Annuler
             </Button>
             <Button
-              onClick={handleConfirmRename}
-              disabled={!newItemName.trim() || renameMutation.isPending}
+              onClick={() => {
+                if (newItemName.trim() && itemToRename) {
+                  renameMutation.mutate({
+                    id: itemToRename.id,
+                    name: newItemName.trim(),
+                    isFolder: itemToRename.isFolder
+                  });
+                }
+              }}
+              disabled={!newItemName.trim() || renameMutation.isPending || newItemName.trim() === itemToRename?.name}
             >
               {renameMutation.isPending ? "Renommage..." : "Renommer"}
             </Button>
@@ -1252,213 +872,63 @@ export default function CloudStorage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialogue de partage moderne */}
+      {/* Dialogue de partage */}
       <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
-        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
-          {/* Header moderne avec fond bleu */}
-          <div className="bg-blue-500 text-white px-4 py-3 -mx-6 -mt-6 mb-4 rounded-t-lg">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium">Nouveau Message</h2>
-              <Button variant="ghost" size="sm" className="text-white hover:bg-blue-600 p-1 rounded-full" onClick={() => setIsShareDialogOpen(false)}>
-                <span className="text-lg">✕</span>
-              </Button>
-            </div>
-          </div>
-
-          {/* Contenu moderne amélioré */}
-          <div className="space-y-3">
-              <div className="space-y-1">
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm font-medium w-8 text-gray-700">À:</span>
-                  <div className="flex-1 relative">
-                    <Input
-                      value={shareEmail}
-                      onChange={(e) => setShareEmail(e.target.value)}
-                      placeholder="Destinataire (ex: nom@rony.com)"
-                      className="text-sm pr-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                    />
-                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                      {shareEmail && shareEmail.includes('@') && shareEmail.includes('rony.com') ? (
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      ) : shareEmail && shareEmail.includes('@') ? (
-                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                      ) : (
-                        <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                {shareEmail && shareEmail.includes('@') && (
-                  <div className="ml-10 text-xs flex items-center space-x-1">
-                    {shareEmail.includes('rony.com') ? (
-                      <>
-                        <span className="text-green-600">✓</span>
-                        <span className="text-green-600">Adresse Rony valide</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-orange-600">⚠</span>
-                        <span className="text-orange-600">Utilisez une adresse @rony.com</span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-            {/* Options de priorité simplifiées */}
-            <div className="flex items-center space-x-2">
-              <span className="text-xs font-medium w-8 text-gray-700">Type:</span>
-              <div className="flex space-x-1">
-                <button
-                  onClick={() => setSharePermission("read")}
-                  className={`px-2 py-1 rounded text-xs transition-colors ${
-                    sharePermission === "read" 
-                      ? "bg-blue-100 text-blue-700" 
-                      : "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  Normal
-                </button>
-                <button
-                  onClick={() => setSharePermission("admin")}
-                  className={`px-2 py-1 rounded text-xs transition-colors ${
-                    sharePermission === "admin" 
-                      ? "bg-red-100 text-red-700" 
-                      : "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  Urgent
-                </button>
-              </div>
-            </div>
-
-            {/* Champ objet avec compteur */}
-            <div className="space-y-1">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium w-8 text-gray-700">Obj:</span>
-                <div className="flex-1 relative">
-                  <Input
-                    value={shareSubject}
-                    onChange={(e) => setShareSubject(e.target.value)}
-                    placeholder="Objet du message"
-                    className="text-sm border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                    maxLength={100}
-                  />
-                </div>
-              </div>
-              <div className="ml-10 text-xs text-gray-400">
-                {shareSubject.length}/100 caractères
-              </div>
-            </div>
-
-            {/* Zone de message */}
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Partager {itemToShare?.isFolder ? "le dossier" : "le fichier"}</DialogTitle>
+            <DialogDescription>
+              Entrez l'adresse email Rony du destinataire.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
             <div>
+              <label className="text-sm font-medium mb-2 block">Destinataire</label>
+              <Input
+                value={shareEmail}
+                onChange={(e) => setShareEmail(e.target.value)}
+                placeholder="nom@rony.com"
+                type="email"
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Sujet</label>
+              <Input
+                value={shareSubject}
+                onChange={(e) => setShareSubject(e.target.value)}
+                placeholder="Sujet du message"
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Message</label>
               <textarea
                 value={shareMessage}
                 onChange={(e) => setShareMessage(e.target.value)}
                 placeholder="Votre message..."
-                className="w-full h-20 p-2 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                maxLength={300}
+                className="w-full min-h-[100px] px-3 py-2 border border-gray-300 rounded-md resize-y"
               />
-              <div className="text-xs text-gray-400 mt-1">{shareMessage.length}/300</div>
-            </div>
-
-            {/* Boutons d'action */}
-            <div className="flex items-center justify-end space-x-2 pt-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsShareDialogOpen(false)}
-                className="text-xs px-3 py-1"
-              >
-                Annuler
-              </Button>
-              <Button 
-                className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1"
-                onClick={() => {
-                  if (shareEmail.trim() && shareSubject.trim() && itemToShare) {
-                    const endpoint = itemToShare.isFolder ? "/api/folders/share-message" : "/api/files/share-message";
-                    const payload = itemToShare.isFolder ? {
-                      folderId: itemToShare.id,
-                      recipientEmail: shareEmail.trim(),
-                      permission: sharePermission,
-                      subject: shareSubject.trim(),
-                      message: shareMessage.trim()
-                    } : {
-                      fileId: itemToShare.id,
-                      recipientEmail: shareEmail.trim(),
-                      permission: sharePermission,
-                      subject: shareSubject.trim(),  
-                      message: shareMessage.trim()
-                    };
-
-                    apiRequest("POST", endpoint, payload).then(() => {
-                      queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
-                      queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
-                      setIsShareDialogOpen(false);
-                      setItemToShare(null);
-                      setShareEmail("");
-                      setShareSubject("");
-                      setShareMessage("");
-                      toast({ 
-                        title: "Message envoyé avec succès", 
-                        description: "Le destinataire recevra votre message dans son Courrier"
-                      });
-                    }).catch((error) => {
-                      toast({ 
-                        title: "Erreur lors de l'envoi", 
-                        description: error.message, 
-                        variant: "destructive" 
-                      });
-                    });
-                  }
-                }}
-                disabled={!shareEmail.trim() || !shareSubject.trim() || shareMutation.isPending}
-              >
-                {shareMutation.isPending ? "Envoi..." : "Envoyer"}
-              </Button>
             </div>
           </div>
-
-          {/* Information sur la pièce jointe */}
-          {itemToShare && (
-            <div className="mt-3 p-2 bg-blue-50 rounded-lg border">
-              <div className="flex items-center space-x-2">
-                <div className="w-6 h-6 bg-blue-500 rounded flex items-center justify-center text-xs">
-                  {itemToShare.isFolder ? "📁" : "📄"}
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs font-medium text-gray-900">
-                    {itemToShare.isFolder ? "Dossier" : "Fichier"} : {itemToShare.name}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Sera envoyé vers le Courrier
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialogue de confirmation de suppression */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmer la suppression</DialogTitle>
-            <DialogDescription>
-              Êtes-vous sûr de vouloir supprimer "{itemToDelete?.name}" ? Cette action est irréversible.
-            </DialogDescription>
-          </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setIsShareDialogOpen(false)}>
               Annuler
             </Button>
-            <Button 
-              variant="destructive"
-              onClick={handleConfirmDelete}
-              disabled={deleteItemMutation.isPending}
+            <Button
+              onClick={() => {
+                if (shareEmail.trim() && shareSubject.trim() && itemToShare) {
+                  toast({ title: "Partage envoyé", description: "Le message a été envoyé avec succès." });
+                  setIsShareDialogOpen(false);
+                  setItemToShare(null);
+                  setShareEmail("");
+                  setShareSubject("");
+                  setShareMessage("");
+                }
+              }}
+              disabled={!shareEmail.trim() || !shareSubject.trim()}
             >
-              {deleteItemMutation.isPending ? "Suppression..." : "Supprimer"}
+              Envoyer
             </Button>
           </DialogFooter>
         </DialogContent>
