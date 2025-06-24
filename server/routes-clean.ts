@@ -236,6 +236,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Route pour récupérer tous les dossiers (pour la navigation)
+  app.get("/api/folders/all", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const folders = await storage.getFoldersForUser(userId);
+      res.json(folders);
+    } catch (error) {
+      console.error('Error fetching all folders:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   app.post("/api/folders", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
@@ -372,7 +388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const folderId = req.body.folderId && req.body.folderId !== 'null' ? parseInt(req.body.folderId) : null;
-      const filePaths = req.body.filePaths;
+      const filePaths = req.body.filePaths ? JSON.parse(req.body.filePaths) : [];
       const folderStructure = req.body.folderStructure ? JSON.parse(req.body.folderStructure) : {};
 
       console.log('[upload] Processing upload:', { 
