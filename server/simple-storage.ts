@@ -369,7 +369,10 @@ export class SimpleStorage implements IStorage {
   }
 
   async getFilesByFolder(folderId: number | null): Promise<File[]> {
-    return Array.from(this.files.values()).filter(file => file.folderId === folderId);
+    const files = Array.from(this.files.values()).filter(file => file.folderId === folderId);
+    console.log(`[storage] Getting files for folderId: ${folderId}, found: ${files.length}`);
+    files.forEach(file => console.log(`[storage] File: ${file.name} (ID: ${file.id})`));
+    return files;
   }
 
   async getFileById(fileId: number): Promise<File | undefined> {
@@ -395,6 +398,8 @@ export class SimpleStorage implements IStorage {
       isPublic: fileData.isPublic || null
     };
     this.files.set(file.id, file);
+    console.log(`[storage] Created file: ${file.name} (ID: ${file.id}), folderId: ${file.folderId}, uploaderId: ${file.uploaderId}`);
+    console.log(`[storage] Total files: ${this.files.size}`);
     return file;
   }
 
@@ -422,9 +427,12 @@ export class SimpleStorage implements IStorage {
   }
 
   async getFoldersByParent(parentId: number | null, userId: number): Promise<Folder[]> {
-    return Array.from(this.folders.values()).filter(folder => 
+    const folders = Array.from(this.folders.values()).filter(folder => 
       folder.parentId === parentId && folder.ownerId === userId
     );
+    console.log(`[storage] Getting folders for parentId: ${parentId}, userId: ${userId}, found: ${folders.length}`);
+    folders.forEach(folder => console.log(`[storage] Folder: ${folder.name} (ID: ${folder.id})`));
+    return folders;
   }
 
   async createFolder(folderData: InsertFolder): Promise<Folder> {
