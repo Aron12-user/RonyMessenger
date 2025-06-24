@@ -463,20 +463,40 @@ export default function CloudStorage() {
   const renameMutation = useMutation({
     mutationFn: async ({ id, name, isFolder }: { id: number; name: string; isFolder: boolean }) => {
       const endpoint = isFolder ? `/api/folders/${id}` : `/api/files/${id}`;
-      const res = await apiRequest("PATCH", endpoint, { name });
-      if (!res.ok) throw new Error("Failed to rename item");
-      return res.json();
+      const response = await fetch(endpoint, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ name })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = 'Failed to rename item';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+      
+      return response.json();
     },
-    onSuccess: (_, { isFolder }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
       queryClient.invalidateQueries({ queryKey: ["files"] });
       setIsRenameDialogOpen(false);
       setItemToRename(null);
       setNewItemName("");
-      toast({ title: "Élément renommé avec succès" });
+      toast({ title: "Renommé", description: "L'élément a été renommé avec succès." });
     },
     onError: (error: Error) => {
-      toast({ title: "Erreur lors du renommage", description: error.message, variant: "destructive" });
+      console.error('Rename error:', error);
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
     }
   });
 
@@ -527,19 +547,38 @@ export default function CloudStorage() {
   const deleteItemMutation = useMutation({
     mutationFn: async ({ id, isFolder }: { id: number; isFolder: boolean }) => {
       const endpoint = isFolder ? `/api/folders/${id}` : `/api/files/${id}`;
-      const res = await apiRequest("DELETE", endpoint);
-      if (!res.ok) throw new Error("Failed to delete item");
-      return res.json();
+      const response = await fetch(endpoint, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = 'Failed to delete item';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+      
+      return response.json();
     },
-    onSuccess: (_, { isFolder }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
       queryClient.invalidateQueries({ queryKey: ["files"] });
       setIsDeleteDialogOpen(false);
       setItemToDelete(null);
-      toast({ title: "Élément supprimé avec succès" });
+      toast({ title: "Supprimé", description: "L'élément a été supprimé avec succès." });
     },
     onError: (error: Error) => {
-      toast({ title: "Erreur lors de la suppression", description: error.message, variant: "destructive" });
+      console.error('Delete error:', error);
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
     }
   });
 
@@ -1003,19 +1042,24 @@ export default function CloudStorage() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   try {
-                                    const link = document.createElement('a');
-                                    link.href = file.url;
-                                    link.download = file.name;
-                                    link.style.display = 'none';
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    setTimeout(() => {
-                                      document.body.removeChild(link);
-                                    }, 100);
+                                    // Forcer le téléchargement
+                                    window.open(file.url, '_blank');
                                     toast({ title: "Téléchargement", description: `Téléchargement de ${file.name} démarré` });
                                   } catch (error) {
                                     console.error('Download error:', error);
-                                    toast({ title: "Erreur", description: "Impossible de télécharger le fichier", variant: "destructive" });
+                                    // Méthode alternative
+                                    try {
+                                      const link = document.createElement('a');
+                                      link.href = file.url;
+                                      link.download = file.name;
+                                      link.target = '_blank';
+                                      link.rel = 'noopener noreferrer';
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                    } catch (e2) {
+                                      toast({ title: "Erreur", description: "Impossible de télécharger le fichier", variant: "destructive" });
+                                    }
                                   }
                                 }}
                               >
@@ -1397,26 +1441,28 @@ export default function CloudStorage() {
       </Dialog>
 
       {/* Dialogue de confirmation de suppression */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
-            <AlertDialogDescription>
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmer la suppression</DialogTitle>
+            <DialogDescription>
               Êtes-vous sûr de vouloir supprimer "{itemToDelete?.name}" ? Cette action est irréversible.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button 
+              variant="destructive"
               onClick={handleConfirmDelete}
-              className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
               disabled={deleteItemMutation.isPending}
             >
               {deleteItemMutation.isPending ? "Suppression..." : "Supprimer"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
