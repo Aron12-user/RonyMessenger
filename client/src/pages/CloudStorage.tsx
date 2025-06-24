@@ -983,14 +983,21 @@ export default function CloudStorage() {
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const link = document.createElement('a');
-                                  link.href = file.url;
-                                  link.download = file.name;
-                                  link.target = '_blank';
-                                  document.body.appendChild(link);
-                                  link.click();
-                                  document.body.removeChild(link);
-                                  toast({ title: "Téléchargement", description: `Téléchargement de ${file.name} en cours...` });
+                                  try {
+                                    const link = document.createElement('a');
+                                    link.href = file.url;
+                                    link.download = file.name;
+                                    link.style.display = 'none';
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    setTimeout(() => {
+                                      document.body.removeChild(link);
+                                    }, 100);
+                                    toast({ title: "Téléchargement", description: `Téléchargement de ${file.name} démarré` });
+                                  } catch (error) {
+                                    console.error('Download error:', error);
+                                    toast({ title: "Erreur", description: "Impossible de télécharger le fichier", variant: "destructive" });
+                                  }
                                 }}
                               >
                                 <Download className="mr-2 h-4 w-4" />
@@ -1163,11 +1170,7 @@ export default function CloudStorage() {
               className="w-full"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && newItemName.trim() && itemToRename) {
-                  renameMutation.mutate({
-                    id: itemToRename.id,
-                    name: newItemName.trim(),
-                    isFolder: itemToRename.isFolder
-                  });
+                  handleConfirmRename();
                 }
               }}
             />
@@ -1177,15 +1180,7 @@ export default function CloudStorage() {
               Annuler
             </Button>
             <Button
-              onClick={() => {
-                if (newItemName.trim() && itemToRename) {
-                  renameMutation.mutate({
-                    id: itemToRename.id,
-                    name: newItemName.trim(),
-                    isFolder: itemToRename.isFolder
-                  });
-                }
-              }}
+              onClick={handleConfirmRename}
               disabled={!newItemName.trim() || renameMutation.isPending}
             >
               {renameMutation.isPending ? "Renommage..." : "Renommer"}
