@@ -107,6 +107,8 @@ export default function Meetings() {
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/meetings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/meetings/scheduled'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/meetings/active'] });
       toast({
         title: "Réunion créée",
         description: `La réunion "${data.meeting.title}" a été créée avec succès.`
@@ -184,12 +186,13 @@ export default function Meetings() {
       duration: parseInt(newMeetingDuration)
     });
     
-    // Reset form
+    // Reset form et rediriger vers l'onglet programmées
     setNewMeetingTitle("");
     setNewMeetingDescription("");
     setNewMeetingDate("");
     setNewMeetingTime("");
     setNewMeetingDuration("60");
+    setActiveTab("scheduled");
   };
 
   // Mutation pour supprimer une réunion
@@ -545,25 +548,25 @@ export default function Meetings() {
               </ScrollArea>
             </TabsContent>
 
-            <TabsContent value="schedule" className="absolute inset-0">
-              {/* Header fixe */}
-              <div className="absolute top-0 left-0 right-0 z-10 p-3 border-b bg-white dark:bg-gray-900">
-                <div className="flex items-center space-x-3">
-                  <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg">
-                    <CalendarDays className="h-4 w-4 text-blue-600" />
+            <TabsContent value="schedule" className="h-full flex flex-col">
+              {/* Header compact sans débordement */}
+              <div className="flex-shrink-0 p-2 border-b bg-white dark:bg-gray-900">
+                <div className="flex items-center space-x-2">
+                  <div className="bg-blue-100 dark:bg-blue-900 p-1.5 rounded-lg">
+                    <CalendarDays className="h-3 w-3 text-blue-600" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold">Programmer une réunion</h2>
+                    <h2 className="text-sm font-semibold">Programmer une réunion</h2>
                     <p className="text-xs text-gray-600 dark:text-gray-400">
-                      Configurez les détails de votre réunion
+                      Configurez les détails
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Contenu avec défilement absolu */}
-              <div className="absolute top-16 bottom-0 left-0 right-0 overflow-y-auto p-3">
-                <div className="space-y-3 max-w-3xl mx-auto pb-6">
+              {/* Contenu avec défilement flex */}
+              <div className="flex-1 overflow-y-auto p-2">
+                <div className="space-y-2 max-w-2xl mx-auto pb-4">
                     <Card className="border border-blue-200 dark:border-blue-800 shadow-sm">
                       <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
                         <CardTitle className="flex items-center text-base text-blue-900 dark:text-blue-100">
@@ -572,31 +575,26 @@ export default function Meetings() {
                         </CardTitle>
                       </CardHeader>
                       
-                      <CardContent className="p-4 space-y-4">
-                        {/* Section 1: Informations de base */}
-                        <div className="space-y-3">
-                          <div className="flex items-center pb-2 border-b border-blue-200 dark:border-blue-800">
-                            <FileText className="h-4 w-4 mr-2 text-blue-600" />
-                            <h3 className="font-medium text-sm text-gray-900 dark:text-white">Informations générales</h3>
-                          </div>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <CardContent className="p-3 space-y-3">
+                        {/* Informations de base */}
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                             <div className="space-y-1">
-                              <Label htmlFor="meetingTitle" className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                                Titre de la réunion *
+                              <Label htmlFor="meetingTitle" className="text-xs text-gray-700 dark:text-gray-300">
+                                Titre *
                               </Label>
                               <Input
                                 id="meetingTitle"
                                 value={newMeetingTitle}
                                 onChange={(e) => setNewMeetingTitle(e.target.value)}
-                                placeholder="Ex: Réunion équipe développement"
-                                className="h-8 text-sm"
+                                placeholder="Réunion équipe"
+                                className="h-7 text-xs"
                               />
                             </div>
                             
                             <div className="space-y-1">
-                              <Label htmlFor="meetingDuration" className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                                Durée (minutes)
+                              <Label htmlFor="meetingDuration" className="text-xs text-gray-700 dark:text-gray-300">
+                                Durée (min)
                               </Label>
                               <Input
                                 id="meetingDuration"
@@ -606,36 +604,31 @@ export default function Meetings() {
                                 placeholder="60"
                                 min="15"
                                 max="480"
-                                className="h-8 text-sm"
+                                className="h-7 text-xs"
                               />
                             </div>
                           </div>
 
                           <div className="space-y-1">
-                            <Label htmlFor="meetingDescription" className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                            <Label htmlFor="meetingDescription" className="text-xs text-gray-700 dark:text-gray-300">
                               Description
                             </Label>
                             <Textarea
                               id="meetingDescription"
                               value={newMeetingDescription}
                               onChange={(e) => setNewMeetingDescription(e.target.value)}
-                              placeholder="Décrivez l'objectif de la réunion..."
+                              placeholder="Objectif de la réunion..."
                               rows={2}
-                              className="resize-none text-sm"
+                              className="resize-none text-xs"
                             />
                           </div>
                         </div>
 
-                        {/* Section 2: Planification */}
-                        <div className="space-y-3">
-                          <div className="flex items-center pb-2 border-b border-green-200 dark:border-green-800">
-                            <Clock className="h-4 w-4 mr-2 text-green-600" />
-                            <h3 className="font-medium text-sm text-gray-900 dark:text-white">Planification</h3>
-                          </div>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {/* Planification */}
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                             <div className="space-y-1">
-                              <Label htmlFor="meetingDate" className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                              <Label htmlFor="meetingDate" className="text-xs text-gray-700 dark:text-gray-300">
                                 Date *
                               </Label>
                               <Input
@@ -644,12 +637,12 @@ export default function Meetings() {
                                 value={newMeetingDate}
                                 onChange={(e) => setNewMeetingDate(e.target.value)}
                                 min={new Date().toISOString().split('T')[0]}
-                                className="h-8 text-sm"
+                                className="h-7 text-xs"
                               />
                             </div>
                             
                             <div className="space-y-1">
-                              <Label htmlFor="meetingTime" className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                              <Label htmlFor="meetingTime" className="text-xs text-gray-700 dark:text-gray-300">
                                 Heure *
                               </Label>
                               <Input
@@ -657,32 +650,18 @@ export default function Meetings() {
                                 type="time"
                                 value={newMeetingTime}
                                 onChange={(e) => setNewMeetingTime(e.target.value)}
-                                className="h-8 text-sm"
+                                className="h-7 text-xs"
                               />
                             </div>
                           </div>
                         </div>
 
-                        {/* Section 3: Code d'accès */}
-                        <div className="space-y-3">
-                          <div className="flex items-center pb-2 border-b border-purple-200 dark:border-purple-800">
-                            <Settings className="h-4 w-4 mr-2 text-purple-600" />
-                            <h3 className="font-medium text-sm text-gray-900 dark:text-white">Code d'accès</h3>
-                          </div>
-                          
-                          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-                            <p className="text-xs text-blue-800 dark:text-blue-200">
-                              Un code unique sera généré automatiquement. Les participants pourront rejoindre avec ce code.
-                            </p>
-                          </div>
-                        </div>
-
                         {/* Actions */}
-                        <div className="flex gap-2 pt-3 border-t">
+                        <div className="flex gap-2 pt-2 border-t">
                           <Button 
                             onClick={createScheduledMeeting}
                             disabled={createMeetingMutation.isPending || !newMeetingTitle.trim() || !newMeetingDate || !newMeetingTime}
-                            className="flex-1 h-8 bg-blue-600 hover:bg-blue-700 text-sm"
+                            className="flex-1 h-7 bg-blue-600 hover:bg-blue-700 text-xs"
                             size="sm"
                           >
                             <Calendar className="h-3 w-3 mr-1" />
@@ -698,7 +677,7 @@ export default function Meetings() {
                               setNewMeetingDuration("60");
                             }}
                             disabled={createMeetingMutation.isPending}
-                            className="px-4 h-8 text-sm"
+                            className="px-3 h-7 text-xs"
                             size="sm"
                           >
                             Effacer
