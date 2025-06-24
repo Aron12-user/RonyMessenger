@@ -17,8 +17,11 @@ import {
   ExternalLink,
   Play,
   Pause,
-  MoreVertical
+  MoreVertical,
+  UserPlus,
+  Settings
 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import EmptyState from "@/components/EmptyState";
 
@@ -49,6 +52,9 @@ export default function Meetings() {
   const queryClient = useQueryClient();
   const [newMeetingTitle, setNewMeetingTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
 
   // Récupérer les réunions actives
   const { data: activeRoomsData, isLoading: loadingActive } = useQuery({
@@ -131,12 +137,45 @@ export default function Meetings() {
     }
   };
 
-  // Créer une réunion avec titre personnalisé
-  const createCustomMeeting = async (title: string) => {
+  // Créer une réunion programmée
+  const createScheduledMeeting = async () => {
+    if (!newMeetingTitle.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Le titre de la réunion est requis",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const roomCode = generateRoomCode();
     await createMeetingMutation.mutateAsync({
-      title,
+      title: newMeetingTitle,
       roomCode
+    });
+    setNewMeetingTitle("");
+    setShowScheduleForm(false);
+  };
+
+  // Rejoindre une réunion avec un code
+  const joinMeetingWithCode = () => {
+    if (!joinCode.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez entrer un code de réunion",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const meetingUrl = `https://meet.jit.si/${joinCode}`;
+    window.open(meetingUrl, '_blank');
+    setJoinCode("");
+    setShowJoinDialog(false);
+    
+    toast({
+      title: "Rejoindre la réunion",
+      description: "Ouverture de la réunion dans un nouvel onglet"
     });
   };
 
@@ -168,6 +207,44 @@ export default function Meetings() {
             </p>
           </div>
           <div className="flex gap-3">
+            <Dialog open={showJoinDialog} onOpenChange={setShowJoinDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Rejoindre
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Rejoindre une réunion</DialogTitle>
+                  <DialogDescription>
+                    Entrez le code de la réunion pour la rejoindre
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="joinCode">Code de réunion</Label>
+                    <Input
+                      id="joinCode"
+                      value={joinCode}
+                      onChange={(e) => setJoinCode(e.target.value)}
+                      placeholder="Entrez le code de réunion"
+                      onKeyPress={(e) => e.key === 'Enter' && joinMeetingWithCode()}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={joinMeetingWithCode} className="flex-1">
+                      <Video className="h-4 w-4 mr-2" />
+                      Rejoindre
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowJoinDialog(false)}>
+                      Annuler
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
             <Button 
               onClick={createInstantMeeting}
               disabled={isCreating}
@@ -189,6 +266,9 @@ export default function Meetings() {
                 </TabsTrigger>
                 <TabsTrigger value="scheduled" className="text-sm">
                   Réunions programmées
+                </TabsTrigger>
+                <TabsTrigger value="schedule" className="text-sm">
+                  Programmer une Réunion
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -352,6 +432,83 @@ export default function Meetings() {
                   ))}
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="schedule" className="p-6 space-y-6 h-full">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-medium">Programmer une nouvelle réunion</h2>
+                <Badge variant="secondary" className="text-xs">
+                  <Calendar className="h-3 w-3 mr-1" />
+                  Planification
+                </Badge>
+              </div>
+
+              <Card className="max-w-2xl">
+                <CardContent className="p-6">
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Détails de la réunion</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="meetingTitle">Titre de la réunion *</Label>
+                          <Input
+                            id="meetingTitle"
+                            value={newMeetingTitle}
+                            onChange={(e) => setNewMeetingTitle(e.target.value)}
+                            placeholder="Ex: Réunion équipe projet..."
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-6">
+                      <h4 className="font-medium mb-3 flex items-center">
+                        <Settings className="h-4 w-4 mr-2" />
+                        Code de réunion
+                      </h4>
+                      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                          Un code unique sera généré automatiquement pour cette réunion.
+                        </p>
+                        <p className="text-sm font-medium text-blue-600">
+                          Les participants pourront rejoindre avec ce code via le bouton "Rejoindre"
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-4 border-t">
+                      <Button 
+                        onClick={createScheduledMeeting}
+                        disabled={createMeetingMutation.isPending || !newMeetingTitle.trim()}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700"
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
+                        {createMeetingMutation.isPending ? "Création..." : "Programmer la réunion"}
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        onClick={() => setNewMeetingTitle("")}
+                        disabled={createMeetingMutation.isPending}
+                      >
+                        Effacer
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 max-w-2xl">
+                <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
+                  Comment ça fonctionne ?
+                </h4>
+                <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                  <li>• Un code unique est généré automatiquement</li>
+                  <li>• Partagez ce code avec les participants</li>
+                  <li>• Les participants utilisent le bouton "Rejoindre" avec le code</li>
+                  <li>• La réunion s'ouvre directement dans Jitsi Meet</li>
+                </ul>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
