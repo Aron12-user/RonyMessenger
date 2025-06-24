@@ -174,6 +174,7 @@ export default function CloudStorage() {
     },
     retry: 3,
     retryDelay: 1000,
+    refetchOnWindowFocus: false,
   });
 
   // Mutations améliorées avec gestion d'erreurs robuste
@@ -285,6 +286,7 @@ export default function CloudStorage() {
       queryClient.invalidateQueries({ queryKey: ["files"] });
       queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
       queryClient.invalidateQueries({ queryKey: ["folders"] });
+      queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
       queryClient.invalidateQueries({ queryKey: ["all-folders"] });
       setUploadProgress(0);
       setTotalFiles(0);
@@ -913,7 +915,7 @@ export default function CloudStorage() {
               )}
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
                 {currentFolderId ? 
-                  allFolders.find(f => f.id === currentFolderId)?.name || 'Dossier' : 
+                  folders.find(f => f.id === currentFolderId)?.name || allFolders.find(f => f.id === currentFolderId)?.name || 'Dossier' : 
                   'Cloud'
                 }
               </h2>

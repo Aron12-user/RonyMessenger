@@ -173,6 +173,9 @@ Changelog:
 - June 24, 2025. Eliminated "Dossier 1, 2..." text display next to return button for cleaner interface
 - June 24, 2025. Implemented hierarchical folder navigation - level by level return instead of direct to root
 - June 24, 2025. Enhanced navigation system to maintain proper parent-child folder relationships
+- June 24, 2025. Fixed folder title display to show current folder name instead of "Dossier X" text
+- June 24, 2025. Improved cache invalidation for folder operations to ensure proper navigation updates
+- June 24, 2025. Enhanced folder queries with better refetch policies for consistent navigation
 ```
 
 ## User Preferences
