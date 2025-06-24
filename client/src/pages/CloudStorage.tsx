@@ -859,7 +859,7 @@ export default function CloudStorage() {
             {filteredFolders.length > 0 && (
               <div className="mb-6">
                 <h3 className="text-lg font-medium mb-3">Dossiers ({filteredFolders.length})</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                   {filteredFolders.map((folder: Folder) => (
                     <div 
                       key={folder.id} 
