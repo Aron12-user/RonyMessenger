@@ -502,7 +502,9 @@ export default function CloudStorage() {
       message: string;
       isFolder: boolean;
     }) => {
-      // Get user by email/username
+      console.log('[share] Starting share process for', isFolder ? 'folder' : 'file', fileId, 'with', email);
+      
+      // Get user by email/username with proper validation
       const userRes = await fetch(`/api/users?email=${email}`, { credentials: 'include' });
       if (!userRes.ok) {
         const errorText = await userRes.text();
@@ -510,32 +512,33 @@ export default function CloudStorage() {
         throw new Error("Adresse Rony introuvable");
       }
       
-      const responseText = await userRes.text();
-      let users;
-      try {
-        users = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('JSON parse error in user lookup:', parseError, 'Response:', responseText);
-        throw new Error("Erreur lors de la recherche d'utilisateur");
-      }
+      const users = await userRes.json();
+      console.log('[share] User lookup result:', users);
       
-      if (!users.data || users.data.length === 0) throw new Error("Adresse Rony introuvable");
+      if (!users.data || users.data.length === 0) {
+        throw new Error("Adresse Rony introuvable - aucun utilisateur trouvé avec cette adresse");
+      }
 
       const sharedWithId = users.data[0].id;
+      console.log('[share] Found target user ID:', sharedWithId);
 
       // Share the file/folder
       const endpoint = isFolder ? "/api/folders/share" : "/api/files/share";
+      const payload = {
+        [isFolder ? "folderId" : "fileId"]: fileId,
+        sharedWithId,
+        permission: permission || 'read',
+        subject: subject || '',
+        message: message || ''
+      };
+
+      console.log('[share] Sending share request to', endpoint, 'with payload:', payload);
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          [isFolder ? "folderId" : "fileId"]: fileId,
-          sharedWithId,
-          permission,
-          subject,
-          message
-        })
+        body: JSON.stringify(payload)
       });
       
       if (!response.ok) {
@@ -544,19 +547,12 @@ export default function CloudStorage() {
         throw new Error(errorText || "Échec du partage");
       }
       
-      const shareResponseText = await response.text();
-      if (!shareResponseText) {
-        return { success: true };
-      }
-      
-      try {
-        return JSON.parse(shareResponseText);
-      } catch (parseError) {
-        console.error('JSON parse error in share:', parseError, 'Response:', shareResponseText);
-        return { success: true, message: shareResponseText };
-      }
+      const result = await response.json();
+      console.log('[share] Share successful:', result);
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('[share] Share mutation successful:', data);
       queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
       queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
       setIsShareDialogOpen(false);
@@ -564,11 +560,11 @@ export default function CloudStorage() {
       setShareEmail("");
       setShareSubject("");
       setShareMessage("");
-      toast({ title: "Envoyé avec succès dans le Courrier du destinataire" });
+      toast({ title: "Partage réussi", description: "Le fichier a été partagé avec succès" });
     },
     onError: (error: Error) => {
       console.error('Share error:', error);
-      toast({ title: "Erreur lors de l'envoi", description: error.message, variant: "destructive" });
+      toast({ title: "Erreur lors du partage", description: error.message, variant: "destructive" });
     }
   });
 
@@ -969,20 +965,20 @@ export default function CloudStorage() {
                                 <DropdownMenuItem
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleRenameItem(file.id, file.name, false);
+                                    // Prévisualisation du fichier
+                                    if (file.type.startsWith('image/') || file.type === 'application/pdf' || file.type.startsWith('text/')) {
+                                      window.open(file.url, '_blank');
+                                    } else {
+                                      toast({ 
+                                        title: "Prévisualisation", 
+                                        description: "Ce type de fichier ne peut pas être prévisualisé", 
+                                        variant: "destructive" 
+                                      });
+                                    }
                                   }}
                                 >
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Renommer
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleShareItem(file.id, file.name, false);
-                                  }}
-                                >
-                                  <Share className="mr-2 h-4 w-4" />
-                                  Partager
+                                  <Image className="mr-2 h-4 w-4" />
+                                  Prévisualiser
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={async (e) => {
@@ -1019,6 +1015,24 @@ export default function CloudStorage() {
                                 >
                                   <Download className="mr-2 h-4 w-4" />
                                   Télécharger
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRenameItem(file.id, file.name, false);
+                                  }}
+                                >
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Renommer
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleShareItem(file.id, file.name, false);
+                                  }}
+                                >
+                                  <Share className="mr-2 h-4 w-4" />
+                                  Partager
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={(e) => {
