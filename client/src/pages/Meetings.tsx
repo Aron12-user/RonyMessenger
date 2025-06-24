@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Video, 
@@ -19,7 +21,12 @@ import {
   Pause,
   MoreVertical,
   UserPlus,
-  Settings
+  Settings,
+  Trash2,
+  CalendarDays,
+  MapPin,
+  FileText,
+  Globe
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -51,10 +58,13 @@ export default function Meetings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [newMeetingTitle, setNewMeetingTitle] = useState("");
+  const [newMeetingDescription, setNewMeetingDescription] = useState("");
+  const [newMeetingDate, setNewMeetingDate] = useState("");
+  const [newMeetingTime, setNewMeetingTime] = useState("");
+  const [newMeetingDuration, setNewMeetingDuration] = useState("60");
   const [isCreating, setIsCreating] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [showJoinDialog, setShowJoinDialog] = useState(false);
-  const [showScheduleForm, setShowScheduleForm] = useState(false);
 
   // Récupérer les réunions actives
   const { data: activeRoomsData, isLoading: loadingActive } = useQuery({
@@ -73,7 +83,13 @@ export default function Meetings() {
 
   // Mutation pour créer une réunion
   const createMeetingMutation = useMutation({
-    mutationFn: async (meetingData: { title: string; roomCode: string }) => {
+    mutationFn: async (meetingData: { 
+      title: string; 
+      description?: string; 
+      roomCode: string; 
+      startTime?: string; 
+      duration?: number; 
+    }) => {
       const response = await fetch('/api/meetings/create', {
         method: 'POST',
         headers: {
@@ -148,14 +164,63 @@ export default function Meetings() {
       return;
     }
 
+    if (!newMeetingDate || !newMeetingTime) {
+      toast({
+        title: "Erreur",
+        description: "La date et l'heure sont requises",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const roomCode = generateRoomCode();
+    const startDateTime = new Date(`${newMeetingDate}T${newMeetingTime}`);
+    
     await createMeetingMutation.mutateAsync({
       title: newMeetingTitle,
-      roomCode
+      description: newMeetingDescription,
+      roomCode,
+      startTime: startDateTime.toISOString(),
+      duration: parseInt(newMeetingDuration)
     });
+    
+    // Reset form
     setNewMeetingTitle("");
-    setShowScheduleForm(false);
+    setNewMeetingDescription("");
+    setNewMeetingDate("");
+    setNewMeetingTime("");
+    setNewMeetingDuration("60");
   };
+
+  // Mutation pour supprimer une réunion
+  const deleteMeetingMutation = useMutation({
+    mutationFn: async (meetingId: string) => {
+      const response = await fetch(`/api/meetings/${meetingId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erreur lors de la suppression de la réunion');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/meetings'] });
+      toast({
+        title: "Réunion supprimée",
+        description: "La réunion a été supprimée avec succès"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de supprimer la réunion",
+        variant: "destructive"
+      });
+    }
+  });
 
   // Rejoindre une réunion avec un code
   const joinMeetingWithCode = () => {
@@ -177,6 +242,11 @@ export default function Meetings() {
       title: "Rejoindre la réunion",
       description: "Ouverture de la réunion dans un nouvel onglet"
     });
+  };
+
+  // Supprimer une réunion programmée
+  const deleteMeeting = (meetingId: string) => {
+    deleteMeetingMutation.mutate(meetingId);
   };
 
   // Rejoindre une réunion
@@ -350,165 +420,336 @@ export default function Meetings() {
               )}
             </TabsContent>
 
-            <TabsContent value="scheduled" className="p-6 space-y-6 h-full">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-medium">Réunions programmées</h2>
-                <Badge variant="secondary" className="text-xs">
-                  {scheduledMeetings.length} programmée{scheduledMeetings.length !== 1 ? 's' : ''}
-                </Badge>
+            <TabsContent value="scheduled" className="h-full">
+              <div className="p-6 pb-2">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-medium">Réunions programmées</h2>
+                  <Badge variant="secondary" className="text-xs">
+                    {scheduledMeetings.length} programmée{scheduledMeetings.length !== 1 ? 's' : ''}
+                  </Badge>
+                </div>
               </div>
 
-              {loadingScheduled ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {[1, 2, 3].map((i) => (
-                    <Card key={i} className="animate-pulse">
-                      <CardContent className="p-6">
-                        <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                        <div className="h-3 bg-gray-200 rounded w-2/3 mb-4"></div>
-                        <div className="h-9 bg-gray-200 rounded"></div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : scheduledMeetings.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <Calendar className="h-16 w-16 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                    Aucune réunion programmée
-                  </h3>
-                  <p className="text-gray-500 text-center mb-6 max-w-md">
-                    Vous n'avez pas encore de réunions programmées. Créez votre première réunion pour commencer.
-                  </p>
-                  <Button onClick={createInstantMeeting}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Nouvelle réunion
-                  </Button>
-                </div>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {scheduledMeetings.map((meeting: Meeting) => (
-                    <Card key={meeting.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between mb-4">
-                          <div>
-                            <h3 className="font-medium text-gray-900 dark:text-white">
-                              {meeting.title}
-                            </h3>
-                            {meeting.description && (
-                              <p className="text-sm text-gray-500 mt-1">
-                                {meeting.description}
-                              </p>
-                            )}
-                          </div>
-                          <Badge variant="outline" className="text-xs">
-                            {meeting.status}
-                          </Badge>
-                        </div>
+              <ScrollArea className="h-[calc(100%-5rem)] px-6">
+                <div className="pb-6">
+                  {loadingScheduled ? (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {[1, 2, 3].map((i) => (
+                        <Card key={i} className="animate-pulse">
+                          <CardContent className="p-6">
+                            <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                            <div className="h-3 bg-gray-200 rounded w-2/3 mb-4"></div>
+                            <div className="h-9 bg-gray-200 rounded"></div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : scheduledMeetings.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <Calendar className="h-16 w-16 text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                        Aucune réunion programmée
+                      </h3>
+                      <p className="text-gray-500 text-center mb-6 max-w-md">
+                        Vous n'avez pas encore de réunions programmées. Utilisez l'onglet "Programmer une Réunion" pour commencer.
+                      </p>
+                      <Button onClick={createInstantMeeting}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Nouvelle réunion
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {scheduledMeetings.map((meeting: Meeting) => (
+                        <Card key={meeting.id} className="hover:shadow-lg transition-all duration-200 border border-gray-200 dark:border-gray-700">
+                          <CardContent className="p-6">
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-gray-900 dark:text-white text-base mb-1 truncate">
+                                  {meeting.title}
+                                </h3>
+                                {meeting.description && (
+                                  <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">
+                                    {meeting.description}
+                                  </p>
+                                )}
+                              </div>
+                              <Badge variant="outline" className="text-xs ml-2 shrink-0">
+                                {meeting.status}
+                              </Badge>
+                            </div>
 
-                        <div className="flex items-center text-sm text-gray-500 mb-4">
-                          <Calendar className="h-4 w-4 mr-1" />
-                          {new Date(meeting.startTime).toLocaleDateString()} à{' '}
-                          {new Date(meeting.startTime).toLocaleTimeString()}
-                        </div>
+                            <div className="space-y-3 mb-4">
+                              <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                                <Calendar className="h-4 w-4 mr-2 text-blue-600" />
+                                <span className="font-medium">
+                                  {new Date(meeting.startTime).toLocaleDateString('fr-FR', {
+                                    weekday: 'short',
+                                    day: 'numeric',
+                                    month: 'short'
+                                  })}
+                                </span>
+                              </div>
+                              
+                              <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                                <Clock className="h-4 w-4 mr-2 text-green-600" />
+                                <span>
+                                  {new Date(meeting.startTime).toLocaleTimeString('fr-FR', {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                              </div>
 
-                        <div className="flex gap-2">
-                          <Button 
-                            onClick={() => joinMeeting(meeting.roomCode)}
-                            className="flex-1 bg-blue-600 hover:bg-blue-700"
-                          >
-                            <Play className="h-4 w-4 mr-2" />
-                            Démarrer
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => copyMeetingLink(meeting.roomCode)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                              <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                                <Settings className="h-4 w-4 mr-2 text-purple-600" />
+                                <span className="font-mono text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                                  {meeting.roomCode}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <Button 
+                                onClick={() => joinMeeting(meeting.roomCode)}
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 h-9"
+                                size="sm"
+                              >
+                                <Play className="h-4 w-4 mr-2" />
+                                Démarrer
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => copyMeetingLink(meeting.roomCode)}
+                                className="h-9 px-3"
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => deleteMeeting(meeting.id)}
+                                disabled={deleteMeetingMutation.isPending}
+                                className="h-9 px-3 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
+              </ScrollArea>
             </TabsContent>
 
-            <TabsContent value="schedule" className="p-6 space-y-6 h-full">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-medium">Programmer une nouvelle réunion</h2>
-                <Badge variant="secondary" className="text-xs">
-                  <Calendar className="h-3 w-3 mr-1" />
-                  Planification
-                </Badge>
-              </div>
+            <TabsContent value="schedule" className="h-full">
+              <ScrollArea className="h-full">
+                <div className="p-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-medium">Programmer une nouvelle réunion</h2>
+                    <Badge variant="secondary" className="text-xs">
+                      <Calendar className="h-3 w-3 mr-1" />
+                      Planification professionnelle
+                    </Badge>
+                  </div>
 
-              <Card className="max-w-2xl">
-                <CardContent className="p-6">
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">Détails de la réunion</h3>
-                      <div className="space-y-4">
-                        <div>
-                          <Label htmlFor="meetingTitle">Titre de la réunion *</Label>
-                          <Input
-                            id="meetingTitle"
-                            value={newMeetingTitle}
-                            onChange={(e) => setNewMeetingTitle(e.target.value)}
-                            placeholder="Ex: Réunion équipe projet..."
-                            className="mt-1"
+                  <Card className="max-w-4xl">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="flex items-center text-xl">
+                        <CalendarDays className="h-5 w-5 mr-2 text-blue-600" />
+                        Créer une réunion programmée
+                      </CardTitle>
+                      <CardDescription>
+                        Configurez tous les détails de votre réunion pour une expérience professionnelle optimale
+                      </CardDescription>
+                    </CardHeader>
+                    
+                    <CardContent className="space-y-8">
+                      {/* Section Informations de base */}
+                      <div className="space-y-6">
+                        <div className="flex items-center pb-2 border-b">
+                          <FileText className="h-4 w-4 mr-2 text-blue-600" />
+                          <h3 className="font-semibold text-lg">Informations de base</h3>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label htmlFor="meetingTitle" className="text-sm font-medium">
+                              Titre de la réunion *
+                            </Label>
+                            <Input
+                              id="meetingTitle"
+                              value={newMeetingTitle}
+                              onChange={(e) => setNewMeetingTitle(e.target.value)}
+                              placeholder="Ex: Réunion équipe développement Q1 2025"
+                              className="h-11"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="meetingDuration" className="text-sm font-medium">
+                              Durée (minutes)
+                            </Label>
+                            <Input
+                              id="meetingDuration"
+                              type="number"
+                              value={newMeetingDuration}
+                              onChange={(e) => setNewMeetingDuration(e.target.value)}
+                              placeholder="60"
+                              min="15"
+                              max="480"
+                              className="h-11"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="meetingDescription" className="text-sm font-medium">
+                            Description de la réunion
+                          </Label>
+                          <Textarea
+                            id="meetingDescription"
+                            value={newMeetingDescription}
+                            onChange={(e) => setNewMeetingDescription(e.target.value)}
+                            placeholder="Décrivez l'objectif de la réunion, les points à aborder, les participants attendus..."
+                            rows={4}
+                            className="resize-none"
                           />
                         </div>
                       </div>
-                    </div>
 
-                    <div className="border-t pt-6">
-                      <h4 className="font-medium mb-3 flex items-center">
-                        <Settings className="h-4 w-4 mr-2" />
-                        Code de réunion
-                      </h4>
-                      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                          Un code unique sera généré automatiquement pour cette réunion.
-                        </p>
-                        <p className="text-sm font-medium text-blue-600">
-                          Les participants pourront rejoindre avec ce code via le bouton "Rejoindre"
-                        </p>
+                      {/* Section Planification */}
+                      <div className="space-y-6">
+                        <div className="flex items-center pb-2 border-b">
+                          <Clock className="h-4 w-4 mr-2 text-blue-600" />
+                          <h3 className="font-semibold text-lg">Planification</h3>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label htmlFor="meetingDate" className="text-sm font-medium">
+                              Date de la réunion *
+                            </Label>
+                            <Input
+                              id="meetingDate"
+                              type="date"
+                              value={newMeetingDate}
+                              onChange={(e) => setNewMeetingDate(e.target.value)}
+                              min={new Date().toISOString().split('T')[0]}
+                              className="h-11"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="meetingTime" className="text-sm font-medium">
+                              Heure de début *
+                            </Label>
+                            <Input
+                              id="meetingTime"
+                              type="time"
+                              value={newMeetingTime}
+                              onChange={(e) => setNewMeetingTime(e.target.value)}
+                              className="h-11"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Section Accès */}
+                      <div className="space-y-6">
+                        <div className="flex items-center pb-2 border-b">
+                          <Globe className="h-4 w-4 mr-2 text-blue-600" />
+                          <h3 className="font-semibold text-lg">Accès et sécurité</h3>
+                        </div>
+                        
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-6">
+                          <div className="flex items-start space-x-3">
+                            <Settings className="h-5 w-5 text-blue-600 mt-0.5" />
+                            <div className="space-y-2">
+                              <h4 className="font-medium text-blue-900 dark:text-blue-100">
+                                Code de réunion automatique
+                              </h4>
+                              <p className="text-sm text-blue-800 dark:text-blue-200 leading-relaxed">
+                                Un code unique sécurisé sera généré automatiquement pour cette réunion. 
+                                Ce code permettra aux participants de rejoindre facilement la réunion via le bouton "Rejoindre".
+                              </p>
+                              <div className="flex items-center space-x-2 text-xs text-blue-700 dark:text-blue-300">
+                                <div className="h-1.5 w-1.5 bg-blue-600 rounded-full"></div>
+                                <span>Compatible avec Jitsi Meet</span>
+                                <div className="h-1.5 w-1.5 bg-blue-600 rounded-full"></div>
+                                <span>Accès sécurisé</span>
+                                <div className="h-1.5 w-1.5 bg-blue-600 rounded-full"></div>
+                                <span>Partage facile</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Boutons d'action */}
+                      <div className="flex gap-4 pt-6 border-t">
+                        <Button 
+                          onClick={createScheduledMeeting}
+                          disabled={createMeetingMutation.isPending || !newMeetingTitle.trim() || !newMeetingDate || !newMeetingTime}
+                          className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                          size="lg"
+                        >
+                          <Calendar className="h-4 w-4 mr-2" />
+                          {createMeetingMutation.isPending ? "Création en cours..." : "Programmer la réunion"}
+                        </Button>
+                        <Button 
+                          variant="outline"
+                          onClick={() => {
+                            setNewMeetingTitle("");
+                            setNewMeetingDescription("");
+                            setNewMeetingDate("");
+                            setNewMeetingTime("");
+                            setNewMeetingDuration("60");
+                          }}
+                          disabled={createMeetingMutation.isPending}
+                          className="px-8 h-12"
+                          size="lg"
+                        >
+                          Effacer tout
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Section d'aide */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-6 max-w-4xl">
+                    <h4 className="font-semibold text-green-900 dark:text-green-100 mb-3 flex items-center">
+                      <MapPin className="h-4 w-4 mr-2" />
+                      Guide d'utilisation
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-green-800 dark:text-green-200">
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <div className="h-1.5 w-1.5 bg-green-600 rounded-full"></div>
+                          <span>Génération automatique du code d'accès</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="h-1.5 w-1.5 bg-green-600 rounded-full"></div>
+                          <span>Transfert automatique vers "Réunions actives" (5 min avant)</span>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <div className="h-1.5 w-1.5 bg-green-600 rounded-full"></div>
+                          <span>Partage facile du code avec les participants</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="h-1.5 w-1.5 bg-green-600 rounded-full"></div>
+                          <span>Suppression automatique après la réunion</span>
+                        </div>
                       </div>
                     </div>
-
-                    <div className="flex gap-3 pt-4 border-t">
-                      <Button 
-                        onClick={createScheduledMeeting}
-                        disabled={createMeetingMutation.isPending || !newMeetingTitle.trim()}
-                        className="flex-1 bg-blue-600 hover:bg-blue-700"
-                      >
-                        <Calendar className="h-4 w-4 mr-2" />
-                        {createMeetingMutation.isPending ? "Création..." : "Programmer la réunion"}
-                      </Button>
-                      <Button 
-                        variant="outline"
-                        onClick={() => setNewMeetingTitle("")}
-                        disabled={createMeetingMutation.isPending}
-                      >
-                        Effacer
-                      </Button>
-                    </div>
                   </div>
-                </CardContent>
-              </Card>
-
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 max-w-2xl">
-                <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
-                  Comment ça fonctionne ?
-                </h4>
-                <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-                  <li>• Un code unique est généré automatiquement</li>
-                  <li>• Partagez ce code avec les participants</li>
-                  <li>• Les participants utilisent le bouton "Rejoindre" avec le code</li>
-                  <li>• La réunion s'ouvre directement dans Jitsi Meet</li>
-                </ul>
-              </div>
+                </div>
+              </ScrollArea>
             </TabsContent>
           </Tabs>
         </div>

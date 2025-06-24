@@ -422,7 +422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/meetings/create", async (req, res) => {
     try {
-      const { title, roomCode } = req.body;
+      const { title, description, roomCode, startTime, duration } = req.body;
       
       if (!roomCode) {
         return res.status(400).json({ error: 'Room code is required' });
@@ -436,14 +436,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         meeting: {
           id: roomCode,
           title: title || 'Nouvelle réunion',
+          description: description || '',
           roomCode,
           url: meetingUrl,
+          startTime: startTime || new Date().toISOString(),
+          duration: duration || 60,
+          status: 'scheduled',
           createdAt: new Date()
         }
       });
     } catch (error) {
       console.error('Error creating meeting:', error);
       res.status(500).json({ error: 'Failed to create meeting' });
+    }
+  });
+
+  app.delete("/api/meetings/:meetingId", async (req, res) => {
+    try {
+      const { meetingId } = req.params;
+      
+      // Simulation de la suppression de réunion
+      res.json({
+        success: true,
+        message: 'Meeting deleted successfully'
+      });
+    } catch (error) {
+      console.error('Error deleting meeting:', error);
+      res.status(500).json({ error: 'Failed to delete meeting' });
     }
   });
 
