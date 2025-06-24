@@ -888,9 +888,9 @@ export default function CloudStorage() {
   );
 
   return (
-    <div className="flex-1 p-4 flex flex-col h-full bg-gray-50 dark:bg-gray-900">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 flex-1 flex flex-col min-h-0">
-        <div className="max-w-7xl mx-auto flex flex-col h-full min-h-0">
+    <div className="flex-1 p-4 flex flex-col bg-gray-50 dark:bg-gray-900" style={{ height: '100vh' }}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 flex-1 flex flex-col" style={{ minHeight: 0, height: 'calc(100vh - 100px)' }}>
+        <div className="max-w-7xl mx-auto flex flex-col h-full" style={{ minHeight: 0 }}>
           {/* Header avec titre et actions principales */}
           <div className="flex flex-wrap justify-between items-center mb-6">
             <div className="flex items-center space-x-3">
@@ -1027,27 +1027,36 @@ export default function CloudStorage() {
             </div>
           </div>
 
-          {/* Contenu principal avec défilement vertical */}
-          <div className="flex-1 overflow-y-auto min-h-0">
-            <div className="space-y-8 pb-24">
+          {/* Contenu principal avec défilement vertical FORCÉ */}
+          <div 
+            className="flex-1 overflow-y-auto" 
+            style={{ 
+              minHeight: 0, 
+              maxHeight: 'calc(100vh - 300px)',
+              overflowY: 'auto'
+            }}
+          >
+            <div className="space-y-8 pb-32">
               {/* Grille des dossiers */}
               {filteredFolders.length > 0 && (
-                <div className="min-h-0">
+                <div>
                   <h3 className="text-lg font-medium mb-3">Dossiers</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-6 gap-3">
                     {filteredFolders.map((folder: Folder) => (
                       <div 
                         key={folder.id} 
-                        className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                        className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer"
                         onClick={() => {
                           console.log('[folder-navigation] Entering folder:', folder.id, folder.name);
                           setCurrentFolderId(folder.id);
                         }}
                       >
-                        <div className="flex flex-col items-center text-center space-y-2">
-                          {getFolderIcon(folder.iconType)}
+                        <div className="flex flex-col items-center text-center space-y-1">
+                          <div className="h-12 w-12 flex items-center justify-center">
+                            {getFolderIcon(folder.iconType)}
+                          </div>
                           <div className="w-full">
-                            <p className="font-medium text-sm truncate" title={folder.name}>
+                            <p className="font-medium text-xs truncate" title={folder.name}>
                               {folder.name}
                             </p>
                             <div className="flex justify-between items-center mt-2">
@@ -1113,26 +1122,26 @@ export default function CloudStorage() {
 
               {/* Grille des fichiers */}
               {filteredFiles.length > 0 && (
-                <div className="min-h-0">
+                <div>
                   <h3 className="text-lg font-medium mb-3">Fichiers</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-6 gap-3">
                     {filteredFiles.map((file: File) => (
                       <div 
                         key={file.id} 
                         className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
                       >
-                        <div className="h-12 bg-gray-100 dark:bg-gray-700 flex items-center justify-center p-2">
+                        <div className="h-16 bg-gray-100 dark:bg-gray-700 flex items-center justify-center p-2">
                           {file.type.startsWith('image/') ? (
-                            <img src={file.url} alt={file.name} className="h-8 w-8 object-cover rounded" />
+                            <img src={file.url} alt={file.name} className="h-12 w-12 object-cover rounded" />
                           ) : (
-                            <div className="w-6 h-6">
+                            <div className="w-8 h-8">
                               {getFileIcon(file.type, file.name)}
                             </div>
                           )}
                         </div>
                         <div className="p-2">
                           <div className="flex justify-between items-start mb-1">
-                            <h4 className="font-medium text-sm truncate flex-1 mr-1" title={file.name}>{file.name}</h4>
+                            <h4 className="font-medium text-xs truncate flex-1 mr-1" title={file.name}>{file.name}</h4>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="sm" className="ml-1">
@@ -1225,7 +1234,7 @@ export default function CloudStorage() {
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 truncate">
                             {formatFileSize(file.size)}
                           </p>
                         </div>
