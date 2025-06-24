@@ -201,12 +201,19 @@ export default function CloudStorage() {
 
   const uploadMutation = useMutation({
     mutationFn: async (files: FileList) => {
-      if (!files.length) {
+      console.log('[upload] Starting upload mutation with', files.length, 'files');
+      
+      if (!files || files.length === 0) {
+        console.error('[upload] No files provided to upload mutation');
         throw new Error("Aucun fichier sélectionné");
       }
 
       const formData = new FormData();
-      Array.from(files).forEach(file => {
+      
+      // Log each file being added
+      Array.from(files).forEach((file, index) => {
+        console.log(`[upload] Adding file ${index + 1}/${files.length}:`, file.name, 'type:', file.type, 'size:', file.size);
+        
         if (file.size > 100 * 1024 * 1024) { // 100MB limit
           throw new Error(`Le fichier ${file.name} est trop volumineux (maximum 100MB)`);
         }
@@ -214,17 +221,22 @@ export default function CloudStorage() {
       });
       
       if (currentFolderId) {
+        console.log('[upload] Setting folderId to:', currentFolderId);
         formData.append('folderId', currentFolderId.toString());
       }
 
+      console.log('[upload] Sending request to /api/upload');
       const response = await fetch('/api/upload', {
         method: 'POST',
         credentials: 'include',
         body: formData
       });
 
+      console.log('[upload] Response status:', response.status, response.statusText);
+
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('[upload] Server error:', response.status, errorText);
         let errorMessage = 'Upload failed';
         try {
           const errorData = JSON.parse(errorText);
@@ -235,20 +247,27 @@ export default function CloudStorage() {
         throw new Error(errorMessage);
       }
 
-      return response.json();
+      const result = await response.json();
+      console.log('[upload] Upload successful:', result);
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('[upload] Upload mutation completed successfully');
       queryClient.invalidateQueries({ queryKey: ["files"] });
+      queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
       setUploadProgress(0);
       setTotalFiles(0);
       setUploadingFiles(0);
-      toast({ title: "Upload terminé", description: "Tous les fichiers ont été uploadés avec succès." });
+      toast({ 
+        title: "Upload terminé", 
+        description: `${data.files?.length || data.filesCreated || 0} fichiers uploadés avec succès.` 
+      });
     },
     onError: (error: Error) => {
+      console.error('[upload] Upload mutation failed:', error);
       setUploadProgress(0);
       setTotalFiles(0);
       setUploadingFiles(0);
-      console.error('Upload error:', error);
       toast({ title: "Erreur d'upload", description: error.message, variant: "destructive" });
     }
   });
@@ -621,10 +640,20 @@ export default function CloudStorage() {
 
   // Fonctions de gestion des fichiers
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('[ui] File input change event triggered');
     const files = event.target.files;
+    console.log('[ui] Files from input:', files ? files.length : 0, 'files');
+    
     if (files && files.length > 0) {
+      console.log('[ui] Starting file upload for', files.length, 'files');
+      Array.from(files).forEach((file, index) => {
+        console.log(`[ui] File ${index + 1}:`, file.name, file.type, file.size);
+      });
       uploadMutation.mutate(files);
+    } else {
+      console.warn('[ui] No files selected or files is null');
     }
+    
     // Reset input
     if (event.target) {
       event.target.value = '';
@@ -695,7 +724,12 @@ export default function CloudStorage() {
   };
 
   const triggerFileInput = () => {
-    fileInputRef.current?.click();
+    console.log('[ui] Triggering file input click');
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    } else {
+      console.error('[ui] File input ref is null');
+    }
   };
 
   const triggerFolderInput = () => {
