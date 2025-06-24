@@ -128,6 +128,8 @@ Changelog:
 - June 24, 2025. Added in-memory storage for meetings with automatic data persistence
 - June 24, 2025. Fixed vertical scrolling implementation with precise CSS height constraints
 - June 24, 2025. Preserved original card grid layout while enabling overflow-y-auto functionality
+- June 24, 2025. Enhanced scrolling with improved bottom padding (pb-12) to prevent content cutoff
+- June 24, 2025. Optimized container heights (calc(100vh - 200px)) for better content visibility
 ```
 
 ## User Preferences
