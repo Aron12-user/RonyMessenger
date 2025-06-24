@@ -314,6 +314,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Multi-file upload endpoint
+  app.post("/api/upload", upload.array('files'), async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+        return res.status(400).json({ error: "Aucun fichier fourni" });
+      }
+
+      const folderId = req.body.folderId && req.body.folderId !== 'null' ? parseInt(req.body.folderId) : null;
+      const filePaths = req.body.filePaths;
+      const folderStructure = req.body.folderStructure ? JSON.parse(req.body.folderStructure) : {};
+      
+      console.log('Upload request:', { folderId, filesCount: req.files.length, folderStructure });
+
+      const uploadedFiles = [];
+      const createdFolders = new Map();
+
+      // Create folder structure first if needed
+      if (Object.keys(folderStructure).length > 0) {
+        for (const folderPath of Object.keys(folderStructure)) {
+          const pathParts = folderPath.split('/');
+          let currentParentId = folderId;
+          let currentPath = '';
+
+          for (const part of pathParts) {
+            if (!part) continue;
+            currentPath = currentPath ? `${currentPath}/${part}` : part;
+            
+            if (!createdFolders.has(currentPath)) {
+              const folderData = {
+                name: part,
+                parentId: currentParentId,
+                path: currentPath,
+                ownerId: userId,
+                iconType: 'blue',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                isShared: false
+              };
+              
+              const folder = await storage.createFolder(folderData);
+              createdFolders.set(currentPath, folder);
+              currentParentId = folder.id;
+              console.log('Created folder:', folder.name, 'with ID:', folder.id);
+            } else {
+              currentParentId = createdFolders.get(currentPath)!.id;
+            }
+          }
+        }
+      }
+
+      // Upload files
+      for (let i = 0; i < req.files.length; i++) {
+        const file = req.files[i];
+        const relativePath = filePaths && filePaths[i] ? filePaths[i] : file.originalname;
+        const pathParts = relativePath.split('/');
+        const fileName = pathParts[pathParts.length - 1];
+        const folderPath = pathParts.slice(0, -1).join('/');
+        
+        let targetFolderId = folderId;
+        if (folderPath && createdFolders.has(folderPath)) {
+          targetFolderId = createdFolders.get(folderPath)!.id;
+        }
+
+        const fileData = {
+          name: fileName,
+          type: file.mimetype,
+          size: file.size,
+          url: `/uploads/${file.filename}`,
+          uploaderId: userId,
+          folderId: targetFolderId,
+          uploadedAt: new Date(),
+          isShared: false
+        };
+
+        const uploadedFile = await storage.createFile(fileData);
+        uploadedFiles.push(uploadedFile);
+      }
+
+      console.log('Upload completed:', uploadedFiles.length, 'files uploaded');
+      res.json({ 
+        success: true, 
+        files: uploadedFiles,
+        folders: Array.from(createdFolders.values()),
+        message: `${uploadedFiles.length} fichiers uploadés avec succès`
+      });
+    } catch (error) {
+      console.error('Error uploading files:', error);
+      res.status(500).json({ error: 'Erreur lors de l\'upload des fichiers' });
+    }
+  });
+
+  // Single file upload (legacy support)
   app.post("/api/files/upload", upload.single('file'), async (req, res) => {
     try {
       const userId = req.user?.id;
@@ -325,15 +422,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Aucun fichier fourni" });
       }
 
-      const { folderId } = req.body;
-      
       const fileData = {
         name: req.file.originalname,
         type: req.file.mimetype,
         size: req.file.size,
         url: `/uploads/${req.file.filename}`,
         uploaderId: userId,
-        folderId: folderId ? parseInt(folderId) : null
+        folderId: req.body.folderId ? parseInt(req.body.folderId) : null,
+        uploadedAt: new Date(),
+        isShared: false
       };
 
       const file = await storage.createFile(fileData);

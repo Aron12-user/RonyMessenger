@@ -185,17 +185,30 @@ export default function CloudStorage() {
       const res = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
+        credentials: 'include'
       });
 
-      if (!res.ok) throw new Error('Failed to upload files');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Upload failed' }));
+        throw new Error(errorData.error || 'Failed to upload files');
+      }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["files", currentFolderId] });
-      toast({ title: "Fichiers uploadés avec succès" });
+      queryClient.invalidateQueries({ queryKey: ["folders", currentFolderId] });
+      toast({ 
+        title: "Upload réussi", 
+        description: data.message || "Fichiers uploadés avec succès" 
+      });
     },
     onError: (error: Error) => {
-      toast({ title: "Erreur lors de l'upload", description: error.message, variant: "destructive" });
+      console.error('Upload error:', error);
+      toast({ 
+        title: "Erreur lors de l'upload", 
+        description: error.message, 
+        variant: "destructive" 
+      });
     }
   });
 
