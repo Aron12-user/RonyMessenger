@@ -218,8 +218,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Non authentifié" });
       }
 
-      const parentId = req.query.parentId ? parseInt(req.query.parentId as string) : null;
+      const parentIdParam = req.query.parentId as string;
+      const parentId = parentIdParam && parentIdParam !== 'null' ? parseInt(parentIdParam) : null;
+      console.log(`[routes] Getting folders for parentId: ${parentId} (param: ${parentIdParam}), userId: ${userId}`);
+      
       const folders = await storage.getFoldersByParent(parentId, userId);
+      console.log(`[routes] Returning ${folders.length} folders`);
       res.json(folders);
     } catch (error) {
       console.error('Error fetching folders:', error);
@@ -305,8 +309,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Non authentifié" });
       }
 
-      const folderId = req.query.folderId ? parseInt(req.query.folderId as string) : null;
+      const folderIdParam = req.query.folderId as string;
+      const folderId = folderIdParam && folderIdParam !== 'null' ? parseInt(folderIdParam) : null;
+      console.log(`[routes] Getting files for folderId: ${folderId} (param: ${folderIdParam}), userId: ${userId}`);
+      
       const files = await storage.getFilesByFolder(folderId);
+      console.log(`[routes] Returning ${files.length} files`);
       res.json(files);
     } catch (error) {
       console.error('Error fetching files:', error);
