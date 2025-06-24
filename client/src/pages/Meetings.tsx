@@ -545,26 +545,25 @@ export default function Meetings() {
               </ScrollArea>
             </TabsContent>
 
-            <TabsContent value="schedule" className="h-full overflow-hidden">
-              <div className="h-full flex flex-col">
-                {/* Header compact */}
-                <div className="flex-shrink-0 p-3 border-b bg-white dark:bg-gray-900">
-                  <div className="flex items-center space-x-3">
-                    <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg">
-                      <CalendarDays className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-semibold">Programmer une réunion</h2>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        Configurez les détails de votre réunion
-                      </p>
-                    </div>
+            <TabsContent value="schedule" className="absolute inset-0">
+              {/* Header fixe */}
+              <div className="absolute top-0 left-0 right-0 z-10 p-3 border-b bg-white dark:bg-gray-900">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg">
+                    <CalendarDays className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold">Programmer une réunion</h2>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      Configurez les détails de votre réunion
+                    </p>
                   </div>
                 </div>
+              </div>
 
-                {/* Contenu avec défilement natif */}
-                <div className="flex-1 overflow-y-auto p-3">
-                  <div className="space-y-3 max-w-3xl mx-auto">
+              {/* Contenu avec défilement absolu */}
+              <div className="absolute top-16 bottom-0 left-0 right-0 overflow-y-auto p-3">
+                <div className="space-y-3 max-w-3xl mx-auto pb-6">
                     <Card className="border border-blue-200 dark:border-blue-800 shadow-sm">
                       <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
                         <CardTitle className="flex items-center text-base text-blue-900 dark:text-blue-100">
@@ -741,7 +740,6 @@ export default function Meetings() {
                     </Card>
                   </div>
                 </div>
-              </div>
             </TabsContent>
           </Tabs>
         </div>
