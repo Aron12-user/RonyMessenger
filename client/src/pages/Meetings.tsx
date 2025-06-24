@@ -561,48 +561,45 @@ export default function Meetings() {
                   </p>
                 </div>
 
-                {/* Contenu avec défilement */}
+                {/* Contenu avec défilement optimisé */}
                 <ScrollArea className="flex-1">
-                  <div className="p-6 space-y-8 max-w-5xl mx-auto">
-                    <Card className="border-2 border-blue-100 dark:border-blue-900/50 shadow-lg">
-                      <CardHeader className="pb-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
-                        <CardTitle className="flex items-center text-2xl text-blue-900 dark:text-blue-100">
-                          <CalendarDays className="h-6 w-6 mr-3 text-blue-600" />
+                  <div className="p-4 space-y-6 max-w-4xl mx-auto">
+                    <Card className="border border-blue-200 dark:border-blue-800 shadow-md">
+                      <CardHeader className="pb-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+                        <CardTitle className="flex items-center text-lg text-blue-900 dark:text-blue-100">
+                          <CalendarDays className="h-5 w-5 mr-2 text-blue-600" />
                           Nouvelle réunion programmée
                         </CardTitle>
-                        <CardDescription className="text-base text-blue-700 dark:text-blue-300">
-                          Remplissez tous les champs pour créer une réunion complète et professionnelle
+                        <CardDescription className="text-sm text-blue-700 dark:text-blue-300">
+                          Configurez les détails de votre réunion
                         </CardDescription>
                       </CardHeader>
                       
-                      <CardContent className="p-8 space-y-10">
+                      <CardContent className="p-6 space-y-6">
                         {/* Section 1: Informations de base */}
-                        <div className="space-y-6">
-                          <div className="flex items-center pb-3 border-b-2 border-blue-200 dark:border-blue-800">
-                            <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg mr-3">
-                              <FileText className="h-5 w-5 text-blue-600" />
-                            </div>
-                            <h3 className="font-bold text-xl text-gray-900 dark:text-white">Informations générales</h3>
+                        <div className="space-y-4">
+                          <div className="flex items-center pb-2 border-b border-blue-200 dark:border-blue-800">
+                            <FileText className="h-4 w-4 mr-2 text-blue-600" />
+                            <h3 className="font-semibold text-lg text-gray-900 dark:text-white">Informations générales</h3>
                           </div>
                           
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div className="space-y-3">
-                              <Label htmlFor="meetingTitle" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="meetingTitle" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Titre de la réunion *
                               </Label>
                               <Input
                                 id="meetingTitle"
                                 value={newMeetingTitle}
                                 onChange={(e) => setNewMeetingTitle(e.target.value)}
-                                placeholder="Ex: Réunion équipe développement Q1 2025"
-                                className="h-12 text-base border-2 focus:border-blue-500"
+                                placeholder="Ex: Réunion équipe développement"
+                                className="h-10"
                               />
-                              <p className="text-xs text-gray-500">Choisissez un titre clair et descriptif</p>
                             </div>
                             
-                            <div className="space-y-3">
-                              <Label htmlFor="meetingDuration" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                Durée estimée (minutes)
+                            <div className="space-y-2">
+                              <Label htmlFor="meetingDuration" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Durée (minutes)
                               </Label>
                               <Input
                                 id="meetingDuration"
@@ -612,41 +609,37 @@ export default function Meetings() {
                                 placeholder="60"
                                 min="15"
                                 max="480"
-                                className="h-12 text-base border-2 focus:border-blue-500"
+                                className="h-10"
                               />
-                              <p className="text-xs text-gray-500">Entre 15 minutes et 8 heures</p>
                             </div>
                           </div>
 
-                          <div className="space-y-3">
-                            <Label htmlFor="meetingDescription" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                              Description détaillée
+                          <div className="space-y-2">
+                            <Label htmlFor="meetingDescription" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Description
                             </Label>
                             <Textarea
                               id="meetingDescription"
                               value={newMeetingDescription}
                               onChange={(e) => setNewMeetingDescription(e.target.value)}
-                              placeholder="Décrivez l'objectif de la réunion, les points à aborder, les participants attendus, l'agenda prévisionnel..."
-                              rows={5}
-                              className="resize-none text-base border-2 focus:border-blue-500"
+                              placeholder="Décrivez l'objectif de la réunion..."
+                              rows={3}
+                              className="resize-none"
                             />
-                            <p className="text-xs text-gray-500">Une description claire aide les participants à se préparer</p>
                           </div>
                         </div>
 
-                        {/* Section 2: Planification temporelle */}
-                        <div className="space-y-6">
-                          <div className="flex items-center pb-3 border-b-2 border-green-200 dark:border-green-800">
-                            <div className="bg-green-100 dark:bg-green-900 p-2 rounded-lg mr-3">
-                              <Clock className="h-5 w-5 text-green-600" />
-                            </div>
-                            <h3 className="font-bold text-xl text-gray-900 dark:text-white">Planification temporelle</h3>
+                        {/* Section 2: Planification */}
+                        <div className="space-y-4">
+                          <div className="flex items-center pb-2 border-b border-green-200 dark:border-green-800">
+                            <Clock className="h-4 w-4 mr-2 text-green-600" />
+                            <h3 className="font-semibold text-lg text-gray-900 dark:text-white">Planification</h3>
                           </div>
                           
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div className="space-y-3">
-                              <Label htmlFor="meetingDate" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                Date de la réunion *
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="meetingDate" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Date *
                               </Label>
                               <Input
                                 id="meetingDate"
@@ -654,160 +647,93 @@ export default function Meetings() {
                                 value={newMeetingDate}
                                 onChange={(e) => setNewMeetingDate(e.target.value)}
                                 min={new Date().toISOString().split('T')[0]}
-                                className="h-12 text-base border-2 focus:border-green-500"
+                                className="h-10"
                               />
-                              <p className="text-xs text-gray-500">Sélectionnez la date souhaitée</p>
                             </div>
                             
-                            <div className="space-y-3">
-                              <Label htmlFor="meetingTime" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                Heure de début *
+                            <div className="space-y-2">
+                              <Label htmlFor="meetingTime" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Heure *
                               </Label>
                               <Input
                                 id="meetingTime"
                                 type="time"
                                 value={newMeetingTime}
                                 onChange={(e) => setNewMeetingTime(e.target.value)}
-                                className="h-12 text-base border-2 focus:border-green-500"
+                                className="h-10"
                               />
-                              <p className="text-xs text-gray-500">Heure locale de début de la réunion</p>
-                            </div>
-                          </div>
-
-                          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-xl p-6 border border-yellow-200 dark:border-yellow-800">
-                            <div className="flex items-start space-x-3">
-                              <div className="bg-yellow-100 dark:bg-yellow-900 p-2 rounded-lg">
-                                <Clock className="h-5 w-5 text-yellow-600" />
-                              </div>
-                              <div className="space-y-2">
-                                <h4 className="font-semibold text-yellow-900 dark:text-yellow-100">
-                                  Gestion automatique des horaires
-                                </h4>
-                                <p className="text-sm text-yellow-800 dark:text-yellow-200 leading-relaxed">
-                                  Votre réunion sera automatiquement transférée vers "Réunions actives" 5 minutes avant l'heure prévue.
-                                  Une fois terminée, elle sera supprimée automatiquement des deux sections.
-                                </p>
-                              </div>
                             </div>
                           </div>
                         </div>
 
-                        {/* Section 3: Accès et sécurité */}
-                        <div className="space-y-6">
-                          <div className="flex items-center pb-3 border-b-2 border-purple-200 dark:border-purple-800">
-                            <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-lg mr-3">
-                              <Globe className="h-5 w-5 text-purple-600" />
-                            </div>
-                            <h3 className="font-bold text-xl text-gray-900 dark:text-white">Accès et sécurité</h3>
+                        {/* Section 3: Code d'accès */}
+                        <div className="space-y-4">
+                          <div className="flex items-center pb-2 border-b border-purple-200 dark:border-purple-800">
+                            <Settings className="h-4 w-4 mr-2 text-purple-600" />
+                            <h3 className="font-semibold text-lg text-gray-900 dark:text-white">Code d'accès</h3>
                           </div>
                           
-                          <div className="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 dark:from-purple-900/20 dark:via-blue-900/20 dark:to-indigo-900/20 rounded-xl p-8 border-2 border-purple-100 dark:border-purple-800">
-                            <div className="flex items-start space-x-4">
-                              <div className="bg-purple-100 dark:bg-purple-900 p-3 rounded-xl">
-                                <Settings className="h-6 w-6 text-purple-600" />
-                              </div>
-                              <div className="space-y-4 flex-1">
-                                <h4 className="font-bold text-lg text-purple-900 dark:text-purple-100">
-                                  Code d'accès automatique et sécurisé
-                                </h4>
-                                <p className="text-purple-800 dark:text-purple-200 leading-relaxed">
-                                  Un code unique et sécurisé sera généré automatiquement pour cette réunion. 
-                                  Ce code permettra aux participants de rejoindre facilement la réunion via le bouton "Rejoindre" 
-                                  disponible dans l'interface principale.
-                                </p>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                                  <div className="flex items-center space-x-2 text-sm text-purple-700 dark:text-purple-300">
-                                    <div className="h-2 w-2 bg-purple-600 rounded-full"></div>
-                                    <span className="font-medium">Compatible Jitsi Meet</span>
-                                  </div>
-                                  <div className="flex items-center space-x-2 text-sm text-purple-700 dark:text-purple-300">
-                                    <div className="h-2 w-2 bg-purple-600 rounded-full"></div>
-                                    <span className="font-medium">Accès sécurisé</span>
-                                  </div>
-                                  <div className="flex items-center space-x-2 text-sm text-purple-700 dark:text-purple-300">
-                                    <div className="h-2 w-2 bg-purple-600 rounded-full"></div>
-                                    <span className="font-medium">Partage simple</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
+                          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                            <p className="text-sm text-blue-800 dark:text-blue-200">
+                              Un code unique sera généré automatiquement. Les participants pourront rejoindre avec ce code via le bouton "Rejoindre".
+                            </p>
                           </div>
                         </div>
 
-                        {/* Section 4: Actions */}
-                        <div className="space-y-6 pt-4">
-                          <div className="flex gap-4">
-                            <Button 
-                              onClick={createScheduledMeeting}
-                              disabled={createMeetingMutation.isPending || !newMeetingTitle.trim() || !newMeetingDate || !newMeetingTime}
-                              className="flex-1 h-14 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold text-lg shadow-lg"
-                              size="lg"
-                            >
-                              <Calendar className="h-5 w-5 mr-3" />
-                              {createMeetingMutation.isPending ? "Création en cours..." : "Programmer la réunion"}
-                            </Button>
-                            <Button 
-                              variant="outline"
-                              onClick={() => {
-                                setNewMeetingTitle("");
-                                setNewMeetingDescription("");
-                                setNewMeetingDate("");
-                                setNewMeetingTime("");
-                                setNewMeetingDuration("60");
-                              }}
-                              disabled={createMeetingMutation.isPending}
-                              className="px-8 h-14 border-2 font-semibold"
-                              size="lg"
-                            >
-                              Réinitialiser
-                            </Button>
-                          </div>
+                        {/* Actions */}
+                        <div className="flex gap-3 pt-4 border-t">
+                          <Button 
+                            onClick={createScheduledMeeting}
+                            disabled={createMeetingMutation.isPending || !newMeetingTitle.trim() || !newMeetingDate || !newMeetingTime}
+                            className="flex-1 h-10 bg-blue-600 hover:bg-blue-700"
+                          >
+                            <Calendar className="h-4 w-4 mr-2" />
+                            {createMeetingMutation.isPending ? "Création..." : "Programmer"}
+                          </Button>
+                          <Button 
+                            variant="outline"
+                            onClick={() => {
+                              setNewMeetingTitle("");
+                              setNewMeetingDescription("");
+                              setNewMeetingDate("");
+                              setNewMeetingTime("");
+                              setNewMeetingDuration("60");
+                            }}
+                            disabled={createMeetingMutation.isPending}
+                            className="px-6 h-10"
+                          >
+                            Effacer
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
 
-                    {/* Guide d'utilisation enrichi */}
-                    <Card className="border-2 border-green-100 dark:border-green-900/50 shadow-lg">
-                      <CardContent className="p-8">
-                        <h4 className="font-bold text-xl text-green-900 dark:text-green-100 mb-6 flex items-center">
-                          <div className="bg-green-100 dark:bg-green-900 p-2 rounded-lg mr-3">
-                            <MapPin className="h-5 w-5 text-green-600" />
-                          </div>
-                          Guide complet d'utilisation
+                    {/* Guide compact */}
+                    <Card className="border border-green-200 dark:border-green-800">
+                      <CardContent className="p-4">
+                        <h4 className="font-semibold text-green-900 dark:text-green-100 mb-3 flex items-center">
+                          <MapPin className="h-4 w-4 mr-2 text-green-600" />
+                          Guide d'utilisation
                         </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                          <div className="space-y-4">
-                            <h5 className="font-semibold text-green-800 dark:text-green-200 text-lg">Fonctionnalités automatiques</h5>
-                            <div className="space-y-3">
-                              <div className="flex items-start space-x-3">
-                                <div className="h-2 w-2 bg-green-600 rounded-full mt-2"></div>
-                                <span className="text-green-700 dark:text-green-300">Génération automatique du code d'accès unique</span>
-                              </div>
-                              <div className="flex items-start space-x-3">
-                                <div className="h-2 w-2 bg-green-600 rounded-full mt-2"></div>
-                                <span className="text-green-700 dark:text-green-300">Transfert automatique vers "Réunions actives" 5 minutes avant</span>
-                              </div>
-                              <div className="flex items-start space-x-3">
-                                <div className="h-2 w-2 bg-green-600 rounded-full mt-2"></div>
-                                <span className="text-green-700 dark:text-green-300">Suppression automatique après la fin de la réunion</span>
-                              </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          <div className="space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <div className="h-1.5 w-1.5 bg-green-600 rounded-full"></div>
+                              <span className="text-green-700 dark:text-green-300">Génération automatique du code</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <div className="h-1.5 w-1.5 bg-green-600 rounded-full"></div>
+                              <span className="text-green-700 dark:text-green-300">Transfert automatique 5 min avant</span>
                             </div>
                           </div>
-                          <div className="space-y-4">
-                            <h5 className="font-semibold text-green-800 dark:text-green-200 text-lg">Partage et collaboration</h5>
-                            <div className="space-y-3">
-                              <div className="flex items-start space-x-3">
-                                <div className="h-2 w-2 bg-green-600 rounded-full mt-2"></div>
-                                <span className="text-green-700 dark:text-green-300">Partage facile du code avec les participants</span>
-                              </div>
-                              <div className="flex items-start space-x-3">
-                                <div className="h-2 w-2 bg-green-600 rounded-full mt-2"></div>
-                                <span className="text-green-700 dark:text-green-300">Accès direct via le bouton "Rejoindre"</span>
-                              </div>
-                              <div className="flex items-start space-x-3">
-                                <div className="h-2 w-2 bg-green-600 rounded-full mt-2"></div>
-                                <span className="text-green-700 dark:text-green-300">Interface Jitsi Meet intégrée et optimisée</span>
-                              </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <div className="h-1.5 w-1.5 bg-green-600 rounded-full"></div>
+                              <span className="text-green-700 dark:text-green-300">Partage facile du code</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <div className="h-1.5 w-1.5 bg-green-600 rounded-full"></div>
+                              <span className="text-green-700 dark:text-green-300">Suppression automatique après</span>
                             </div>
                           </div>
                         </div>
