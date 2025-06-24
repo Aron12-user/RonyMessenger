@@ -156,6 +156,26 @@ export default function CloudStorage() {
     retryDelay: 1000,
   });
 
+  // Query pour récupérer tous les dossiers (pour la navigation)
+  const { data: allFolders = [] } = useQuery({
+    queryKey: ["all-folders"],
+    queryFn: async () => {
+      console.log('[query] Fetching all folders for navigation');
+      const response = await fetch(`/api/folders/all`, {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        console.warn('[query] Failed to fetch all folders:', response.status, response.statusText);
+        return [];
+      }
+      const folders = await response.json();
+      console.log('[query] All folders received:', folders.length, 'folders');
+      return folders;
+    },
+    retry: 3,
+    retryDelay: 1000,
+  });
+
   // Mutations améliorées avec gestion d'erreurs robuste
   const createFolderMutation = useMutation({
     mutationFn: async (folderData: { name: string; parentId: number | null; iconType: string }) => {
