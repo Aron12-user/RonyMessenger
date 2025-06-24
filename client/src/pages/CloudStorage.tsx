@@ -39,6 +39,14 @@ import folderBlueIcon from "@assets/icons8-dossier-mac-64_1750386753922.png";
 import folderArchiveIcon from "@assets/icons8-dossier-mac-48_1750386762042.png";
 import cloudBackgroundImage from "@assets/5590894_1750468773239.jpg";
 
+// Import des icônes de fichiers
+import imageIcon from "@assets/icons8-image-50_1750773959798.png";
+import excelIcon from "@assets/icons8-microsoft-excel-2019-50_1750774269876.png";
+import powerpointIcon from "@assets/icons8-ms-powerpoint-50_1750774279717.png";
+import csvIcon from "@assets/icons8-fichier-csv-50_1750774291865.png";
+import audioIcon from "@assets/icons8-fichier-audio-50_1750774307203.png";
+import videoIcon from "@assets/icons8-fichier-vidéo-64_1750774317888.png";
+
 interface Folder {
   id: number;
   name: string;
@@ -839,22 +847,19 @@ export default function CloudStorage() {
 
           {/* Zone de contenu avec défilement */}
           <div className="flex-1 overflow-y-auto max-h-[calc(100vh-300px)]">
-            {/* Debug info */}
-            {foldersLoading && <div className="text-blue-600 p-2">Chargement des dossiers...</div>}
-            {filesLoading && <div className="text-blue-600 p-2">Chargement des fichiers...</div>}
-            {foldersError && <div className="text-red-600 p-2">Erreur dossiers: {String(foldersError)}</div>}
-            {filesError && <div className="text-red-600 p-2">Erreur fichiers: {String(filesError)}</div>}
-            {!foldersLoading && !filesLoading && (
-              <div className="text-green-600 p-2">
-                Données chargées: {folders.length} dossiers, {files.length} fichiers
-              </div>
+            {/* Indicateurs de statut (plus discrets) */}
+            {(foldersLoading || filesLoading) && (
+              <div className="text-sm text-blue-600 mb-2">Chargement...</div>
+            )}
+            {(foldersError || filesError) && (
+              <div className="text-sm text-red-600 mb-2">Erreur de chargement</div>
             )}
             
             {/* Grille des dossiers */}
             {filteredFolders.length > 0 && (
               <div className="mb-6">
                 <h3 className="text-lg font-medium mb-3">Dossiers ({filteredFolders.length})</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
                   {filteredFolders.map((folder: Folder) => (
                     <div 
                       key={folder.id} 
