@@ -244,7 +244,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Non authentifié" });
       }
 
+      console.log(`[routes] Getting all folders for userId: ${userId}`);
       const folders = await storage.getFoldersForUser(userId);
+      console.log(`[routes] Found ${folders.length} total folders for user ${userId}`);
       res.json(folders);
     } catch (error) {
       console.error('Error fetching all folders:', error);
