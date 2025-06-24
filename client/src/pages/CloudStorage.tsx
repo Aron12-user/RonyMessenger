@@ -29,7 +29,8 @@ import {
   Edit,
   CheckCircle,
   RefreshCw,
-  Monitor
+  Monitor,
+  ArrowLeft
 } from "lucide-react";
 
 // Import des icônes personnalisées
@@ -865,9 +866,9 @@ export default function CloudStorage() {
   );
 
   return (
-    <div className="flex-1 p-4 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 flex-1 flex flex-col overflow-hidden">
-        <div className="max-w-7xl mx-auto flex flex-col h-full overflow-hidden">
+    <div className="flex-1 p-4 flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 flex-1 flex flex-col min-h-0">
+        <div className="max-w-7xl mx-auto flex flex-col h-full min-h-0">
           {/* Header avec titre et actions principales */}
           <div className="flex flex-wrap justify-between items-center mb-6">
             <div className="flex items-center space-x-3">
