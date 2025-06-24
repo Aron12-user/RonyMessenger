@@ -365,7 +365,7 @@ export default function Meetings() {
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto px-6 pb-6">
-                  <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {activeRooms.map((room: ActiveRoom) => (
                       <Card key={room.roomCode} className="hover:shadow-lg transition-all duration-200 border border-green-200 dark:border-green-700">
                         <CardContent className="p-6">
@@ -426,7 +426,7 @@ export default function Meetings() {
               <div className="flex-1 overflow-y-auto px-6">
                 <div className="pb-6">
                   {loadingScheduled ? (
-                    <div className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {[1, 2, 3].map((i) => (
                         <Card key={i} className="animate-pulse">
                           <CardContent className="p-6">
@@ -452,7 +452,7 @@ export default function Meetings() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {scheduledMeetings.map((meeting: Meeting) => (
                         <Card key={meeting.id} className="hover:shadow-lg transition-all duration-200 border border-gray-200 dark:border-gray-700">
                           <CardContent className="p-6">
