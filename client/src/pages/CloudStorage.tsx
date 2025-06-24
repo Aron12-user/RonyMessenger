@@ -1027,25 +1027,30 @@ export default function CloudStorage() {
             </div>
           </div>
 
-          {/* Contenu principal avec défilement vertical FORCÉ */}
+          {/* Contenu principal avec défilement vertical optimisé */}
           <div 
             className="flex-1 overflow-y-auto" 
             style={{ 
               minHeight: 0, 
-              maxHeight: 'calc(100vh - 300px)',
-              overflowY: 'auto'
+              maxHeight: 'calc(100vh - 280px)',
+              overflowY: 'auto',
+              scrollBehavior: 'smooth'
             }}
           >
-            <div className="space-y-8 pb-32">
+            <div className="space-y-6 pb-24">
               {/* Grille des dossiers */}
               {filteredFolders.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-medium mb-3">Dossiers</h3>
-                  <div className="grid grid-cols-6 gap-3">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Dossiers ({filteredFolders.length})
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
                     {filteredFolders.map((folder: Folder) => (
                       <div 
                         key={folder.id} 
-                        className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer"
+                        className="group relative border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 cursor-pointer bg-white dark:bg-gray-800"
                         onClick={() => {
                           console.log('[folder-navigation] Entering folder:', folder.id, folder.name);
                           setCurrentFolderId(folder.id);
@@ -1071,11 +1076,32 @@ export default function CloudStorage() {
                                   <DropdownMenuItem
                                     onClick={async (e) => {
                                       e.stopPropagation();
-                                      toast({ 
-                                        title: "Téléchargement", 
-                                        description: "Le téléchargement de dossiers sera bientôt disponible", 
-                                        variant: "destructive" 
-                                      });
+                                      try {
+                                        const link = document.createElement('a');
+                                        link.href = `/api/folders/${folder.id}/download`;
+                                        link.download = `${folder.name}.zip`;
+                                        link.target = '_blank';
+                                        link.rel = 'noopener noreferrer';
+                                        link.style.display = 'none';
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        
+                                        setTimeout(() => {
+                                          document.body.removeChild(link);
+                                        }, 100);
+                                        
+                                        toast({ 
+                                          title: "Téléchargement", 
+                                          description: `Téléchargement du dossier ${folder.name} démarré` 
+                                        });
+                                      } catch (error) {
+                                        console.error('Download error:', error);
+                                        toast({ 
+                                          title: "Erreur", 
+                                          description: "Impossible de télécharger le dossier", 
+                                          variant: "destructive" 
+                                        });
+                                      }
                                     }}
                                   >
                                     <Download className="mr-2 h-4 w-4" />
@@ -1123,12 +1149,16 @@ export default function CloudStorage() {
               {/* Grille des fichiers */}
               {filteredFiles.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-medium mb-3">Fichiers</h3>
-                  <div className="grid grid-cols-6 gap-3">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Fichiers ({filteredFiles.length})
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
                     {filteredFiles.map((file: File) => (
                       <div 
                         key={file.id} 
-                        className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+                        className="group relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 bg-white dark:bg-gray-800"
                       >
                         <div className="h-16 bg-gray-100 dark:bg-gray-700 flex items-center justify-center p-2">
                           {file.type.startsWith('image/') ? (

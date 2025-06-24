@@ -176,6 +176,11 @@ Changelog:
 - June 24, 2025. Fixed folder title display to show current folder name instead of "Dossier X" text
 - June 24, 2025. Improved cache invalidation for folder operations to ensure proper navigation updates
 - June 24, 2025. Enhanced folder queries with better refetch policies for consistent navigation
+- June 24, 2025. Implemented functional folder download as ZIP archives with recursive file inclusion
+- June 24, 2025. Added archiver dependency for professional ZIP creation with compression
+- June 24, 2025. Enhanced Cloud interface with professional styling and improved empty states
+- June 24, 2025. Optimized grid layouts with responsive columns and improved hover effects
+- June 24, 2025. Added file/folder counts and better visual hierarchy for professional appearance
 ```
 
 ## User Preferences
