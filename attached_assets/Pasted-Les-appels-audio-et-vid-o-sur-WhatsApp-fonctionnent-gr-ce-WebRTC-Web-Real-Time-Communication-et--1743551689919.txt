@@ -1,0 +1,36 @@
+Les appels audio et vidéo sur WhatsApp fonctionnent grâce à WebRTC (Web Real-Time Communication) et utilisent plusieurs technologies réseau pour établir et maintenir la communication entre les utilisateurs. Voici comment cela fonctionne techniquement :
+
+1. Établissement de la connexion
+Lorsqu'un utilisateur initie un appel audio ou vidéo :
+
+WhatsApp envoie une requête via ses serveurs pour avertir le destinataire de l'appel.
+
+Cette requête est envoyée via le protocole Signaling (utilisant des serveurs WhatsApp) pour transmettre l'invitation à l'appel.
+
+Le destinataire reçoit une notification et peut accepter ou refuser l'appel.
+
+2. Découverte et Connexion Peer-to-Peer
+Une fois que le destinataire accepte l'appel :
+
+WebRTC essaie d'établir une connexion directe (P2P - Peer-to-Peer) entre les deux appareils en utilisant le protocole ICE (Interactive Connectivity Establishment).
+
+Pour cela, WebRTC obtient les adresses IP des deux participants à l'aide de STUN (Session Traversal Utilities for NAT), qui permet de déterminer l’adresse IP publique et locale des appareils.
+
+Si une connexion directe n'est pas possible (par exemple, en raison d'un pare-feu ou d'un NAT strict), WebRTC utilise un serveur TURN (Traversal Using Relays around NAT) comme relais intermédiaire.
+
+3. Transmission des flux audio et vidéo
+Une fois la connexion établie :
+
+Le flux audio et/ou vidéo est compressé et encodé en utilisant des codecs comme Opus (pour l'audio) et VP8 ou H.264 (pour la vidéo).
+
+Les données sont envoyées en paquets UDP (car UDP est plus rapide que TCP pour la transmission en temps réel).
+
+WebRTC utilise des algorithmes comme RTCP (RTP Control Protocol) pour gérer la qualité du flux, détecter les pertes de paquets et ajuster la bande passante si nécessaire.
+
+4. Gestion de la connexion et terminaison de l'appel
+Si l'un des participants met fin à l'appel, WebRTC ferme la connexion et arrête la transmission des flux.
+
+En cas de mauvaise connexion, WebRTC ajuste dynamiquement la qualité de la vidéo/audio pour éviter des coupures.
+
+WhatsApp peut aussi utiliser des serveurs relais si la connexion P2P échoue.
+
