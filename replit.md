@@ -80,7 +80,10 @@ Rony is a comprehensive communication platform that combines messaging, video co
   - Fixed potential DoS vulnerability with empty field names in file uploads
   - Maintained backward compatibility - all existing upload endpoints functional
   - File upload authentication and validation remain intact
-  - File upload authentication and validation remain intact
+- **Critical Credential Security Fix**: Removed hardcoded bcrypt hashes from SimpleStorage
+  - Eliminated test user accounts with known passwords (admin@rony.com, john@rony.com, sarah@rony.com)
+  - Disabled seedData() method to prevent unauthorized access via default credentials
+  - Users must now register through secure /api/register endpoint instead of using test accounts
 
 ## External Dependencies
 
