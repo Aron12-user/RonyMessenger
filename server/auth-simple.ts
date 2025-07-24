@@ -1,5 +1,5 @@
 import { Express, Request, Response } from "express";
-import { storage } from "./storage";
+import { completeStorage as storage } from "./storage-clean";
 import bcrypt from "bcrypt";
 
 import { User } from "../shared/schema";

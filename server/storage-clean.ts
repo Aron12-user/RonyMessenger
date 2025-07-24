@@ -32,6 +32,7 @@ export interface IStorageComplete {
   
   // Contact methods
   getContactsForUser(userId: number): Promise<User[]>;
+  getPaginatedContactsForUser(userId: number, options: PaginationOptions): Promise<PaginatedResult<User>>;
   addContact(contact: InsertContact): Promise<Contact>;
   removeContact(userId: number, contactId: number): Promise<void>;
   
@@ -86,7 +87,14 @@ export class CompleteMemStorage implements IStorageComplete {
   }
   
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.username === username);
+    const allUsers = Array.from(this.users.values());
+    console.log(`[Storage] getUserByUsername: Looking for '${username}' among ${allUsers.length} users`);
+    console.log(`[Storage] Available usernames: ${allUsers.map(u => u.username)}`);
+    
+    const foundUser = allUsers.find(user => user.username === username);
+    console.log(`[Storage] Found user: ${foundUser ? foundUser.displayName : 'NOT FOUND'}`);
+    
+    return foundUser;
   }
   
   async createUser(userData: InsertUser): Promise<User> {
@@ -130,6 +138,9 @@ export class CompleteMemStorage implements IStorageComplete {
     const { page = 1, pageSize = 50, sortBy = 'id', sortOrder = 'asc' } = options;
     
     const allUsers = Array.from(this.users.values());
+    console.log(`[Storage] getPaginatedUsers: Found ${allUsers.length} users in storage`);
+    console.log(`[Storage] User IDs: ${allUsers.map(u => u.id)}`);
+    
     const sortedUsers = [...allUsers].sort((a, b) => {
       const aValue = a[sortBy as keyof User];
       const bValue = b[sortBy as keyof User];
@@ -154,6 +165,8 @@ export class CompleteMemStorage implements IStorageComplete {
     const paginatedUsers = sortedUsers.slice(startIndex, endIndex);
     
     const totalPages = Math.ceil(total / pageSize);
+    
+    console.log(`[Storage] Returning ${paginatedUsers.length} users (page ${page}/${totalPages})`);
     
     return {
       data: paginatedUsers,
@@ -305,6 +318,45 @@ export class CompleteMemStorage implements IStorageComplete {
     });
     
     return contactIds.map(id => this.users.get(id)).filter(Boolean) as User[];
+  }
+
+  async getPaginatedContactsForUser(userId: number, options: PaginationOptions): Promise<PaginatedResult<User>> {
+    const { page = 1, pageSize = 50, sortBy = 'displayName', sortOrder = 'asc' } = options;
+    
+    const contacts = await this.getContactsForUser(userId);
+    const sortedContacts = [...contacts].sort((a, b) => {
+      const aValue = a[sortBy as keyof User];
+      const bValue = b[sortBy as keyof User];
+      
+      if (aValue === null || aValue === undefined) return sortOrder === 'asc' ? -1 : 1;
+      if (bValue === null || bValue === undefined) return sortOrder === 'asc' ? 1 : -1;
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortOrder === 'asc' 
+          ? aValue.localeCompare(bValue) 
+          : bValue.localeCompare(aValue);
+      }
+      
+      return sortOrder === 'asc' 
+        ? Number(aValue) - Number(bValue) 
+        : Number(bValue) - Number(aValue);
+    });
+    
+    const total = sortedContacts.length;
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedContacts = sortedContacts.slice(startIndex, endIndex);
+    
+    const totalPages = Math.ceil(total / pageSize);
+    
+    return {
+      data: paginatedContacts,
+      total,
+      page,
+      pageSize,
+      totalPages,
+      hasMore: page < totalPages
+    };
   }
   
   async addContact(contactData: InsertContact): Promise<Contact> {
