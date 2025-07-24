@@ -1005,6 +1005,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[folders] Sharing folder ${folderId} with user ${sharedWithId}`);
       
+      // Créer le partage du dossier dans le système
+      const folderSharing = {
+        folderId,
+        sharedWithId,
+        permission: permission || 'read',
+        ownerId: userId,
+        createdAt: new Date(),
+        id: Date.now()
+      };
+      
+      // Sauvegarder le partage de dossier
+      if (!(storage as any).folderSharing) {
+        (storage as any).folderSharing = new Map();
+      }
+      (storage as any).folderSharing.set(folderSharing.id, folderSharing);
+      
+      console.log(`[folders] Folder sharing created:`, folderSharing);
+      
       // Créer une notification courrier en temps réel pour le destinataire
       try {
         console.log(`[folders] Creating courrier notification for folder share to user ${sharedWithId}`);
@@ -1015,13 +1033,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sender: req.user?.displayName || req.user?.username || 'Utilisateur',
           senderEmail: req.user?.email || req.user?.username + '@rony.com',
           subject: `Partage de dossier : ${folder.name || 'Dossier'}`,
-          message: `${req.user?.displayName || req.user?.username} a partagé un dossier avec vous.`,
+          message: `${req.user?.displayName || req.user?.username} a partagé le dossier "${folder.name || 'Dossier'}" avec vous.`,
           timestamp: new Date().toISOString(),
           priority: 'high',
           attachmentInfo: {
             folderId: folderId,
             folderName: folder.name || 'Dossier',
-            permission: permission || 'read'
+            permission: permission || 'read',
+            folderPath: folder.path || folder.name
           }
         };
         
@@ -1051,13 +1070,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true, 
         message: "Dossier partagé avec succès",
         recipient: targetUser.displayName || targetUser.username,
-        sharing: {
-          folderId,
-          sharedWithId,
-          permission: permission || 'read',
-          ownerId: userId,
-          createdAt: new Date()
-        }
+        sharing: folderSharing
       });
     } catch (error: any) {
       console.error('Erreur lors du partage du dossier:', error);
@@ -1079,7 +1092,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sharedFiles = await storage.getSharedFiles(userId);
       console.log(`[SHARED-API] Direct storage method returned:`, sharedFiles);
       
-      res.json({ files: sharedFiles, folders: [] });
+      // Récupérer aussi les dossiers partagés
+      const sharedFolders = [];
+      if ((storage as any).folderSharing) {
+        const folderSharings = Array.from((storage as any).folderSharing.values()).filter((sharing: any) => sharing.sharedWithId === userId);
+        
+        for (const sharing of folderSharings) {
+          const folder = Array.from((storage as any).folders.values()).find((f: any) => f.id === sharing.folderId);
+          if (folder) {
+            const sharedByUser = Array.from((storage as any).users.values()).find((u: any) => u.id === sharing.ownerId);
+            sharedFolders.push({
+              ...folder,
+              sharedBy: sharedByUser ? {
+                id: sharedByUser.id,
+                username: sharedByUser.username,
+                displayName: sharedByUser.displayName
+              } : null,
+              permission: sharing.permission,
+              sharedAt: sharing.createdAt
+            });
+          }
+        }
+      }
+      
+      console.log(`[SHARED-API] Returning ${sharedFiles.length} files and ${sharedFolders.length} folders`);
+      res.json({ files: sharedFiles, folders: sharedFolders });
     } catch (error: any) {
       console.error('[SHARED-API] Error:', error);
       res.status(500).json({ error: error.message || "Erreur serveur" });
@@ -1437,6 +1474,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Legacy video conferencing routes removed - using native WebRTC solution
+
+  // API pour répondre à un courrier
+  app.post("/api/courrier/reply", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const { recipientEmail, message, originalSubject, originalSender, originalContent, senderName, senderEmail } = req.body;
+      
+      // Trouver le destinataire par email
+      const recipient = Array.from((storage as any).users.values()).find((u: any) => u.email === recipientEmail || u.username === recipientEmail);
+      if (!recipient) {
+        return res.status(404).json({ error: "Destinataire introuvable" });
+      }
+
+      // Créer le message de réponse
+      const replyMessage = {
+        type: 'reply',
+        recipientId: recipient.id,
+        sender: senderName,
+        senderEmail: senderEmail,
+        subject: `Re: ${originalSubject}`,
+        message: message,
+        originalContent: originalContent,
+        originalSender: originalSender,
+        timestamp: new Date().toISOString(),
+        priority: 'medium'
+      };
+
+      // Envoyer via WebSocket
+      if (global.wss && global.wss.clients) {
+        const messageData = JSON.stringify({
+          type: 'courrier_message',
+          data: replyMessage
+        });
+        
+        global.wss.clients.forEach((client: any) => {
+          if (client.readyState === 1) {
+            client.send(messageData);
+          }
+        });
+      }
+
+      res.json({ success: true, message: "Réponse envoyée avec succès" });
+    } catch (error: any) {
+      console.error('Erreur réponse courrier:', error);
+      res.status(500).json({ error: error.message || "Erreur serveur" });
+    }
+  });
+
+  // API pour transférer un courrier
+  app.post("/api/courrier/forward", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const { recipientEmail, message, originalEmail, senderName, senderEmail } = req.body;
+      
+      // Trouver le destinataire par email
+      const recipient = Array.from((storage as any).users.values()).find((u: any) => u.email === recipientEmail || u.username === recipientEmail);
+      if (!recipient) {
+        return res.status(404).json({ error: "Destinataire introuvable" });
+      }
+
+      // Créer le message transféré
+      const forwardMessage = {
+        type: 'forward',
+        recipientId: recipient.id,
+        sender: senderName,
+        senderEmail: senderEmail,
+        subject: `Fwd: ${originalEmail.subject}`,
+        message: message,
+        originalEmail: originalEmail,
+        timestamp: new Date().toISOString(),
+        priority: 'medium'
+      };
+
+      // Envoyer via WebSocket
+      if (global.wss && global.wss.clients) {
+        const messageData = JSON.stringify({
+          type: 'courrier_message',
+          data: forwardMessage
+        });
+        
+        global.wss.clients.forEach((client: any) => {
+          if (client.readyState === 1) {
+            client.send(messageData);
+          }
+        });
+      }
+
+      res.json({ success: true, message: "Message transféré avec succès" });
+    } catch (error: any) {
+      console.error('Erreur transfert courrier:', error);
+      res.status(500).json({ error: error.message || "Erreur serveur" });
+    }
+  });
 
   // Jitsi routes temporarily disabled - using WebRTC native solution
   console.log("Routes configured successfully");

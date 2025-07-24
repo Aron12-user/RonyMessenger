@@ -206,6 +206,11 @@ Changelog:
 - June 24, 2025. TESTED AND VERIFIED: File sharing now properly creates instant courrier notifications with WebSocket delivery
 - June 24, 2025. Fixed API authentication issues and improved shared files retrieval with proper user permission checks
 - June 24, 2025. Enhanced MailPage component with real-time WebSocket connection and automatic reconnection capabilities
+- June 24, 2025. MAJOR COURRIER SYSTEM COMPLETION: Fixed all sharing and courrier functionality issues
+- June 24, 2025. Resolved folder sharing bug - now creates proper folder sharing records and recipients receive folders
+- June 24, 2025. Fixed shared files API to retrieve both files AND folders shared with users
+- June 24, 2025. Implemented complete Reply and Forward APIs for courrier messages with WebSocket delivery
+- June 24, 2025. All courrier functions now fully operational: file sharing, folder sharing, reply, and forward
 ```
 
 ## User Preferences
