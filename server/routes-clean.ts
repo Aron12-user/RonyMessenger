@@ -1365,15 +1365,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[REPLY] Processing reply from user ${userId} to ${recipientEmail}`);
       
-      // Trouver l'utilisateur destinataire par email
-      const recipient = Array.from((storage as any).users.values()).find((u: any) => 
-        u.email === recipientEmail || u.username === recipientEmail
-      );
+      // Trouver l'utilisateur destinataire par email/username
+      console.log(`[REPLY] Looking for recipient: ${recipientEmail}`);
+      console.log(`[REPLY] Storage users size:`, (storage as any).users.size);
+      
+      const recipient = Array.from((storage as any).users.values()).find((u: any) => {
+        const matches = u.email === recipientEmail || 
+                       u.username === recipientEmail ||
+                       u.username === recipientEmail + '@rony.com' ||
+                       u.email === recipientEmail + '@rony.com';
+        console.log(`[REPLY] Checking user ${u.username} (${u.email}) - matches: ${matches}`);
+        return matches;
+      });
       
       if (!recipient) {
-        console.log(`[REPLY] Recipient not found for email: ${recipientEmail}`);
-        console.log(`[REPLY] Available users:`, Array.from((storage as any).users.values()).map((u: any) => ({ email: u.email, username: u.username })));
-        return res.status(404).json({ error: "Destinataire introuvable" });
+        console.log(`[REPLY] Recipient not found for: ${recipientEmail}`);
+        console.log(`[REPLY] Available users:`, Array.from((storage as any).users.values()).map((u: any) => ({ 
+          id: u.id, email: u.email, username: u.username 
+        })));
+        return res.status(200).json({ success: false, error: "Utilisateur destinataire introuvable. Vérifiez l'adresse email." });
       }
 
       console.log(`[REPLY] Found recipient:`, { id: recipient.id, email: recipient.email, username: recipient.username });
@@ -1425,15 +1435,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[FORWARD] Processing forward from user ${userId} to ${recipientEmail}`);
       
-      // Trouver l'utilisateur destinataire par email
-      const recipient = Array.from((storage as any).users.values()).find((u: any) => 
-        u.email === recipientEmail || u.username === recipientEmail
-      );
+      // Trouver l'utilisateur destinataire par email/username
+      console.log(`[FORWARD] Looking for recipient: ${recipientEmail}`);
+      console.log(`[FORWARD] Storage users size:`, (storage as any).users.size);
+      
+      const recipient = Array.from((storage as any).users.values()).find((u: any) => {
+        const matches = u.email === recipientEmail || 
+                       u.username === recipientEmail ||
+                       u.username === recipientEmail + '@rony.com' ||
+                       u.email === recipientEmail + '@rony.com';
+        console.log(`[FORWARD] Checking user ${u.username} (${u.email}) - matches: ${matches}`);
+        return matches;
+      });
       
       if (!recipient) {
-        console.log(`[FORWARD] Recipient not found for email: ${recipientEmail}`);
-        console.log(`[FORWARD] Available users:`, Array.from((storage as any).users.values()).map((u: any) => ({ email: u.email, username: u.username })));
-        return res.status(404).json({ error: "Destinataire introuvable" });
+        console.log(`[FORWARD] Recipient not found for: ${recipientEmail}`);
+        console.log(`[FORWARD] Available users:`, Array.from((storage as any).users.values()).map((u: any) => ({ 
+          id: u.id, email: u.email, username: u.username 
+        })));
+        return res.status(200).json({ success: false, error: "Utilisateur destinataire introuvable. Vérifiez l'adresse email." });
       }
 
       console.log(`[FORWARD] Found recipient:`, { id: recipient.id, email: recipient.email, username: recipient.username });

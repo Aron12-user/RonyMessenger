@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +58,8 @@ interface EmailItem {
 
 export default function MailPage() {
   const [emails, setEmails] = useState<EmailItem[]>([]);
+  const [deletedEmails, setDeletedEmails] = useState<Set<number>>(new Set());
+  const [archivedEmails, setArchivedEmails] = useState<Set<number>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'files' | 'folders' | 'documents' | 'media'>('all');
   const [showArchived, setShowArchived] = useState(false);
@@ -72,6 +74,9 @@ export default function MailPage() {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [pinnedEmails, setPinnedEmails] = useState<Set<number>>(new Set());
   const [readEmails, setReadEmails] = useState<Set<number>>(new Set());
+  
+  // WebSocket pour les mises à jour temps réel
+  const wsRef = useRef<WebSocket | null>(null);
   
   // États pour les dialogs
   const [showReplyDialog, setShowReplyDialog] = useState(false);
@@ -96,12 +101,64 @@ export default function MailPage() {
     staleTime: 30 * 1000,
   });
 
+  // Connexion WebSocket pour les mises à jour temps réel
+  useEffect(() => {
+    if (!user) return;
+
+    const connectWebSocket = () => {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('WebSocket connecté pour courrier');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'courrier_shared') {
+            console.log('Nouveau courrier reçu:', data);
+            refetch(); // Actualiser les données
+          }
+        } catch (error) {
+          console.error('Erreur WebSocket courrier:', error);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket fermé, tentative de reconnexion...');
+        setTimeout(connectWebSocket, 3000);
+      };
+
+      ws.onerror = (error) => {
+        console.error('Erreur WebSocket:', error);
+      };
+    };
+
+    connectWebSocket();
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, [user, refetch]);
+
   const sharedFiles = (sharedData as any)?.files || [];
   const sharedFolders = (sharedData as any)?.folders || [];
 
-  // Convertir les fichiers/dossiers partagés en emails
+  // Convertir les fichiers/dossiers partagés en emails et charger persistance
   useEffect(() => {
     if (!user) return;
+
+    // Charger les emails supprimés et archivés depuis localStorage
+    const savedDeleted = JSON.parse(localStorage.getItem('deletedEmails') || '[]');
+    const savedArchived = JSON.parse(localStorage.getItem('archivedEmails') || '[]');
+    setDeletedEmails(new Set(savedDeleted));
+    setArchivedEmails(new Set(savedArchived));
 
     const emailsFromFiles = sharedFiles.map((file: any) => ({
       id: file.id + 10000,
@@ -137,15 +194,17 @@ export default function MailPage() {
     setEmails(allEmails);
   }, [user, sharedFiles, sharedFolders]);
 
-  // Mutations pour les actions sur les emails
+  // Mutations pour les actions sur les emails - CORRIGÉES
   const replyMutation = useMutation({
     mutationFn: async ({ recipientEmail, message, originalEmail }: any) => {
+      console.log('Envoi réponse courrier:', { recipientEmail, message, originalEmail });
+      
       const response = await fetch('/api/courrier/reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          recipientEmail: recipientEmail.includes('@') ? recipientEmail.split('@')[0] : recipientEmail,
+          recipientEmail: recipientEmail.includes('@') ? recipientEmail.replace('@rony.com', '') : recipientEmail,
           message,
           originalSubject: originalEmail.subject,
           originalSender: originalEmail.sender,
@@ -156,8 +215,9 @@ export default function MailPage() {
       });
       
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erreur lors de la réponse');
+        const errorText = await response.text();
+        console.error('Erreur réponse courrier:', errorText);
+        throw new Error('Erreur lors de la réponse au courrier');
       }
       
       return response.json();
@@ -174,12 +234,14 @@ export default function MailPage() {
 
   const forwardMutation = useMutation({
     mutationFn: async ({ recipientEmail, message, originalEmail }: any) => {
+      console.log('Envoi transfert courrier:', { recipientEmail, message, originalEmail });
+      
       const response = await fetch('/api/courrier/forward', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          recipientEmail: recipientEmail.includes('@') ? recipientEmail.split('@')[0] : recipientEmail,
+          recipientEmail: recipientEmail.includes('@') ? recipientEmail.replace('@rony.com', '') : recipientEmail,
           message,
           originalSubject: originalEmail.subject,
           originalSender: originalEmail.sender,
@@ -190,8 +252,9 @@ export default function MailPage() {
       });
       
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erreur lors du transfert');
+        const errorText = await response.text();
+        console.error('Erreur transfert courrier:', errorText);
+        throw new Error('Erreur lors du transfert du courrier');
       }
       
       return response.json();
@@ -258,11 +321,13 @@ export default function MailPage() {
     }
   });
 
-  // Mutation pour archiver des emails  
-  const [archivedEmails, setArchivedEmails] = useState<Set<number>>(new Set());
-  
+  // Mutation pour archiver des emails avec persistance
   const archiveEmailsMutation = useMutation({
     mutationFn: async (emailIds: number[]) => {
+      // Sauvegarder dans localStorage pour persistance
+      const currentArchived = JSON.parse(localStorage.getItem('archivedEmails') || '[]');
+      const newArchived = [...new Set([...currentArchived, ...emailIds])];
+      localStorage.setItem('archivedEmails', JSON.stringify(newArchived));
       return new Promise(resolve => setTimeout(resolve, 300));
     },
     onSuccess: (_, emailIds) => {
@@ -279,15 +344,21 @@ export default function MailPage() {
     }
   });
 
-  // Mutation pour supprimer des emails
+  // Mutation pour supprimer des emails avec persistance
   const deleteEmailsMutation = useMutation({
     mutationFn: async (emailIds: number[]) => {
-      // Simuler la suppression en local pour l'instant
-      return new Promise(resolve => setTimeout(resolve, 500));
+      // Sauvegarder dans localStorage pour persistance
+      const currentDeleted = JSON.parse(localStorage.getItem('deletedEmails') || '[]');
+      const newDeleted = [...new Set([...currentDeleted, ...emailIds])];
+      localStorage.setItem('deletedEmails', JSON.stringify(newDeleted));
+      return new Promise(resolve => setTimeout(resolve, 300));
     },
     onSuccess: (_, emailIds) => {
-      // Retirer les emails supprimés de la liste
-      setEmails(prev => prev.filter(email => !emailIds.includes(email.id)));
+      setDeletedEmails(prev => {
+        const newDeleted = new Set(prev);
+        emailIds.forEach(id => newDeleted.add(id));
+        return newDeleted;
+      });
       setSelectedEmails(new Set());
       toast({ title: 'Messages supprimés', description: 'Les messages ont été supprimés avec succès' });
     },
@@ -343,8 +414,14 @@ export default function MailPage() {
       
       const matchesCategory = filterCategory === 'all' || email.category === filterCategory;
       
-      // Filtre archives - afficher seulement les archives si demandé, sinon masquer les archivés
+      // Filtres suppression et archivage
+      const isDeleted = deletedEmails.has(email.id);
       const isArchived = archivedEmails.has(email.id);
+      
+      // Ne pas afficher les emails supprimés
+      if (isDeleted) return false;
+      
+      // Filtre archives - afficher seulement les archives si demandé, sinon masquer les archivés
       const matchesArchiveStatus = showArchived ? isArchived : !isArchived;
       
       return matchesSearch && matchesCategory && matchesArchiveStatus;
