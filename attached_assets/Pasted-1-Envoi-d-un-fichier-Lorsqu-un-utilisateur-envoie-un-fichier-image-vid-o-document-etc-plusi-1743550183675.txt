@@ -1,0 +1,42 @@
+1️⃣ Envoi d'un fichier
+Lorsqu'un utilisateur envoie un fichier (image, vidéo, document, etc.), plusieurs étapes sont effectuées :
+
+🔹 Compression et Préparation
+WhatsApp peut compresser certains fichiers avant l'envoi (exemple : images et vidéos) pour réduire la taille et accélérer l'envoi.
+
+Les fichiers sont chiffrés de bout en bout en utilisant l’algorithme AES-256-GCM, afin que seuls l'expéditeur et le destinataire puissent le déchiffrer.
+
+🔹 Téléversement sur le Serveur WhatsApp
+Le fichier est téléversé (uploadé) sur un serveur de WhatsApp.
+
+Un identifiant unique (hash) est généré pour le fichier, permettant de le retrouver plus tard.
+
+WhatsApp ne stocke pas ces fichiers de manière permanente ; ils sont supprimés après un certain temps ou une fois téléchargés par le destinataire.
+
+2️⃣ Réception du fichier par le destinataire
+Une fois le fichier envoyé :
+
+WhatsApp envoie une notification au destinataire via ses serveurs.
+
+Dans la conversation, un aperçu du fichier (vignette pour les images et vidéos, icône pour les documents) est affiché.
+
+Le fichier n'est pas encore téléchargé automatiquement, sauf si l'utilisateur a activé le téléchargement automatique (dans les paramètres de WhatsApp).
+
+3️⃣ Téléchargement du fichier
+Si l'utilisateur appuie sur le fichier pour le télécharger :
+
+L’application envoie une requête de téléchargement au serveur WhatsApp.
+
+Le serveur vérifie l'authenticité du destinataire (grâce à la clé de chiffrement) avant d’autoriser le téléchargement.
+
+Le fichier est ensuite téléchargé et déchiffré localement sur l’appareil.
+
+4️⃣ Stockage et Accès au fichier
+Une fois téléchargé :
+
+Le fichier est stocké localement sur l’appareil (dans le dossier WhatsApp/Media sur Android ou dans l'application Fichiers sur iOS).
+
+Si l’utilisateur supprime le fichier, il devra être renvoyé car WhatsApp ne le stocke pas en permanence sur ses serveurs.
+
+WhatsApp peut aussi supprimer automatiquement des fichiers après une période donnée si l’option Messages éphémères est activée.
+
