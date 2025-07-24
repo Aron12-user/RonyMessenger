@@ -20,7 +20,7 @@ Rony is a comprehensive communication platform that combines messaging, video co
 - **Database ORM**: Drizzle ORM for PostgreSQL interactions
 - **Authentication**: Session-based authentication with bcrypt password hashing
 - **Real-time**: WebSocket server for live messaging and notifications
-- **File Uploads**: Multer for handling file uploads with local storage
+- **File Uploads**: Multer 2.0.1 for secure file uploads with local storage
 
 ### Video Conferencing
 - **Primary**: Simple Jitsi Meet integration (meet.jit.si)
@@ -72,6 +72,15 @@ Rony is a comprehensive communication platform that combines messaging, video co
 2. Metadata stored in PostgreSQL with access controls
 3. Sharing permissions managed through database relations
 4. Download links generated with expiration controls
+
+## Recent Changes
+
+### Security Updates (July 24, 2025)
+- **Multer Security Fix**: Upgraded from `^1.4.5-lts.2` to `^2.0.1` to address CVE-2025-48997
+  - Fixed potential DoS vulnerability with empty field names in file uploads
+  - Maintained backward compatibility - all existing upload endpoints functional
+  - File upload authentication and validation remain intact
+  - File upload authentication and validation remain intact
 
 ## External Dependencies
 
