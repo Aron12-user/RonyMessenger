@@ -180,7 +180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/conversations/:id/messages", async (req, res) => {
+  app.post("/api/conversations/:id/messages", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -188,7 +188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const conversationId = parseInt(req.params.id);
-      const { content } = req.body;
+      const { content, messageType = 'text', fileUrl, fileName, fileType, fileSize } = req.body;
 
       if (!content) {
         return res.status(400).json({ error: "Contenu du message requis" });
@@ -198,7 +198,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         conversationId,
         senderId: userId,
         content,
-        timestamp: new Date()
+        messageType,
+        fileUrl: fileUrl || null,
+        fileName: fileName || null,
+        fileType: fileType || null,
+        fileSize: fileSize || null,
+        timestamp: new Date(),
+        isRead: false,
+        isDeleted: false,
+        isPinned: false,
+        isEdited: false,
+        editedAt: null,
+        replyToId: null,
+        reactions: [],
+        mentions: [],
+        metadata: null
       });
 
       await storage.updateConversationLastMessage(
