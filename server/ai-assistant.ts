@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { storage } from "./storage";
+import { completeStorage as storage } from "./storage-clean";
 import { Request, Response } from "express";
 
 const groq = new OpenAI({
