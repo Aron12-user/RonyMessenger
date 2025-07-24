@@ -389,8 +389,15 @@ export class CompleteMemStorage implements IStorageComplete {
     return file;
   }
   
-  async getFilesByFolder(folderId: number | null): Promise<File[]> {
-    return Array.from(this.files.values()).filter(file => file.folderId === folderId);
+  async getFilesByFolder(folderId: number | null, userId?: number): Promise<File[]> {
+    const files = Array.from(this.files.values()).filter(file => file.folderId === folderId);
+    
+    // SÉCURITÉ CRITIQUE : Filtrer seulement les fichiers de l'utilisateur connecté
+    if (userId) {
+      return files.filter(file => file.uploaderId === userId);
+    }
+    
+    return files;
   }
   
   async getFileById(fileId: number): Promise<File | undefined> {

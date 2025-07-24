@@ -586,8 +586,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const folderId = folderIdParam && folderIdParam !== 'null' ? parseInt(folderIdParam) : null;
       console.log(`[routes] Getting files for folderId: ${folderId} (param: ${folderIdParam}), userId: ${userId}`);
 
-      const files = await storage.getFilesByFolder(folderId);
-      console.log(`[routes] Returning ${files.length} files`);
+      const files = await storage.getFilesByFolder(folderId, userId);
+      console.log(`[routes] Returning ${files.length} files for user ${userId}`);
       res.json(files);
     } catch (error) {
       console.error('Error fetching files:', error);
@@ -923,51 +923,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[files] File shared successfully:`, sharing);
       
-      // Créer une notification courrier en temps réel pour le destinataire
-      try {
-        console.log(`[files] Creating courrier notification for user ${sharedWithId}`);
-        
-        // Créer le message de notification pour le courrier
-        const courrierMessage = {
-          type: 'file_share',
-          recipientId: sharedWithId,
-          sender: req.user?.displayName || req.user?.username || 'Utilisateur',
-          senderEmail: req.user?.email || req.user?.username + '@rony.com',
-          subject: `Partage de fichier : ${file.name}`,
-          message: `${req.user?.displayName || req.user?.username} a partagé le fichier "${file.name}" avec vous.`,
-          timestamp: new Date().toISOString(),
-          priority: 'high',
-          attachmentInfo: {
-            fileId: fileId,
-            fileName: file.name,
-            fileType: file.type,
-            fileSize: file.size,
-            fileUrl: file.url,
-            permission: permission || 'read'
-          }
-        };
-        
-        // Envoyer via WebSocket si disponible
-        if (global.wss && global.wss.clients) {
-          const messageData = JSON.stringify({
-            type: 'courrier_message',
-            data: courrierMessage
-          });
-          
-          global.wss.clients.forEach((client: any) => {
-            if (client.readyState === 1) { // WebSocket.OPEN
-              client.send(messageData);
-            }
-          });
-          
-          console.log(`[files] Courrier notification sent via WebSocket for file share`);
-        }
-        
-        console.log(`[files] Courrier notification created successfully:`, courrierMessage);
-      } catch (notifError) {
-        console.error('[files] Failed to create courrier notification:', notifError);
-        // Continue même si la notification échoue
-      }
+      // SUPPRIMÉ : Notifications courrier pour éviter les doublons
+      // Les notifications sont gérées automatiquement dans MailPage.tsx
+      console.log(`[files] File sharing completed - notifications handled by frontend`);
       
       res.json({ 
         success: true, 
@@ -1030,48 +988,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[folders] Folder sharing created:`, folderSharing);
       
-      // Créer une notification courrier en temps réel pour le destinataire
-      try {
-        console.log(`[folders] Creating courrier notification for folder share to user ${sharedWithId}`);
-        
-        const courrierMessage = {
-          type: 'folder_share',
-          recipientId: sharedWithId,
-          sender: req.user?.displayName || req.user?.username || 'Utilisateur',
-          senderEmail: req.user?.email || req.user?.username + '@rony.com',
-          subject: `Partage de dossier : ${folder.name || 'Dossier'}`,
-          message: `${req.user?.displayName || req.user?.username} a partagé le dossier "${folder.name || 'Dossier'}" avec vous.`,
-          timestamp: new Date().toISOString(),
-          priority: 'high',
-          attachmentInfo: {
-            folderId: folderId,
-            folderName: folder.name || 'Dossier',
-            permission: permission || 'read',
-            folderPath: folder.path || folder.name
-          }
-        };
-        
-        // Envoyer via WebSocket si disponible
-        if (global.wss && global.wss.clients) {
-          const messageData = JSON.stringify({
-            type: 'courrier_message',
-            data: courrierMessage
-          });
-          
-          global.wss.clients.forEach((client: any) => {
-            if (client.readyState === 1) { // WebSocket.OPEN
-              client.send(messageData);
-            }
-          });
-          
-          console.log(`[folders] Courrier notification sent via WebSocket for folder share`);
-        }
-        
-        console.log(`[folders] Courrier notification created successfully:`, courrierMessage);
-      } catch (notifError) {
-        console.error('[folders] Failed to create courrier notification:', notifError);
-        // Continue même si la notification échoue
-      }
+      // SUPPRIMÉ : Notifications courrier pour éviter les doublons
+      // Les notifications sont gérées automatiquement dans MailPage.tsx
+      console.log(`[folders] Folder sharing completed - notifications handled by frontend`);
 
       res.json({ 
         success: true, 
