@@ -22,8 +22,13 @@ export const API_ENDPOINTS = {
 // WebSocket message types
 export const WS_EVENTS = {
   NEW_MESSAGE: 'new_message',
+  MESSAGE_REACTION: 'message_reaction',
+  MESSAGE_EDITED: 'message_edited',
+  MESSAGE_DELETED: 'message_deleted',
+  MESSAGE_PINNED: 'message_pinned',
   USER_STATUS: 'user_status',
   USER_TYPING: 'user_typing',
+  USER_STOP_TYPING: 'user_stop_typing',
   MESSAGE_READ: 'message_read',
   CALL_OFFER: 'call_offer',
   CALL_ANSWER: 'call_answer',
@@ -32,6 +37,21 @@ export const WS_EVENTS = {
   JOIN_MEETING: 'join_meeting',
   LEAVE_MEETING: 'leave_meeting'
 };
+
+// Message types
+export const MESSAGE_TYPES = {
+  TEXT: 'text',
+  FILE: 'file',
+  IMAGE: 'image',
+  AUDIO: 'audio',
+  VIDEO: 'video',
+  SYSTEM: 'system'
+};
+
+// Common emoji reactions
+export const EMOJI_REACTIONS = [
+  '👍', '❤️', '😂', '😮', '😢', '😡', '👎', '🎉', '✅', '❌'
+];
 
 // Local storage keys
 export const STORAGE_KEYS = {

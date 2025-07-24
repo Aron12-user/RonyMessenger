@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
-import { API_ENDPOINTS } from "@/lib/constants";
+import { API_ENDPOINTS, WS_EVENTS } from "@/lib/constants";
 import { Message, User, Conversation } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
@@ -12,6 +12,7 @@ import MessageInput from '@/components/messaging/MessageInput';
 import ConversationList from '@/components/ConversationList';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { 
   Search, 
   Plus, 
@@ -22,13 +23,14 @@ import {
   Info,
   Archive,
   Star,
-  MoreVertical
+  MoreVertical,
+  X
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export default function Messages() {
+export default function MessagesEnhanced() {
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewConversation, setShowNewConversation] = useState(false);
