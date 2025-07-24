@@ -220,9 +220,17 @@ export default function MessageInput({
     try {
       console.log("🎤 Tentative d'accès au microphone...");
       
-      // Vérification de support robuste
+      // Vérification de support et permissions
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error("L'enregistrement audio n'est pas supporté sur ce navigateur");
+      }
+
+      // Vérifier les permissions existantes
+      const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      console.log("🔐 Statut permission microphone:", permissionStatus.state);
+      
+      if (permissionStatus.state === 'denied') {
+        throw new Error("Permission microphone refusée. Veuillez autoriser l'accès au microphone dans les paramètres de votre navigateur.");
       }
 
       // Configuration audio optimisée

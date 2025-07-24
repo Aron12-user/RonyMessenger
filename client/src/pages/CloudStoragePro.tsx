@@ -239,12 +239,20 @@ export default function CloudStoragePro() {
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (results) => {
       queryClient.invalidateQueries({ queryKey: ['/api/files'] });
       setIsShareDialogOpen(false);
       setShareRecipient("");
       setSelectedFiles({});
-      toast({ title: "Fichiers partagés avec succès" });
+      
+      // Notification de succès avec détails
+      const fileCount = results?.length || 0;
+      const recipientName = results?.[0]?.recipient || shareRecipient;
+      
+      toast({ 
+        title: "Partage réussi", 
+        description: `${fileCount} fichier(s) partagé(s) avec ${recipientName}. Notification envoyée en temps réel.`
+      });
     },
     onError: (error: Error) => {
       toast({ 

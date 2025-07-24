@@ -915,7 +915,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       console.log(`[files] File shared successfully:`, sharing);
-      res.json({ success: true, sharing, message: "Fichier partagé avec succès" });
+      
+      // Créer une notification en temps réel pour le destinataire
+      try {
+        const notification = await storage.createMessage({
+          conversationId: 0, // Notification système
+          senderId: userId,
+          content: `📎 ${targetUser.displayName || targetUser.username} a partagé le fichier "${file.originalName}" avec vous`,
+          messageType: 'system',
+          replyToId: null,
+          fileUrl: file.url,
+          fileName: file.originalName,
+          fileType: file.mimeType,
+          fileSize: file.size,
+          mentions: [sharedWithId],
+          timestamp: new Date(),
+          isRead: false,
+          isDeleted: false,
+          isPinned: false,
+          isEdited: false,
+          editedAt: null,
+          reactions: [],
+          metadata: { 
+            type: 'file_share',
+            sharedFileId: fileId,
+            sharedBy: userId,
+            permission: permission || 'read'
+          }
+        });
+        
+        console.log(`[files] Notification created for file share:`, notification);
+      } catch (notifError) {
+        console.error('[files] Failed to create notification:', notifError);
+        // Continue même si la notification échoue
+      }
+      
+      res.json({ 
+        success: true, 
+        sharing, 
+        message: "Fichier partagé avec succès",
+        recipient: targetUser.displayName || targetUser.username
+      });
     } catch (error: any) {
       console.error('Erreur lors du partage du fichier:', error);
       res.status(500).json({ error: error.message || "Erreur lors du partage" });
