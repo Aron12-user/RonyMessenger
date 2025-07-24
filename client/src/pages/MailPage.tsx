@@ -145,13 +145,13 @@ export default function MailPage() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          recipientEmail: recipientEmail.replace('@rony.com', ''),
+          recipientEmail: recipientEmail.includes('@') ? recipientEmail.split('@')[0] : recipientEmail,
           message,
           originalSubject: originalEmail.subject,
           originalSender: originalEmail.sender,
           originalContent: originalEmail.content,
           senderName: (user as any)?.displayName || (user as any)?.username,
-          senderEmail: (user as any)?.username.replace('@rony.com', '') + '@rony.com'
+          senderEmail: (user as any)?.username
         })
       });
       
@@ -179,13 +179,13 @@ export default function MailPage() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          recipientEmail: recipientEmail.replace('@rony.com', ''),
+          recipientEmail: recipientEmail.includes('@') ? recipientEmail.split('@')[0] : recipientEmail,
           message,
           originalSubject: originalEmail.subject,
           originalSender: originalEmail.sender,
           originalContent: originalEmail.content,
           senderName: (user as any)?.displayName || (user as any)?.username,
-          senderEmail: (user as any)?.username.replace('@rony.com', '') + '@rony.com'
+          senderEmail: (user as any)?.username
         })
       });
       
@@ -255,6 +255,38 @@ export default function MailPage() {
     },
     onError: () => {
       toast({ title: 'Erreur téléchargement', description: 'Impossible de télécharger le dossier', variant: 'destructive' });
+    }
+  });
+
+  // Mutation pour archiver des emails
+  const archiveEmailsMutation = useMutation({
+    mutationFn: async (emailIds: number[]) => {
+      // Simuler l'archivage en local pour l'instant
+      return new Promise(resolve => setTimeout(resolve, 500));
+    },
+    onSuccess: () => {
+      toast({ title: 'Messages archivés', description: 'Les messages ont été archivés avec succès' });
+      setSelectedEmails(new Set());
+    },
+    onError: () => {
+      toast({ title: 'Erreur archivage', description: 'Impossible d\'archiver les messages', variant: 'destructive' });
+    }
+  });
+
+  // Mutation pour supprimer des emails
+  const deleteEmailsMutation = useMutation({
+    mutationFn: async (emailIds: number[]) => {
+      // Simuler la suppression en local pour l'instant
+      return new Promise(resolve => setTimeout(resolve, 500));
+    },
+    onSuccess: (_, emailIds) => {
+      // Retirer les emails supprimés de la liste
+      setEmails(prev => prev.filter(email => !emailIds.includes(email.id)));
+      setSelectedEmails(new Set());
+      toast({ title: 'Messages supprimés', description: 'Les messages ont été supprimés avec succès' });
+    },
+    onError: () => {
+      toast({ title: 'Erreur suppression', description: 'Impossible de supprimer les messages', variant: 'destructive' });
     }
   });
 
@@ -515,17 +547,17 @@ export default function MailPage() {
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Header amélioré */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 border-b shadow-lg">
-        <div className="px-6 py-4">
+      <div className="bg-gradient-to-r from-blue-100 to-blue-200 border-b shadow-sm">
+        <div className="px-4 py-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-white/20 rounded-lg">
-                  <Mail className="w-6 h-6 text-white" />
+                <div className="p-1.5 bg-white/40 rounded-lg">
+                  <Mail className="w-5 h-5 text-blue-700" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-white">Courrier</h1>
-                  <p className="text-blue-100 text-sm">Gestion des messages et partages</p>
+                  <h1 className="text-xl font-bold text-blue-800">Courrier</h1>
+                  <p className="text-blue-600 text-xs">Messages et partages</p>
                 </div>
               </div>
               
@@ -534,13 +566,13 @@ export default function MailPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => refetch()}
-                  className="text-white hover:bg-white/20 border-white/30"
+                  className="text-blue-700 hover:bg-white/30 border-blue/20 text-xs"
                 >
-                  <RefreshCw className="w-4 h-4 mr-2" />
+                  <RefreshCw className="w-3 h-3 mr-1" />
                   Actualiser
                 </Button>
                 
-                <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
+                <Badge variant="secondary" className="bg-white/40 text-blue-700 border-blue/20 text-xs">
                   {filteredEmails.length} messages
                 </Badge>
               </div>
@@ -554,7 +586,7 @@ export default function MailPage() {
                   placeholder="Rechercher messages, expéditeurs..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-80 bg-white/90 border-white/30 focus:bg-white"
+                  className="pl-10 w-80 bg-white/80 border-blue/20 focus:bg-white text-sm"
                 />
               </div>
               
@@ -564,16 +596,16 @@ export default function MailPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowPreview(!showPreview)}
-                  className="text-white hover:bg-white/20"
+                  className="text-blue-700 hover:bg-white/30 text-xs"
                 >
-                  <Eye className="w-4 h-4 mr-2" />
-                  {showPreview ? 'Masquer aperçu' : 'Afficher aperçu'}
+                  <Eye className="w-3 h-3 mr-1" />
+                  {showPreview ? 'Masquer' : 'Aperçu'}
                 </Button>
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-white hover:bg-white/20">
-                      <Settings className="w-4 h-4 mr-2" />
+                    <Button variant="ghost" size="sm" className="text-blue-700 hover:bg-white/30 text-xs">
+                      <Settings className="w-3 h-3 mr-1" />
                       Options
                     </Button>
                   </DropdownMenuTrigger>
@@ -606,12 +638,12 @@ export default function MailPage() {
         </div>
         
         {/* Barre de filtres */}
-        <div className="px-6 py-3 bg-white/10">
+        <div className="px-4 py-2 bg-white/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-white hover:bg-white/20">
+                  <Button variant="ghost" size="sm" className="text-blue-700 hover:bg-white/30 text-xs">
                     <Filter className="w-4 h-4 mr-2" />
                     {filterCategory === 'all' ? 'Tous les types' : 
                      filterCategory === 'files' ? 'Fichiers' :
@@ -649,8 +681,8 @@ export default function MailPage() {
                 size="sm"
                 onClick={() => setShowArchived(!showArchived)}
                 className={cn(
-                  "text-white hover:bg-white/20",
-                  showArchived && "bg-white/20"
+                  "text-blue-700 hover:bg-white/30 text-xs",
+                  showArchived && "bg-white/30"
                 )}
               >
                 <Archive className="w-4 h-4 mr-2" />
@@ -661,16 +693,28 @@ export default function MailPage() {
             {/* Actions en lot */}
             {selectedEmails.size > 0 && (
               <div className="flex items-center space-x-2">
-                <Badge variant="secondary" className="bg-white/20 text-white">
+                <Badge variant="secondary" className="bg-white/30 text-blue-700 text-xs">
                   {selectedEmails.size} sélectionné{selectedEmails.size > 1 ? 's' : ''}
                 </Badge>
-                <Button variant="ghost" size="sm" className="text-white hover:bg-white/20">
-                  <Archive className="w-4 h-4 mr-2" />
-                  Archiver
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-blue-700 hover:bg-white/30 text-xs"
+                  onClick={() => archiveEmailsMutation.mutate(Array.from(selectedEmails))}
+                  disabled={archiveEmailsMutation.isPending}
+                >
+                  <Archive className="w-3 h-3 mr-1" />
+                  {archiveEmailsMutation.isPending ? 'Archivage...' : 'Archiver'}
                 </Button>
-                <Button variant="ghost" size="sm" className="text-white hover:bg-white/20">
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Supprimer
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-blue-700 hover:bg-white/30 text-xs"
+                  onClick={() => deleteEmailsMutation.mutate(Array.from(selectedEmails))}
+                  disabled={deleteEmailsMutation.isPending}
+                >
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  {deleteEmailsMutation.isPending ? 'Suppression...' : 'Supprimer'}
                 </Button>
               </div>
             )}
@@ -680,7 +724,7 @@ export default function MailPage() {
 
       {/* Barre d'outils et statistiques */}
       <div className="bg-white border-b shadow-sm">
-        <div className="px-6 py-3">
+        <div className="px-4 py-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
@@ -767,10 +811,10 @@ export default function MailPage() {
                   setShowEmailReader(true);
                 }}
               >
-                <div className="p-4">
-                  <div className="flex items-start space-x-4">
+                <div className="p-2">
+                  <div className="flex items-start space-x-2">
                     {/* Checkbox de sélection */}
-                    <div className="flex items-center space-x-3 pt-1">
+                    <div className="flex items-center space-x-2 pt-0.5">
                       <input
                         type="checkbox"
                         checked={selectedEmails.has(email.id)}
@@ -801,7 +845,7 @@ export default function MailPage() {
                     {/* Avatar amélioré */}
                     <div className="relative">
                       <div className={cn(
-                        "w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm",
+                        "w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm",
                         email.category === 'folders' 
                           ? "bg-gradient-to-br from-blue-500 to-blue-600" 
                           : email.category === 'files'
@@ -971,11 +1015,20 @@ export default function MailPage() {
                                 {pinnedEmails.has(email.id) ? 'Désépingler' : 'Épingler'}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                archiveEmailsMutation.mutate([email.id]);
+                              }}>
                                 <Archive className="w-4 h-4 mr-2" />
                                 Archiver
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="text-red-600">
+                              <DropdownMenuItem 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteEmailsMutation.mutate([email.id]);
+                                }}
+                                className="text-red-600"
+                              >
                                 <Trash2 className="w-4 h-4 mr-2" />
                                 Supprimer
                               </DropdownMenuItem>
