@@ -11,9 +11,8 @@ import MessageList from '@/components/messaging/MessageList';
 import MessageInput from '@/components/messaging/MessageInput';
 import ConversationList from '@/components/ConversationList';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
 import { 
-  Search, 
   Plus, 
   Settings, 
   Users, 
@@ -30,7 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export default function Messages() {
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+
   const [showNewConversation, setShowNewConversation] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
@@ -133,18 +132,8 @@ export default function Messages() {
     createConversationMutation.mutate(participantId);
   };
 
-  // Filter conversations based on search
-  const filteredConversations = searchQuery
-    ? conversations.filter(conv => {
-        const otherUserId = conv.creatorId === currentUser?.id ? conv.participantId : conv.creatorId;
-        const otherUser = usersRecord[otherUserId];
-        return otherUser && (
-          (otherUser.displayName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-          otherUser.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (conv.lastMessage || '').toLowerCase().includes(searchQuery.toLowerCase())
-        );
-      })
-    : conversations;
+  // Use all conversations without filtering
+  const filteredConversations = conversations;
 
   // Available users for new conversations (excluding current user and existing conversations)
   const availableUsers = users.filter(user => {
@@ -231,16 +220,7 @@ export default function Messages() {
             </div>
           </div>
 
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Rechercher des conversations..."
-              className="pl-10"
-            />
-          </div>
+
         </div>
 
         {/* Conversations list */}
@@ -255,20 +235,15 @@ export default function Messages() {
                 <Users className="h-8 w-8 text-gray-400" />
               </div>
               <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                {searchQuery ? 'Aucune conversation trouvée' : 'Aucune conversation'}
+                Aucune conversation
               </h3>
               <p className="text-gray-500 dark:text-gray-400 mb-4">
-                {searchQuery 
-                  ? 'Essayez d\'autres mots-clés'
-                  : 'Commencez une nouvelle conversation'
-                }
+                Commencez une nouvelle conversation
               </p>
-              {!searchQuery && (
-                <Button onClick={() => setShowNewConversation(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nouvelle conversation
-                </Button>
-              )}
+              <Button onClick={() => setShowNewConversation(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nouvelle conversation
+              </Button>
             </div>
           ) : (
             <ConversationList
