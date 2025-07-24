@@ -54,16 +54,10 @@ export class MemoryStorage implements IStorage {
   }
 
   private async seedData() {
-    // Create test users with Rony addresses
-    const users = [
-      { username: 'admin@rony.com', password: '$2b$10$O2Rr6IHBuCCQfM.wIa7xI.mzRILxhAIhwGYF.YvTxnfqh9bw3h7Xq', displayName: 'Administrateur', status: 'online', email: 'admin@rony.com', phone: '+1 (555) 123-4567', title: 'Administrateur Système' },
-      { username: 'john@rony.com', password: '$2b$10$O2Rr6IHBuCCQfM.wIa7xI.mzRILxhAIhwGYF.YvTxnfqh9bw3h7Xq', displayName: 'John Doe', status: 'away', email: 'john@rony.com', phone: '+1 (555) 987-6543', title: 'Développeur Senior' },
-      { username: 'sarah@rony.com', password: '$2b$10$O2Rr6IHBuCCQfM.wIa7xI.mzRILxhAIhwGYF.YvTxnfqh9bw3h7Xq', displayName: 'Sarah Johnson', status: 'busy', email: 'sarah@rony.com', phone: '+1 (555) 456-7890', title: 'Chef de Projet' },
-      { username: 'jessica@rony.com', password: '$2b$10$O2Rr6IHBuCCQfM.wIa7xI.mzRILxhAIhwGYF.YvTxnfqh9bw3h7Xq', displayName: 'Jessica Wong', status: 'offline', email: 'jessica@rony.com', phone: '+1 (555) 321-7654', title: 'Manager Marketing' }
-    ];
-    
-    for (const userData of users) {
-      const user: User = {
+    // Test user creation disabled for security - use registration endpoint instead
+    // Hardcoded credentials removed to prevent unauthorized access
+    console.log('Test data seeding disabled for security. Use /api/register to create users.');
+  }
         id: this.userId++,
         username: userData.username,
         password: userData.password,

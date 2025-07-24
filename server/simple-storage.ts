@@ -54,56 +54,9 @@ export class SimpleStorage implements IStorage {
   }
 
   private seedData() {
-    // Create test users with hashed passwords (password = "password")
-    const testUsers = [
-      {
-        username: 'admin@rony.com',
-        password: '$2b$10$b8bhXVHeZbs42eXqSnaLguVguVcCmRVD0jufmfbwjgKtkPPaUXpeq',
-        displayName: 'Administrateur',
-        status: 'online',
-        email: 'admin@rony.com',
-        phone: '+1 (555) 123-4567',
-        title: 'Administrateur Système'
-      },
-      {
-        username: 'john@rony.com',
-        password: '$2b$10$b8bhXVHeZbs42eXqSnaLguVguVcCmRVD0jufmfbwjgKtkPPaUXpeq',
-        displayName: 'John Doe',
-        status: 'away',
-        email: 'john@rony.com',
-        phone: '+1 (555) 987-6543',
-        title: 'Développeur Senior'
-      },
-      {
-        username: 'sarah@rony.com',
-        password: '$2b$10$b8bhXVHeZbs42eXqSnaLguVguVcCmRVD0jufmfbwjgKtkPPaUXpeq',
-        displayName: 'Sarah Johnson',
-        status: 'busy',
-        email: 'sarah@rony.com',
-        phone: '+1 (555) 456-7890',
-        title: 'Chef de Projet'
-      }
-    ];
-
-    testUsers.forEach(userData => {
-      const user: User = {
-        id: this.userId++,
-        username: userData.username,
-        password: userData.password,
-        displayName: userData.displayName,
-        email: userData.email,
-        phone: userData.phone,
-        title: userData.title,
-        avatar: null,
-        theme: null,
-        status: userData.status,
-        lastSeen: new Date()
-      };
-      this.users.set(user.id, user);
-    });
-
-    // Créer des fichiers de démonstration partagés
-    this.createDemoSharedFiles();
+    // Test user creation disabled for security - use registration endpoint instead
+    // Hardcoded credentials removed to prevent unauthorized access
+    console.log('Test data seeding disabled for security. Use /api/register to create users.');
   }
 
   private createDemoSharedFiles() {

@@ -102,18 +102,10 @@ export class MemStorage implements IStorage {
   }
   
   private seedData() {
-    // Create some users with Rony addresses
-    const users = [
-      { username: 'john@rony.com', password: 'password', displayName: 'John Doe', status: 'online', email: 'john@rony.com', phone: '+1 (555) 123-4567', title: 'Software Engineer' },
-      { username: 'sarah@rony.com', password: 'password', displayName: 'Sarah Anderson', status: 'online', email: 'sarah@rony.com', phone: '+1 (555) 987-6543', title: 'Product Designer' },
-      { username: 'michael@rony.com', password: 'password', displayName: 'Michael Moore', status: 'away', email: 'michael@rony.com', phone: '+1 (555) 456-7890', title: 'Senior Developer' },
-      { username: 'jessica@rony.com', password: 'password', displayName: 'Jessica Wong', status: 'offline', email: 'jessica@rony.com', phone: '+1 (555) 321-7654', title: 'Marketing Manager' }
-    ];
-    
-    users.forEach(userData => this.createUser(userData));
-    
-    // Create conversations for the first user
-    const user1 = this.getUser(1);
+    // Test user creation disabled for security - use registration endpoint instead
+    // Hardcoded credentials removed to prevent unauthorized access
+    console.log('Test data seeding disabled for security. Use /api/register to create users.');
+  }
     if (user1) {
       for (let i = 2; i <= 4; i++) {
         const otherUser = this.getUser(i);
