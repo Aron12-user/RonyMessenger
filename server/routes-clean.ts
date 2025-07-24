@@ -1131,22 +1131,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const fileId = parseInt(req.params.id);
-      const { sharedWithUserId, permissions } = req.body;
+      const { sharedWithUserId, sharedWithId, permissions, subject, message } = req.body;
+      const targetUserId = sharedWithUserId || sharedWithId;
 
-      if (!sharedWithUserId) {
+      if (!targetUserId) {
         return res.status(400).json({ error: "Utilisateur destinataire requis" });
+      }
+
+      // Vérifier que le fichier existe et appartient à l'utilisateur
+      const file = Array.from((storage as any).files.values()).find((f: any) => f.id === fileId && f.uploaderId === userId);
+      if (!file) {
+        return res.status(404).json({ error: "Fichier introuvable ou non autorisé" });
+      }
+
+      // Trouver l'utilisateur destinataire
+      const targetUser = Array.from((storage as any).users.values()).find((u: any) => u.id === targetUserId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "Utilisateur destinataire introuvable" });
       }
 
       const sharingData: InsertFileSharing = {
         fileId,
         ownerId: userId,
-        sharedWithId: sharedWithUserId,
+        sharedWithId: targetUserId,
         permission: permissions || 'read',
         createdAt: new Date()
       };
 
       const sharing = await storage.shareFile(sharingData);
-      res.json(sharing);
+      
+      // Créer une notification courrier instantanée
+      try {
+        const courrierMessage = {
+          type: 'file_share',
+          recipientId: targetUserId,
+          sender: req.user?.displayName || req.user?.username || 'Utilisateur',
+          senderEmail: req.user?.email || req.user?.username + '@rony.com',
+          subject: subject || `Partage de fichier : ${file.name}`,
+          message: message || `${req.user?.displayName || req.user?.username} a partagé un fichier avec vous.`,
+          timestamp: new Date().toISOString(),
+          priority: 'high',
+          attachmentInfo: {
+            fileId: fileId,
+            fileName: file.name,
+            fileType: file.type,
+            fileSize: file.size,
+            permission: permissions || 'read'
+          }
+        };
+        
+        // Envoyer via WebSocket instantanément
+        if (global.wss && global.wss.clients) {
+          const messageData = JSON.stringify({
+            type: 'courrier_message',
+            data: courrierMessage
+          });
+          
+          console.log(`[COURRIER] Sending file share notification:`, courrierMessage);
+          
+          global.wss.clients.forEach((client: any) => {
+            if (client.readyState === 1) {
+              client.send(messageData);
+            }
+          });
+        }
+      } catch (notifError) {
+        console.error('[files] Failed to create courrier notification:', notifError);
+      }
+      
+      res.json({ 
+        success: true, 
+        sharing: sharing,
+        message: "Fichier partagé avec succès",
+        recipient: targetUser.displayName || targetUser.username 
+      });
     } catch (error) {
       console.error('Error sharing file:', error);
       res.status(500).json({ error: 'Internal server error' });
