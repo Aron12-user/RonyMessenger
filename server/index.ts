@@ -91,7 +91,7 @@ app.use('/uploads', express.static('uploads'));
     });
   });
 
-  const PORT = 5000;
+  const PORT = parseInt(process.env.PORT || "5000");
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`, "express");
   });
