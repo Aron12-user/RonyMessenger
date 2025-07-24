@@ -1,0 +1,2 @@
+Test file for courrier notification system
+This file will test real-time sharing notifications.
