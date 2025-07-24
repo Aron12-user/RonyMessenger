@@ -126,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Conversations routes
-  app.get("/api/conversations", async (req, res) => {
+  app.get("/api/conversations", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -141,7 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/conversations", async (req, res) => {
+  app.post("/api/conversations", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -995,7 +995,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Contacts routes
-  app.get("/api/contacts", async (req, res) => {
+  app.get("/api/contacts", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -1144,8 +1144,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Route pour ajouter un contact
+  app.post("/api/contacts", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const { contactId } = req.body;
+      if (!contactId) {
+        return res.status(400).json({ error: "ID du contact requis" });
+      }
+
+      // Vérifier que l'utilisateur cible existe
+      const targetUser = await storage.getUser(contactId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "Utilisateur introuvable" });
+      }
+
+      // Vérifier que l'utilisateur n'essaie pas de s'ajouter lui-même
+      if (userId === contactId) {
+        return res.status(400).json({ error: "Vous ne pouvez pas vous ajouter vous-même comme contact" });
+      }
+
+      const contact = await storage.addContact({
+        userId,
+        contactId,
+        isFavorite: false,
+        createdAt: new Date()
+      });
+
+      res.status(201).json({ success: true, contact, message: "Contact ajouté avec succès" });
+    } catch (error) {
+      console.error('Error adding contact:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Route pour supprimer un contact
+  app.delete("/api/contacts/:contactId", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const contactId = parseInt(req.params.contactId);
+      await storage.removeContact(userId, contactId);
+      res.json({ success: true, message: "Contact supprimé avec succès" });
+    } catch (error) {
+      console.error('Error removing contact:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Route pour upload d'avatar
+  app.post("/api/upload-avatar", requireAuth, avatarUpload.single('avatar'), async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: "Aucun fichier d'avatar fourni" });
+      }
+
+      const avatarPath = `/uploads/avatars/${req.file.filename}`;
+      
+      // Mettre à jour l'utilisateur avec le nouveau chemin d'avatar
+      await storage.updateUserProfile(userId, { avatar: avatarPath });
+
+      res.json({ 
+        success: true, 
+        avatar: avatarPath,
+        message: "Avatar mis à jour avec succès" 
+      });
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Route pour changer le thème
+  app.patch("/api/user/theme", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const { theme } = req.body;
+      if (!theme) {
+        return res.status(400).json({ error: "Thème requis" });
+      }
+
+      await storage.updateUserProfile(userId, { theme });
+      res.json({ success: true, theme, message: "Thème mis à jour avec succès" });
+    } catch (error) {
+      console.error('Error updating theme:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Route pour mettre à jour le profil utilisateur
+  app.patch("/api/user/profile", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const { displayName, email, phone, title } = req.body;
+      
+      await storage.updateUserProfile(userId, {
+        displayName,
+        email,
+        phone,
+        title
+      });
+
+      res.json({ success: true, message: "Profil mis à jour avec succès" });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // AI Assistant route
-  app.post("/api/ai/chat", async (req, res) => {
+  app.post("/api/ai/chat", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
