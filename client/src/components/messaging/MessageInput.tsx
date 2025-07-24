@@ -218,35 +218,106 @@ export default function MessageInput({
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      // Vérifier si le navigateur supporte l'enregistrement
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast({
+          title: "Non supporté",
+          description: "Votre navigateur ne supporte pas l'enregistrement audio",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log("Demande d'accès au microphone...");
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100
+        }
+      });
+      
+      console.log("Microphone accessible, démarrage de l'enregistrement");
+      
+      // Tenter d'utiliser différents formats audio
+      let mimeType = 'audio/webm';
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        mimeType = 'audio/mp4';
+      } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+        mimeType = 'audio/ogg';
+      }
+      
+      const recorder = new MediaRecorder(stream, { mimeType });
       const chunks: Blob[] = [];
 
-      recorder.ondataavailable = (e) => chunks.push(e.data);
+      recorder.ondataavailable = (e) => {
+        console.log("Données audio reçues:", e.data.size, "bytes");
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+      
       recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const file = new File([blob], `recording-${Date.now()}.webm`, { type: 'audio/webm' });
-        setSelectedFiles(prev => [...prev, file]);
+        console.log("Arrêt de l'enregistrement, chunks:", chunks.length);
+        if (chunks.length > 0) {
+          const blob = new Blob(chunks, { type: mimeType });
+          const extension = mimeType.includes('webm') ? 'webm' : 
+                            mimeType.includes('mp4') ? 'mp4' : 'ogg';
+          const file = new File([blob], `vocal-${Date.now()}.${extension}`, { type: mimeType });
+          console.log("Fichier audio créé:", file.name, file.size, "bytes");
+          setSelectedFiles(prev => [...prev, file]);
+        }
         stream.getTracks().forEach(track => track.stop());
       };
 
-      recorder.start();
+      recorder.onerror = (e) => {
+        console.error("Erreur MediaRecorder:", e);
+        toast({
+          title: "Erreur d'enregistrement",
+          description: "Une erreur est survenue pendant l'enregistrement",
+          variant: "destructive"
+        });
+      };
+
+      recorder.start(1000); // Enregistrer par chunks de 1 seconde
       setMediaRecorder(recorder);
       setIsRecording(true);
-    } catch (error) {
+      
+      toast({
+        title: "Enregistrement démarré",
+        description: "Parlez maintenant dans votre microphone"
+      });
+    } catch (error: any) {
+      console.error("Erreur accès microphone:", error);
+      let message = "Impossible d'accéder au microphone";
+      
+      if (error.name === 'NotAllowedError') {
+        message = "Permission microphone refusée. Autorisez l'accès au microphone dans votre navigateur.";
+      } else if (error.name === 'NotFoundError') {
+        message = "Aucun microphone détecté sur votre appareil.";
+      } else if (error.name === 'NotSupportedError') {
+        message = "L'enregistrement audio n'est pas supporté sur ce navigateur.";
+      }
+      
       toast({
         title: "Erreur",
-        description: "Impossible d'accéder au microphone",
+        description: message,
         variant: "destructive"
       });
     }
   };
 
   const stopRecording = () => {
+    console.log("Arrêt demandé, état:", mediaRecorder?.state);
     if (mediaRecorder && mediaRecorder.state === 'recording') {
       mediaRecorder.stop();
       setIsRecording(false);
       setMediaRecorder(null);
+      
+      toast({
+        title: "Enregistrement terminé",
+        description: "Votre message vocal a été ajouté"
+      });
     }
   };
 
@@ -298,10 +369,10 @@ export default function MessageInput({
   const commonEmojis = ['😀', '😂', '😍', '🤔', '😢', '😠', '👍', '👎', '❤️', '🎉'];
 
   return (
-    <div className="border-t bg-white dark:bg-gray-800 p-4">
+    <div className="border-t bg-white dark:bg-gray-800 p-2">
       {/* Reply indicator */}
       {replyToMessage && (
-        <div className="flex items-center justify-between p-2 mb-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+        <div className="flex items-center justify-between p-1 mb-1 bg-gray-100 dark:bg-gray-700 rounded text-sm">
           <div className="flex items-center gap-2 text-sm">
             <Reply className="h-4 w-4 text-gray-500" />
             <span className="text-gray-600 dark:text-gray-300">
@@ -322,20 +393,22 @@ export default function MessageInput({
 
       {/* Selected files */}
       {selectedFiles.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-2">
-          {selectedFiles.map((file, index) => (
-            <div key={index} className="flex items-center gap-2 p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-              <span className="text-sm truncate max-w-xs">{file.name}</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => removeFile(index)}
-                className="h-5 w-5 p-0"
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-          ))}
+        <div className="max-h-16 overflow-y-auto mb-1 p-1">
+          <div className="flex flex-wrap gap-1">
+            {selectedFiles.map((file, index) => (
+              <div key={index} className="flex items-center gap-1 p-1 bg-blue-100 dark:bg-blue-900 rounded text-xs">
+                <span className="truncate max-w-24">{file.name}</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => removeFile(index)}
+                  className="h-4 w-4 p-0"
+                >
+                  <X className="h-2 w-2" />
+                </Button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -468,14 +541,12 @@ export default function MessageInput({
         />
       </div>
 
-      {/* Typing indicator space */}
-      <div className="h-4 mt-1">
-        {isTyping && (
-          <span className="text-xs text-gray-500">
-            {user?.displayName || user?.username} est en train d'écrire...
-          </span>
-        )}
-      </div>
+      {/* Typing indicator space - réduit */}
+      {isTyping && (
+        <div className="text-xs text-gray-500 mt-1">
+          {user?.displayName || user?.username} est en train d'écrire...
+        </div>
+      )}
     </div>
   );
 }
