@@ -461,7 +461,7 @@ export default function MailPage() {
         {
           id: Date.now() + 1,
           sender: 'Marie Dupont',
-          senderEmail: 'marie.dupont@example.com',
+          senderEmail: 'marie.dupont@rony.com',
           subject: 'Document partagé: Rapport mensuel',
           preview: 'Marie Dupont vous a envoyé un fichier. Voici le rapport mensuel que vous aviez demandé...',
           content: 'Bonjour, Voici le rapport mensuel que vous aviez demandé. Merci de me confirmer sa réception.',
@@ -478,7 +478,7 @@ export default function MailPage() {
         {
           id: Date.now() + 2,
           sender: 'Jean Martin',
-          senderEmail: 'jean.martin@example.com',
+          senderEmail: 'jean.martin@rony.com',
           subject: 'Photos de vacances',
           preview: 'Jean Martin vous a envoyé un dossier. Voici les photos de nos dernières vacances...',
           content: 'Salut ! Voici les photos de nos dernières vacances. J\'espère qu\'elles te plairont !',
@@ -495,7 +495,7 @@ export default function MailPage() {
         {
           id: Date.now() + 3,
           sender: 'Sophie Bernard',
-          senderEmail: 'sophie.bernard@example.com',
+          senderEmail: 'sophie.bernard@rony.com',
           subject: 'Présentation projet',
           preview: 'Sophie Bernard vous a envoyé un fichier. La présentation pour la réunion de demain...',
           content: 'Voici la présentation pour la réunion de demain. Pouvez-vous la relire avant ?',
@@ -776,7 +776,7 @@ Bien cordialement,`;
           originalSender: originalEmail.sender,
           originalContent: originalEmail.content,
           senderName: user.displayName || user.username,
-          senderEmail: user.email || `${user.username}@example.com`
+          senderEmail: user.email || `${user.username}`
         })
       });
       
@@ -820,7 +820,7 @@ Bien cordialement,`;
             folder: originalEmail.folder
           },
           senderName: user.displayName || user.username,
-          senderEmail: user.email || `${user.username}@example.com`
+          senderEmail: user.email || `${user.username}`
         })
       });
       

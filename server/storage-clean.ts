@@ -57,6 +57,9 @@ export interface IStorageComplete {
   getFileSharingsForFile(fileId: number): Promise<FileSharing[]>;
   revokeFileSharing(id: number): Promise<void>;
   
+  // Folder sharing methods
+  getSharedFolders(userId: number): Promise<any[]>;
+  
   // Pagination methods
   getPaginatedUsers(options: PaginationOptions): Promise<PaginatedResult<User>>;
 }
@@ -68,6 +71,7 @@ export class CompleteMemStorage implements IStorageComplete {
   private files: Map<number, File> = new Map();
   private folders: Map<number, Folder> = new Map();
   private fileSharing: Map<number, FileSharing> = new Map();
+  private folderSharing: Map<number, any> = new Map(); // Stockage pour les dossiers partagés
   private contacts: Map<string, Contact> = new Map();
   private reactions: Map<number, any> = new Map();
 
@@ -506,6 +510,67 @@ export class CompleteMemStorage implements IStorageComplete {
   
   async revokeFileSharing(id: number): Promise<void> {
     this.fileSharing.delete(id);
+  }
+
+  // Méthode pour récupérer les dossiers partagés avec un utilisateur
+  async getSharedFolders(userId: number): Promise<any[]> {
+    console.log(`[STORAGE] getSharedFolders for user ${userId}`);
+    console.log(`[STORAGE] folderSharing map size: ${this.folderSharing.size}`);
+    
+    const sharedFolders = [];
+    const allFolderSharings = Array.from(this.folderSharing.values());
+    console.log(`[STORAGE] All folder sharing entries:`, allFolderSharings);
+    
+    // Filtrer les partages pour cet utilisateur
+    const userFolderSharings = allFolderSharings.filter((sharing: any) => {
+      const isMatch = sharing.sharedWithId === userId;
+      console.log(`[STORAGE] Checking sharing folderId=${sharing.folderId}, sharedWithId=${sharing.sharedWithId}, userId=${userId}, match=${isMatch}`);
+      return isMatch;
+    });
+    
+    console.log(`[STORAGE] Found ${userFolderSharings.length} folder sharings for user ${userId}`);
+    
+    // Pour chaque partage, récupérer le dossier et ses fichiers
+    for (const sharing of userFolderSharings) {
+      const folder = this.folders.get(sharing.folderId);
+      console.log(`[STORAGE] Folder for ID ${sharing.folderId}:`, folder);
+      
+      if (folder) {
+        // Récupérer l'utilisateur qui a partagé
+        const sharedByUser = this.users.get(sharing.ownerId);
+        console.log(`[STORAGE] Shared by user:`, sharedByUser);
+        
+        // Récupérer les fichiers dans ce dossier
+        const folderFiles = Array.from(this.files.values()).filter((f: any) => f.folderId === folder.id);
+        console.log(`[STORAGE] Files in folder ${folder.id}:`, folderFiles.length);
+        
+        const sharedFolder = {
+          ...folder,
+          sharedBy: sharedByUser ? {
+            id: sharedByUser.id,
+            username: sharedByUser.username,
+            displayName: sharedByUser.displayName
+          } : null,
+          permission: sharing.permission,
+          sharedAt: sharing.createdAt,
+          fileCount: folderFiles.length,
+          files: folderFiles.map((f: any) => ({
+            id: f.id,
+            name: f.name,
+            type: f.type,
+            size: f.size,
+            url: f.url,
+            uploadedAt: f.uploadedAt
+          }))
+        };
+        
+        sharedFolders.push(sharedFolder);
+        console.log(`[STORAGE] Added shared folder: ${folder.name} with ${folderFiles.length} files`);
+      }
+    }
+    
+    console.log(`[STORAGE] Returning ${sharedFolders.length} shared folders`);
+    return sharedFolders;
   }
 }
 
