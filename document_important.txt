@@ -1,0 +1,10 @@
+Document Important - Test de Partage Courrier
+===============================================
+
+Contenu: Fichier de test pour vérifier le système de courrier
+Auteur: Aron
+Destinataire: Nasa
+Date: 2025-07-24
+Type: Document urgent à partager
+
+Ce fichier doit apparaître dans le courrier du destinataire immédiatement après partage.
