@@ -407,9 +407,38 @@ export class CompleteMemStorage implements IStorageComplete {
   }
   
   async getSharedFiles(userId: number): Promise<File[]> {
-    return Array.from(this.files.values()).filter(file => 
-      file.uploaderId === userId && file.isShared
-    );
+    console.log(`[STORAGE] Getting files shared WITH user ${userId}`);
+    console.log(`[STORAGE] Total fileSharing entries:`, this.fileSharing.size);
+    console.log(`[STORAGE] All fileSharing data:`, Array.from(this.fileSharing.values()));
+    
+    // Trouver tous les partages où l'utilisateur est destinataire
+    const userSharings = Array.from(this.fileSharing.values()).filter(sharing => {
+      console.log(`[STORAGE] Checking sharing: fileId=${sharing.fileId}, sharedWithId=${sharing.sharedWithId}, ownerId=${sharing.ownerId}, looking for userId=${userId}`);
+      return sharing.sharedWithId === userId;
+    });
+    
+    console.log(`[STORAGE] Found ${userSharings.length} sharings for user ${userId}:`, userSharings);
+    
+    const sharedFiles = [];
+    for (const sharing of userSharings) {
+      const file = this.files.get(sharing.fileId);
+      if (file) {
+        const sharedByUser = this.users.get(sharing.ownerId);
+        sharedFiles.push({
+          ...file,
+          sharedBy: sharedByUser ? {
+            id: sharedByUser.id,
+            username: sharedByUser.username,
+            displayName: sharedByUser.displayName
+          } : null,
+          permission: sharing.permission,
+          sharedAt: sharing.createdAt
+        });
+      }
+    }
+    
+    console.log(`[STORAGE] Returning ${sharedFiles.length} shared files`);
+    return sharedFiles;
   }
   
   // Folder methods (stubs for compatibility)

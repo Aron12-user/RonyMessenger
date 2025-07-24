@@ -1068,42 +1068,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Non authentifié" });
       }
 
-      console.log(`[files] Getting shared files for user ${userId}`);
+      console.log(`[SHARED-API] Getting shared files for user ${userId}`);
       
-      // Récupérer directement tous les partages de fichiers pour cet utilisateur
-      const allSharings = Array.from((storage as any).fileSharing.values())
-        .filter((sharing: any) => sharing.sharedWithId === userId);
+      // Utiliser la méthode storage existante
+      const sharedFiles = await storage.getSharedFiles(userId);
+      console.log(`[SHARED-API] Direct storage method returned:`, sharedFiles);
       
-      console.log(`[files] Found ${allSharings.length} sharings for user ${userId}`);
-      
-      const sharedFiles = [];
-      
-      // Pour chaque partage, récupérer les détails du fichier
-      for (const sharing of allSharings) {
-        try {
-          const file = await storage.getFileById(sharing.fileId);
-          if (file) {
-            const sharedByUser = await storage.getUser(sharing.ownerId);
-            sharedFiles.push({
-              ...file,
-              sharedBy: sharedByUser ? {
-                id: sharedByUser.id,
-                username: sharedByUser.username,
-                displayName: sharedByUser.displayName
-              } : null,
-              permission: sharing.permission,
-              sharedAt: sharing.createdAt
-            });
-          }
-        } catch (fileError) {
-          console.error(`[files] Error processing sharing ${sharing.id}:`, fileError);
-        }
-      }
-      
-      console.log(`[files] Found ${sharedFiles.length} shared files for user ${userId}`);
       res.json({ files: sharedFiles, folders: [] });
     } catch (error: any) {
-      console.error('Erreur lors de la récupération des fichiers partagés:', error);
+      console.error('[SHARED-API] Error:', error);
       res.status(500).json({ error: error.message || "Erreur serveur" });
     }
   });
