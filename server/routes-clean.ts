@@ -393,9 +393,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filePaths = req.body.filePaths ? JSON.parse(req.body.filePaths) : [];
       
       // Build folder structure from file paths
-      let folderStructure = {};
+      let folderStructure: Record<string, boolean> = {};
       if (filePaths && Array.isArray(filePaths)) {
-        filePaths.forEach(path => {
+        filePaths.forEach((path: string) => {
           const pathParts = path.split('/');
           if (pathParts.length > 1) {
             // Remove the filename, keep only folder path
@@ -489,7 +489,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('[upload] Upload error:', error);
-      res.status(500).json({ error: error.message || 'Erreur lors de l\'upload des fichiers' });
+      const errorMessage = error instanceof Error ? error.message : 'Erreur lors de l\'upload des fichiers';
+      res.status(500).json({ error: errorMessage });
     }
   });
 
