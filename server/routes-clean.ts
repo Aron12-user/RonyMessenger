@@ -1094,14 +1094,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Récupérer aussi les dossiers partagés
       const sharedFolders = [];
+      console.log(`[SHARED-API] Checking for shared folders for user ${userId}`);
+      
       if ((storage as any).folderSharing) {
-        const folderSharings = Array.from((storage as any).folderSharing.values()).filter((sharing: any) => sharing.sharedWithId === userId);
+        console.log(`[SHARED-API] Total folderSharing entries:`, (storage as any).folderSharing.size);
+        const allFolderSharings = Array.from((storage as any).folderSharing.values());
+        console.log(`[SHARED-API] All folderSharing data:`, allFolderSharings);
+        
+        const folderSharings = allFolderSharings.filter((sharing: any) => {
+          console.log(`[SHARED-API] Checking folder sharing: folderId=${sharing.folderId}, sharedWithId=${sharing.sharedWithId}, ownerId=${sharing.ownerId}, looking for userId=${userId}`);
+          return sharing.sharedWithId === userId;
+        });
+        
+        console.log(`[SHARED-API] Found ${folderSharings.length} folder sharings for user ${userId}:`, folderSharings);
         
         for (const sharing of folderSharings) {
           const folder = Array.from((storage as any).folders.values()).find((f: any) => f.id === sharing.folderId);
           if (folder) {
             const sharedByUser = Array.from((storage as any).users.values()).find((u: any) => u.id === sharing.ownerId);
-            sharedFolders.push({
+            const sharedFolder = {
               ...folder,
               sharedBy: sharedByUser ? {
                 id: sharedByUser.id,
@@ -1110,9 +1121,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               } : null,
               permission: sharing.permission,
               sharedAt: sharing.createdAt
-            });
+            };
+            sharedFolders.push(sharedFolder);
+            console.log(`[SHARED-API] Added shared folder:`, sharedFolder);
+          } else {
+            console.log(`[SHARED-API] Folder ${sharing.folderId} not found in storage`);
           }
         }
+      } else {
+        console.log(`[SHARED-API] No folderSharing storage found`);
       }
       
       console.log(`[SHARED-API] Returning ${sharedFiles.length} files and ${sharedFolders.length} folders`);
@@ -1542,12 +1559,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { recipientEmail, message, originalSubject, originalSender, originalContent, senderName, senderEmail } = req.body;
+
+      console.log(`[REPLY] Processing reply from user ${userId} to ${recipientEmail}`);
       
-      // Trouver le destinataire par email
-      const recipient = Array.from((storage as any).users.values()).find((u: any) => u.email === recipientEmail || u.username === recipientEmail);
+      // Trouver l'utilisateur destinataire par email
+      const recipient = Array.from((storage as any).users.values()).find((u: any) => 
+        u.email === recipientEmail || u.username === recipientEmail
+      );
+      
       if (!recipient) {
+        console.log(`[REPLY] Recipient not found for email: ${recipientEmail}`);
+        console.log(`[REPLY] Available users:`, Array.from((storage as any).users.values()).map((u: any) => ({ email: u.email, username: u.username })));
         return res.status(404).json({ error: "Destinataire introuvable" });
       }
+
+      console.log(`[REPLY] Found recipient:`, { id: recipient.id, email: recipient.email, username: recipient.username });
 
       // Créer le message de réponse
       const replyMessage = {
@@ -1594,11 +1620,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { recipientEmail, message, originalEmail, senderName, senderEmail } = req.body;
       
-      // Trouver le destinataire par email
-      const recipient = Array.from((storage as any).users.values()).find((u: any) => u.email === recipientEmail || u.username === recipientEmail);
+      console.log(`[FORWARD] Processing forward from user ${userId} to ${recipientEmail}`);
+      
+      // Trouver l'utilisateur destinataire par email
+      const recipient = Array.from((storage as any).users.values()).find((u: any) => 
+        u.email === recipientEmail || u.username === recipientEmail
+      );
+      
       if (!recipient) {
+        console.log(`[FORWARD] Recipient not found for email: ${recipientEmail}`);
+        console.log(`[FORWARD] Available users:`, Array.from((storage as any).users.values()).map((u: any) => ({ email: u.email, username: u.username })));
         return res.status(404).json({ error: "Destinataire introuvable" });
       }
+
+      console.log(`[FORWARD] Found recipient:`, { id: recipient.id, email: recipient.email, username: recipient.username });
 
       // Créer le message transféré
       const forwardMessage = {
