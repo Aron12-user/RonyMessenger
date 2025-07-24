@@ -782,8 +782,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Non authentifié" });
       }
 
+      // Utiliser la méthode storage existante
       const sharedFiles = await storage.getSharedFiles(userId);
-      res.json({ files: sharedFiles, folders: [] });
+      console.log(`[SHARED-API] Direct storage method returned:`, sharedFiles);
+      
+      // Récupérer les dossiers partagés avec la nouvelle méthode
+      const sharedFolders = await storage.getSharedFolders(userId);
+      console.log(`[SHARED-API] Storage method returned ${sharedFolders.length} shared folders`);
+
+      res.json({ files: sharedFiles, folders: sharedFolders });
     } catch (error) {
       console.error('Error fetching shared files:', error);
       res.status(500).json({ error: 'Internal server error' });

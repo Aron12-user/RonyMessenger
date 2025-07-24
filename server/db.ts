@@ -57,7 +57,7 @@ export async function seedDatabase() {
           username: 'currentuser',
           password: 'password123',
           displayName: 'Current User',
-          email: 'user@example.com',
+          email: 'user@rony.com',
           phone: '+33123456789',
           title: 'Développeur',
           status: 'online'
@@ -66,7 +66,7 @@ export async function seedDatabase() {
           username: 'alice',
           password: 'password123',
           displayName: 'Alice Dupont',
-          email: 'alice@example.com',
+          email: 'alice@rony.com',
           phone: '+33987654321',
           title: 'Designer',
           status: 'online'
@@ -75,7 +75,7 @@ export async function seedDatabase() {
           username: 'bob',
           password: 'password123',
           displayName: 'Bob Martin',
-          email: 'bob@example.com',
+          email: 'bob@rony.com',
           phone: '+33678912345',
           title: 'Chef de Projet',
           status: 'away'
@@ -84,7 +84,7 @@ export async function seedDatabase() {
           username: 'claire',
           password: 'password123',
           displayName: 'Claire Dubois',
-          email: 'claire@example.com',
+          email: 'claire@rony.com',
           phone: '+33567891234',
           title: 'Marketeur',
           status: 'busy'

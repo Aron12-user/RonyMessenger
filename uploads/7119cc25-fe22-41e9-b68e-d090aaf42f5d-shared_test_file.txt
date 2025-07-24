@@ -1,0 +1,13 @@
+Document de Test Final - Système Courrier
+========================================
+
+Contenu: Test de partage complet
+Auteur: Arona Diallo
+Destinataire: Nasa Diallo
+Date: 2025-07-24
+
+Ce fichier teste le système de courrier avec :
+- Partage de fichier avec joint
+- Partage de dossier avec contenu complet
+- Réponse fonctionnelle
+- Transfert opérationnel
