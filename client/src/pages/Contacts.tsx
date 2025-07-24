@@ -67,42 +67,71 @@ export default function Contacts() {
   // Extract users array from the paginated response safely
   const allUsers = (usersResponse?.data || []) as User[];
 
-  // Add contact mutation - crée automatiquement une conversation
+  // Add contact mutation - corrigé avec gestion d'erreur appropriée
   const addContactMutation = useMutation({
     mutationFn: async (contactUsername: string) => {
-      // Première étape : ajouter le contact
-      const contactRes = await apiRequest("POST", API_ENDPOINTS.CONTACTS, { username: contactUsername });
-      if (!contactRes.ok) {
-        const errorData = await contactRes.json();
-        throw new Error(errorData.message || "Erreur lors de l'ajout du contact");
-      }
-      const contactData = await contactRes.json();
-      
-      // Deuxième étape : créer automatiquement une conversation avec ce contact
-      const conversationRes = await apiRequest("POST", API_ENDPOINTS.CONVERSATIONS, { 
-        participantId: contactData.id 
-      });
-      if (!conversationRes.ok) {
-        // Si la conversation existe déjà, récupérer l'ID existant
-        const errorData = await conversationRes.json();
-        if (errorData.message?.includes("existe déjà")) {
-          // Récupérer toutes les conversations pour trouver celle avec ce contact
-          const convRes = await fetch(API_ENDPOINTS.CONVERSATIONS);
-          if (convRes.ok) {
-            const conversations = await convRes.json();
-            const existingConv = conversations.find((conv: any) => 
-              conv.participantId === contactData.id || conv.creatorId === contactData.id
-            );
-            if (existingConv) {
-              return { contact: contactData, conversation: existingConv };
+      try {
+        // Première étape : vérifier que l'utilisateur existe dans la base
+        const allUsersRes = await fetch(API_ENDPOINTS.USERS, { credentials: 'include' });
+        if (!allUsersRes.ok) throw new Error("Impossible de récupérer la liste des utilisateurs");
+        
+        const allUsersData = await allUsersRes.json();
+        const allUsers = Array.isArray(allUsersData) ? allUsersData : allUsersData.data || [];
+        
+        const targetUser = allUsers.find((u: User) => u.username === contactUsername);
+        if (!targetUser) {
+          throw new Error("Utilisateur introuvable. Vérifiez le nom d'utilisateur.");
+        }
+
+        // Deuxième étape : ajouter le contact avec l'ID trouvé
+        const response = await fetch(API_ENDPOINTS.CONTACTS, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ username: contactUsername })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Erreur lors de l'ajout du contact");
+        }
+        
+        const contactData = await response.json();
+        
+        // Troisième étape : créer automatiquement une conversation avec ce contact
+        const conversationRes = await fetch(API_ENDPOINTS.CONVERSATIONS, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ participantId: targetUser.id })
+        });
+        
+        if (!conversationRes.ok) {
+          // Si la conversation existe déjà, récupérer l'ID existant
+          const errorData = await conversationRes.json();
+          if (errorData.message?.includes("existe déjà")) {
+            // Récupérer toutes les conversations pour trouver celle avec ce contact
+            const convRes = await fetch(API_ENDPOINTS.CONVERSATIONS, { credentials: 'include' });
+            if (convRes.ok) {
+              const conversations = await convRes.json();
+              const existingConv = conversations.find((conv: any) => 
+                conv.participantId === targetUser.id || conv.creatorId === targetUser.id
+              );
+              if (existingConv) {
+                return { contact: contactData, conversation: existingConv };
+              }
             }
           }
+          // Si pas d'erreur de conversation existante, continuer quand même
+          return { contact: contactData, conversation: null };
         }
-        throw new Error("Impossible de créer la conversation");
+        
+        const conversationData = await conversationRes.json();
+        return { contact: contactData, conversation: conversationData };
+      } catch (error) {
+        console.error("Erreur détaillée lors de l'ajout du contact:", error);
+        throw error;
       }
-      const conversationData = await conversationRes.json();
-      
-      return { contact: contactData, conversation: conversationData };
     },
     onSuccess: (data) => {
       // Rafraîchir les données
