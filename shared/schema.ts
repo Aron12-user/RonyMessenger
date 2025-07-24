@@ -52,27 +52,70 @@ export const conversations = pgTable("conversations", {
   }
 });
 
-// Messages Table
+// Messages Table avec fonctionnalités avancées
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
   conversationId: integer("conversation_id").notNull().references(() => conversations.id),
   senderId: integer("sender_id").notNull().references(() => users.id),
   content: text("content").notNull(),
   fileUrl: text("file_url"),
+  fileName: text("file_name"),
+  fileType: text("file_type"),
+  fileSize: integer("file_size"),
+  messageType: text("message_type").default("text").notNull(), // text, file, image, audio, video, system
+  replyToId: integer("reply_to_id").references(() => messages.id), // Pour les threads/réponses
+  isEdited: boolean("is_edited").default(false),
+  editedAt: timestamp("edited_at"),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   isRead: boolean("is_read").default(false),
+  isDeleted: boolean("is_deleted").default(false),
+  deletedAt: timestamp("deleted_at"),
+  isPinned: boolean("is_pinned").default(false),
+  mentions: text("mentions").array(), // IDs des utilisateurs mentionnés
+  metadata: text("metadata"), // JSON pour stocker des métadonnées additionnelles
 }, (table) => {
   return {
-    // Index pour accélérer la recherche des messages par conversation
     conversationIdIdx: index("conversation_id_idx").on(table.conversationId),
-    // Index pour trouver les messages par expéditeur
     senderIdIdx: index("sender_id_idx").on(table.senderId),
-    // Index pour le tri chronologique des messages
     timestampIdx: index("timestamp_idx").on(table.timestamp),
-    // Index pour filtrer rapidement les messages non lus
     isReadIdx: index("is_read_idx").on(table.isRead),
-    // Index composite pour la pagination efficace des messages par conversation
     convTimestampIdx: index("conv_timestamp_idx").on(table.conversationId, table.timestamp),
+    replyToIdIdx: index("reply_to_id_idx").on(table.replyToId),
+    messageTypeIdx: index("message_type_idx").on(table.messageType),
+    isPinnedIdx: index("is_pinned_idx").on(table.isPinned),
+    isDeletedIdx: index("is_deleted_idx").on(table.isDeleted),
+  }
+});
+
+// Table pour les réactions aux messages
+export const messageReactions = pgTable("message_reactions", {
+  id: serial("id").primaryKey(),
+  messageId: integer("message_id").notNull().references(() => messages.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  emoji: text("emoji").notNull(), // 👍, ❤️, 😂, etc.
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    messageIdIdx: index("message_reactions_message_id_idx").on(table.messageId),
+    userIdIdx: index("message_reactions_user_id_idx").on(table.userId),
+    // Contrainte unique pour éviter les réactions dupliquées
+    uniqueReaction: uniqueIndex("unique_message_user_emoji").on(table.messageId, table.userId, table.emoji),
+  }
+});
+
+// Table pour les indicateurs de frappe
+export const typingIndicators = pgTable("typing_indicators", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").notNull().references(() => conversations.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  isTyping: boolean("is_typing").default(true),
+  lastActivity: timestamp("last_activity").defaultNow().notNull(),
+}, (table) => {
+  return {
+    conversationIdIdx: index("typing_conversation_id_idx").on(table.conversationId),
+    userIdIdx: index("typing_user_id_idx").on(table.userId),
+    lastActivityIdx: index("typing_last_activity_idx").on(table.lastActivity),
+    uniqueTyping: uniqueIndex("unique_conversation_user_typing").on(table.conversationId, table.userId),
   }
 });
 
@@ -181,6 +224,8 @@ export const contacts = pgTable("contacts", {
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true });
+export const insertMessageReactionSchema = createInsertSchema(messageReactions).omit({ id: true });
+export const insertTypingIndicatorSchema = createInsertSchema(typingIndicators).omit({ id: true });
 export const insertFileSchema = createInsertSchema(files).omit({ id: true });
 export const insertFolderSchema = createInsertSchema(folders).omit({ id: true });
 export const insertFileSharingSchema = createInsertSchema(fileSharing).omit({ id: true });
@@ -195,6 +240,12 @@ export type InsertConversation = z.infer<typeof insertConversationSchema>;
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+
+export type MessageReaction = typeof messageReactions.$inferSelect;
+export type InsertMessageReaction = z.infer<typeof insertMessageReactionSchema>;
+
+export type TypingIndicator = typeof typingIndicators.$inferSelect;
+export type InsertTypingIndicator = z.infer<typeof insertTypingIndicatorSchema>;
 
 export type File = typeof files.$inferSelect;
 export type InsertFile = z.infer<typeof insertFileSchema>;

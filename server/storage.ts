@@ -22,6 +22,18 @@ export interface IStorage {
   // Messages
   getMessagesForConversation(conversationId: number): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
+  updateMessage(messageId: number, updates: Partial<InsertMessage>): Promise<Message>;
+  deleteMessage(messageId: number): Promise<void>;
+  getPinnedMessages(conversationId: number): Promise<Message[]>;
+  
+  // Message Reactions
+  addReaction(reaction: { messageId: number; userId: number; emoji: string; createdAt: Date }): Promise<any>;
+  removeReaction(messageId: number, userId: number, emoji: string): Promise<void>;
+  getReactionsForMessage(messageId: number): Promise<any[]>;
+  
+  // Typing Indicators
+  updateTypingIndicator(indicator: { conversationId: number; userId: number; isTyping: boolean; lastActivity: Date }): Promise<void>;
+  getTypingUsers(conversationId: number): Promise<User[]>;
   
   // Folders
   getFoldersForUser(userId: number): Promise<Folder[]>;
@@ -62,6 +74,8 @@ export class MemStorage implements IStorage {
   private folders: Map<number, Folder>;
   private fileSharing: Map<number, FileSharing>;
   private contacts: Map<number, Contact>;
+  private reactions: Map<number, any>;
+  private typingIndicators: Map<string, any>;
   
   private userId: number = 1;
   private conversationId: number = 1;
@@ -70,6 +84,7 @@ export class MemStorage implements IStorage {
   private folderId: number = 1;
   private fileSharingId: number = 1;
   private contactId: number = 1;
+  private reactionId: number = 1;
   
   constructor() {
     this.users = new Map();
@@ -79,6 +94,8 @@ export class MemStorage implements IStorage {
     this.folders = new Map();
     this.fileSharing = new Map();
     this.contacts = new Map();
+    this.reactions = new Map();
+    this.typingIndicators = new Map();
     
     // Add some seed data
     this.seedData();
@@ -304,6 +321,82 @@ export class MemStorage implements IStorage {
     const message: Message = { ...messageData, id };
     this.messages.set(id, message);
     return message;
+  }
+
+  async updateMessage(messageId: number, updates: Partial<InsertMessage>): Promise<Message> {
+    const message = this.messages.get(messageId);
+    if (!message) {
+      throw new Error('Message not found');
+    }
+    
+    const updatedMessage = { ...message, ...updates };
+    this.messages.set(messageId, updatedMessage);
+    return updatedMessage;
+  }
+
+  async deleteMessage(messageId: number): Promise<void> {
+    this.messages.delete(messageId);
+  }
+
+  async getPinnedMessages(conversationId: number): Promise<Message[]> {
+    return Array.from(this.messages.values())
+      .filter(message => message.conversationId === conversationId && message.isPinned)
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }
+
+  // Message Reactions
+  async addReaction(reaction: { messageId: number; userId: number; emoji: string; createdAt: Date }): Promise<any> {
+    const id = this.reactionId++;
+    const reactionData = { ...reaction, id };
+    this.reactions.set(id, reactionData);
+    return reactionData;
+  }
+
+  async removeReaction(messageId: number, userId: number, emoji: string): Promise<void> {
+    const reactionToRemove = Array.from(this.reactions.entries()).find(([_, reaction]) => 
+      reaction.messageId === messageId && reaction.userId === userId && reaction.emoji === emoji
+    );
+    
+    if (reactionToRemove) {
+      this.reactions.delete(reactionToRemove[0]);
+    }
+  }
+
+  async getReactionsForMessage(messageId: number): Promise<any[]> {
+    return Array.from(this.reactions.values())
+      .filter(reaction => reaction.messageId === messageId);
+  }
+
+  // Typing Indicators
+  async updateTypingIndicator(indicator: { conversationId: number; userId: number; isTyping: boolean; lastActivity: Date }): Promise<void> {
+    const key = `${indicator.conversationId}-${indicator.userId}`;
+    
+    if (indicator.isTyping) {
+      this.typingIndicators.set(key, indicator);
+    } else {
+      this.typingIndicators.delete(key);
+    }
+  }
+
+  async getTypingUsers(conversationId: number): Promise<User[]> {
+    const typingIndicators = Array.from(this.typingIndicators.values())
+      .filter(indicator => 
+        indicator.conversationId === conversationId && 
+        indicator.isTyping &&
+        (Date.now() - new Date(indicator.lastActivity).getTime()) < 3000 // 3 seconds timeout
+      );
+    
+    const typingUserIds = typingIndicators.map(indicator => indicator.userId);
+    const typingUsers: User[] = [];
+    
+    for (const userId of typingUserIds) {
+      const user = await this.getUser(userId);
+      if (user) {
+        typingUsers.push(user);
+      }
+    }
+    
+    return typingUsers;
   }
   
   // File methods

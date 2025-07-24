@@ -215,6 +215,253 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced messaging API endpoints
+  
+  // Route pour créer un message avec toutes les fonctionnalités avancées
+  app.post("/api/messages", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const { 
+        conversationId, 
+        content, 
+        messageType = 'text',
+        replyToId,
+        fileUrl,
+        fileName,
+        fileType,
+        fileSize,
+        mentions = []
+      } = req.body;
+
+      if (!conversationId) {
+        return res.status(400).json({ error: "ID de conversation requis" });
+      }
+
+      if (!content) {
+        return res.status(400).json({ error: "Contenu du message requis" });
+      }
+
+      const message = await storage.createMessage({
+        conversationId,
+        senderId: userId,
+        content,
+        messageType,
+        replyToId: replyToId || null,
+        fileUrl: fileUrl || null,
+        fileName: fileName || null,
+        fileType: fileType || null,
+        fileSize: fileSize || null,
+        mentions,
+        timestamp: new Date(),
+        isRead: false,
+        isDeleted: false,
+        isPinned: false,
+        isEdited: false
+      });
+
+      await storage.updateConversationLastMessage(
+        conversationId,
+        content,
+        new Date(),
+        userId
+      );
+
+      res.status(201).json(message);
+    } catch (error) {
+      console.error('Error creating enhanced message:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Route pour récupérer les messages d'une conversation
+  app.get("/api/messages/:conversationId", requireAuth, async (req, res) => {
+    try {
+      const conversationId = parseInt(req.params.conversationId);
+      const messages = await storage.getMessagesForConversation(conversationId);
+      res.json(messages);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Route pour modifier un message
+  app.put("/api/messages/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const messageId = parseInt(req.params.id);
+      const { content } = req.body;
+
+      if (!content) {
+        return res.status(400).json({ error: "Contenu du message requis" });
+      }
+
+      const message = await storage.updateMessage(messageId, {
+        content,
+        isEdited: true,
+        editedAt: new Date()
+      });
+
+      res.json(message);
+    } catch (error) {
+      console.error('Error updating message:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Route pour supprimer un message
+  app.delete("/api/messages/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const messageId = parseInt(req.params.id);
+      
+      await storage.updateMessage(messageId, {
+        isDeleted: true,
+        deletedAt: new Date()
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Route pour épingler/dépingler un message
+  app.put("/api/messages/:id/pin", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const messageId = parseInt(req.params.id);
+      const { isPinned } = req.body;
+
+      const message = await storage.updateMessage(messageId, {
+        isPinned: isPinned
+      });
+
+      res.json(message);
+    } catch (error) {
+      console.error('Error pinning message:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Route pour récupérer les messages épinglés
+  app.get("/api/messages/:conversationId/pinned", requireAuth, async (req, res) => {
+    try {
+      const conversationId = parseInt(req.params.conversationId);
+      const pinnedMessages = await storage.getPinnedMessages(conversationId);
+      res.json(pinnedMessages);
+    } catch (error) {
+      console.error('Error fetching pinned messages:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Route pour ajouter une réaction à un message
+  app.post("/api/messages/:id/reactions", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const messageId = parseInt(req.params.id);
+      const { emoji } = req.body;
+
+      if (!emoji) {
+        return res.status(400).json({ error: "Emoji requis" });
+      }
+
+      const reaction = await storage.addReaction({
+        messageId,
+        userId,
+        emoji,
+        createdAt: new Date()
+      });
+
+      res.status(201).json(reaction);
+    } catch (error) {
+      console.error('Error adding reaction:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Route pour supprimer une réaction
+  app.delete("/api/messages/:id/reactions", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const messageId = parseInt(req.params.id);
+      const { emoji } = req.body;
+
+      if (!emoji) {
+        return res.status(400).json({ error: "Emoji requis" });
+      }
+
+      await storage.removeReaction(messageId, userId, emoji);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error removing reaction:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Route pour gérer les indicateurs de frappe
+  app.post("/api/conversations/:id/typing", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const conversationId = parseInt(req.params.id);
+      const { isTyping } = req.body;
+
+      await storage.updateTypingIndicator({
+        conversationId,
+        userId,
+        isTyping,
+        lastActivity: new Date()
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error updating typing indicator:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Route pour récupérer les utilisateurs qui tapent
+  app.get("/api/conversations/:id/typing", requireAuth, async (req, res) => {
+    try {
+      const conversationId = parseInt(req.params.id);
+      const typingUsers = await storage.getTypingUsers(conversationId);
+      res.json(typingUsers);
+    } catch (error) {
+      console.error('Error fetching typing users:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // File and folder routes
   app.get("/api/folders", requireAuth, async (req, res) => {
     try {
