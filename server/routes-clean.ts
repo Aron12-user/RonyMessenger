@@ -916,37 +916,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[files] File shared successfully:`, sharing);
       
-      // Créer une notification en temps réel pour le destinataire
+      // Créer une notification courrier en temps réel pour le destinataire
       try {
-        const notification = await storage.createMessage({
-          conversationId: 0, // Notification système
-          senderId: userId,
-          content: `📎 ${targetUser.displayName || targetUser.username} a partagé le fichier "${file.originalName}" avec vous`,
-          messageType: 'system',
-          replyToId: null,
-          fileUrl: file.url,
-          fileName: file.originalName,
-          fileType: file.mimeType,
-          fileSize: file.size,
-          mentions: [sharedWithId],
-          timestamp: new Date(),
-          isRead: false,
-          isDeleted: false,
-          isPinned: false,
-          isEdited: false,
-          editedAt: null,
-          reactions: [],
-          metadata: { 
-            type: 'file_share',
-            sharedFileId: fileId,
-            sharedBy: userId,
+        console.log(`[files] Creating courrier notification for user ${sharedWithId}`);
+        
+        // Créer le message de notification pour le courrier
+        const courrierMessage = {
+          type: 'file_share',
+          recipientId: sharedWithId,
+          sender: req.user?.displayName || req.user?.username || 'Utilisateur',
+          senderEmail: req.user?.email || req.user?.username + '@rony.com',
+          subject: `Partage de fichier : ${file.originalName}`,
+          message: `${req.user?.displayName || req.user?.username} a partagé le fichier "${file.originalName}" avec vous.`,
+          timestamp: new Date().toISOString(),
+          priority: 'high',
+          attachmentInfo: {
+            fileId: fileId,
+            fileName: file.originalName,
+            fileType: file.mimeType,
+            fileSize: file.size,
+            fileUrl: file.url,
             permission: permission || 'read'
           }
-        });
+        };
         
-        console.log(`[files] Notification created for file share:`, notification);
+        // Envoyer via WebSocket si disponible
+        if (global.wss && global.wss.clients) {
+          const messageData = JSON.stringify({
+            type: 'courrier_message',
+            data: courrierMessage
+          });
+          
+          global.wss.clients.forEach((client: any) => {
+            if (client.readyState === 1) { // WebSocket.OPEN
+              client.send(messageData);
+            }
+          });
+          
+          console.log(`[files] Courrier notification sent via WebSocket for file share`);
+        }
+        
+        console.log(`[files] Courrier notification created successfully:`, courrierMessage);
       } catch (notifError) {
-        console.error('[files] Failed to create notification:', notifError);
+        console.error('[files] Failed to create courrier notification:', notifError);
         // Continue même si la notification échoue
       }
       
@@ -988,9 +1000,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[folders] Sharing folder ${folderId} with user ${sharedWithId}`);
       
+      // Créer une notification courrier en temps réel pour le destinataire
+      try {
+        console.log(`[folders] Creating courrier notification for folder share to user ${sharedWithId}`);
+        
+        const courrierMessage = {
+          type: 'folder_share',
+          recipientId: sharedWithId,
+          sender: req.user?.displayName || req.user?.username || 'Utilisateur',
+          senderEmail: req.user?.email || req.user?.username + '@rony.com',
+          subject: `Partage de dossier : ${folder.name || 'Dossier'}`,
+          message: `${req.user?.displayName || req.user?.username} a partagé un dossier avec vous.`,
+          timestamp: new Date().toISOString(),
+          priority: 'high',
+          attachmentInfo: {
+            folderId: folderId,
+            folderName: folder.name || 'Dossier',
+            permission: permission || 'read'
+          }
+        };
+        
+        // Envoyer via WebSocket si disponible
+        if (global.wss && global.wss.clients) {
+          const messageData = JSON.stringify({
+            type: 'courrier_message',
+            data: courrierMessage
+          });
+          
+          global.wss.clients.forEach((client: any) => {
+            if (client.readyState === 1) { // WebSocket.OPEN
+              client.send(messageData);
+            }
+          });
+          
+          console.log(`[folders] Courrier notification sent via WebSocket for folder share`);
+        }
+        
+        console.log(`[folders] Courrier notification created successfully:`, courrierMessage);
+      } catch (notifError) {
+        console.error('[folders] Failed to create courrier notification:', notifError);
+        // Continue même si la notification échoue
+      }
+
       res.json({ 
         success: true, 
         message: "Dossier partagé avec succès",
+        recipient: targetUser.displayName || targetUser.username,
         sharing: {
           folderId,
           sharedWithId,
