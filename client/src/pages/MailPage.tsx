@@ -108,7 +108,7 @@ export default function MailPage() {
       sender: file.sharedBy.displayName || file.sharedBy.username,
       senderEmail: file.sharedBy.username.replace('@rony.com', '') + '@rony.com',
       subject: `Fichier partagé: ${file.name}`,
-      content: `${file.sharedBy.displayName || file.sharedBy.username} a partagé le fichier "${file.name}" avec vous.`,
+      content: `Fichier partagé: ${file.name}`,
       preview: `Fichier: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`,
       date: new Date(file.uploadedAt).toLocaleDateString(),
       time: new Date(file.uploadedAt).toLocaleTimeString(),
@@ -123,7 +123,7 @@ export default function MailPage() {
       sender: folder.sharedBy.displayName || folder.sharedBy.username,
       senderEmail: folder.sharedBy.username.replace('@rony.com', '') + '@rony.com',
       subject: `Dossier partagé: ${folder.name}`,
-      content: `${folder.sharedBy.displayName || folder.sharedBy.username} a partagé le dossier "${folder.name}" avec vous.`,
+      content: `Dossier partagé: ${folder.name}`,
       preview: `Dossier: ${folder.name} (${folder.fileCount || 0} fichiers)`,
       date: new Date(folder.uploadedAt).toLocaleDateString(),
       time: new Date(folder.uploadedAt).toLocaleTimeString(),
@@ -258,13 +258,19 @@ export default function MailPage() {
     }
   });
 
-  // Mutation pour archiver des emails
+  // Mutation pour archiver des emails  
+  const [archivedEmails, setArchivedEmails] = useState<Set<number>>(new Set());
+  
   const archiveEmailsMutation = useMutation({
     mutationFn: async (emailIds: number[]) => {
-      // Simuler l'archivage en local pour l'instant
-      return new Promise(resolve => setTimeout(resolve, 500));
+      return new Promise(resolve => setTimeout(resolve, 300));
     },
-    onSuccess: () => {
+    onSuccess: (_, emailIds) => {
+      setArchivedEmails(prev => {
+        const newArchived = new Set(prev);
+        emailIds.forEach(id => newArchived.add(id));
+        return newArchived;
+      });
       toast({ title: 'Messages archivés', description: 'Les messages ont été archivés avec succès' });
       setSelectedEmails(new Set());
     },
@@ -337,7 +343,11 @@ export default function MailPage() {
       
       const matchesCategory = filterCategory === 'all' || email.category === filterCategory;
       
-      return matchesSearch && matchesCategory;
+      // Filtre archives - afficher seulement les archives si demandé, sinon masquer les archivés
+      const isArchived = archivedEmails.has(email.id);
+      const matchesArchiveStatus = showArchived ? isArchived : !isArchived;
+      
+      return matchesSearch && matchesCategory && matchesArchiveStatus;
     })
     .sort((a, b) => {
       let comparison = 0;
@@ -811,8 +821,8 @@ export default function MailPage() {
                   setShowEmailReader(true);
                 }}
               >
-                <div className="p-2">
-                  <div className="flex items-start space-x-2">
+                <div className="p-1">
+                  <div className="flex items-start space-x-1">
                     {/* Checkbox de sélection */}
                     <div className="flex items-center space-x-2 pt-0.5">
                       <input
@@ -845,7 +855,7 @@ export default function MailPage() {
                     {/* Avatar amélioré */}
                     <div className="relative">
                       <div className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm",
+                        "w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm",
                         email.category === 'folders' 
                           ? "bg-gradient-to-br from-blue-500 to-blue-600" 
                           : email.category === 'files'
@@ -874,10 +884,10 @@ export default function MailPage() {
 
                     {/* Contenu principal */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center space-x-1">
                           <span className={cn(
-                            "text-gray-900 truncate max-w-xs",
+                            "text-gray-900 truncate max-w-xs text-xs",
                             !readEmails.has(email.id) ? "font-bold" : "font-medium"
                           )}>
                             {email.sender}
@@ -908,22 +918,22 @@ export default function MailPage() {
                           </Badge>
                         </div>
                         
-                        <div className="flex items-center space-x-2 text-sm text-gray-500">
-                          <Clock className="w-3 h-3" />
+                        <div className="flex items-center space-x-1 text-xs text-gray-500">
+                          <Clock className="w-2 h-2" />
                           <span>{email.time}</span>
                           <span>{email.date}</span>
                         </div>
                       </div>
                       
                       <h3 className={cn(
-                        "text-sm mb-2 truncate",
+                        "text-xs mb-1 truncate",
                         !readEmails.has(email.id) ? "font-bold text-gray-900" : "font-medium text-gray-800"
                       )}>
                         {email.subject}
                       </h3>
                       
                       {showPreview && (
-                        <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
+                        <p className="text-xs text-gray-600 line-clamp-1 leading-relaxed">
                           {email.content}
                         </p>
                       )}
