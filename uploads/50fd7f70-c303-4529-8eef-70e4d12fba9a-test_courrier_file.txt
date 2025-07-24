@@ -1,0 +1,2 @@
+Fichier de test pour le système de courrier
+Ce fichier doit apparaître dans le courrier du destinataire.
