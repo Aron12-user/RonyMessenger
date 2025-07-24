@@ -23,7 +23,19 @@ import {
   Paperclip,
   AlertCircle,
   Trash2,
-  RotateCcw
+  RotateCcw,
+  Clock,
+  User,
+  Check,
+  X,
+  RefreshCw,
+  Bell,
+  Settings,
+  Heart,
+  MessageSquare,
+  ChevronDown,
+  ChevronRight,
+  ArrowLeft
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -53,6 +65,13 @@ export default function MailPage() {
   const [folderFiles, setFolderFiles] = useState<any[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<any>(null);
   const [showEmailReader, setShowEmailReader] = useState(false);
+  const [selectedEmails, setSelectedEmails] = useState<Set<number>>(new Set());
+  const [sortBy, setSortBy] = useState<'date' | 'sender' | 'subject'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [showPreview, setShowPreview] = useState(true);
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [pinnedEmails, setPinnedEmails] = useState<Set<number>>(new Set());
+  const [readEmails, setReadEmails] = useState<Set<number>>(new Set());
   
   // États pour les dialogs
   const [showReplyDialog, setShowReplyDialog] = useState(false);
@@ -77,8 +96,8 @@ export default function MailPage() {
     staleTime: 30 * 1000,
   });
 
-  const sharedFiles = sharedData?.files || [];
-  const sharedFolders = sharedData?.folders || [];
+  const sharedFiles = (sharedData as any)?.files || [];
+  const sharedFolders = (sharedData as any)?.folders || [];
 
   // Convertir les fichiers/dossiers partagés en emails
   useEffect(() => {
@@ -131,8 +150,8 @@ export default function MailPage() {
           originalSubject: originalEmail.subject,
           originalSender: originalEmail.sender,
           originalContent: originalEmail.content,
-          senderName: user?.displayName || user?.username,
-          senderEmail: user?.username.replace('@rony.com', '') + '@rony.com'
+          senderName: (user as any)?.displayName || (user as any)?.username,
+          senderEmail: (user as any)?.username.replace('@rony.com', '') + '@rony.com'
         })
       });
       
@@ -165,8 +184,8 @@ export default function MailPage() {
           originalSubject: originalEmail.subject,
           originalSender: originalEmail.sender,
           originalContent: originalEmail.content,
-          senderName: user?.displayName || user?.username,
-          senderEmail: user?.username.replace('@rony.com', '') + '@rony.com'
+          senderName: (user as any)?.displayName || (user as any)?.username,
+          senderEmail: (user as any)?.username.replace('@rony.com', '') + '@rony.com'
         })
       });
       
@@ -239,17 +258,80 @@ export default function MailPage() {
     }
   });
 
-  // Filtrer les emails selon les critères
-  const filteredEmails = emails.filter(email => {
-    const matchesSearch = !searchQuery || 
-      email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      email.sender.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      email.content.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesCategory = filterCategory === 'all' || email.category === filterCategory;
-    
-    return matchesSearch && matchesCategory;
-  });
+  // Fonctions utilitaires
+  const markAsRead = (emailId: number) => {
+    setReadEmails(prev => new Set([...prev, emailId]));
+  };
+
+  const togglePin = (emailId: number) => {
+    setPinnedEmails(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(emailId)) {
+        newSet.delete(emailId);
+      } else {
+        newSet.add(emailId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleEmailSelection = (emailId: number) => {
+    setSelectedEmails(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(emailId)) {
+        newSet.delete(emailId);
+      } else {
+        newSet.add(emailId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllEmails = () => {
+    if (selectedEmails.size === filteredEmails.length) {
+      setSelectedEmails(new Set());
+    } else {
+      setSelectedEmails(new Set(filteredEmails.map(email => email.id)));
+    }
+  };
+
+  // Filtrer et trier les emails
+  const filteredEmails = emails
+    .filter(email => {
+      const matchesSearch = !searchQuery || 
+        email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        email.sender.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        email.content.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesCategory = filterCategory === 'all' || email.category === filterCategory;
+      
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'date':
+          comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+          break;
+        case 'sender':
+          comparison = a.sender.localeCompare(b.sender);
+          break;
+        case 'subject':
+          comparison = a.subject.localeCompare(b.subject);
+          break;
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    })
+    .sort((a, b) => {
+      // Les épinglés en premier
+      const aPinned = pinnedEmails.has(a.id);
+      const bPinned = pinnedEmails.has(b.id);
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      return 0;
+    });
 
   if (!user) {
     return (
@@ -432,84 +514,224 @@ export default function MailPage() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold text-gray-900">📧 Courrier</h1>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => refetch()}
-              className="flex items-center space-x-2"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>Actualiser</span>
-            </Button>
-          </div>
-          
-          <div className="flex items-center space-x-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Rechercher dans le courrier..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-80"
-              />
+      {/* Header amélioré */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 border-b shadow-lg">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <Mail className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-white">Courrier</h1>
+                  <p className="text-blue-100 text-sm">Gestion des messages et partages</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => refetch()}
+                  className="text-white hover:bg-white/20 border-white/30"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Actualiser
+                </Button>
+                
+                <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
+                  {filteredEmails.length} messages
+                </Badge>
+              </div>
             </div>
             
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Filter className="w-4 h-4 mr-2" />
-                  {filterCategory === 'all' ? 'Tous' : 
-                   filterCategory === 'files' ? 'Fichiers' :
-                   filterCategory === 'folders' ? 'Dossiers' :
-                   filterCategory === 'documents' ? 'Documents' : 'Médias'}
+            <div className="flex items-center space-x-3">
+              {/* Barre de recherche améliorée */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Rechercher messages, expéditeurs..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 w-80 bg-white/90 border-white/30 focus:bg-white"
+                />
+              </div>
+              
+              {/* Boutons de contrôle */}
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowPreview(!showPreview)}
+                  className="text-white hover:bg-white/20"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  {showPreview ? 'Masquer aperçu' : 'Afficher aperçu'}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => setFilterCategory('all')}>
-                  Tous les messages
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilterCategory('files')}>
-                  📄 Fichiers
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilterCategory('folders')}>
-                  📁 Dossiers
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilterCategory('documents')}>
-                  📋 Documents
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilterCategory('media')}>
-                  🎨 Médias
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-white hover:bg-white/20">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Options
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}>
+                      {viewMode === 'list' ? '🔲 Vue grille' : '📋 Vue liste'}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setSortBy('date')}>
+                      <Clock className="w-4 h-4 mr-2" />
+                      Trier par date
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortBy('sender')}>
+                      <User className="w-4 h-4 mr-2" />
+                      Trier par expéditeur
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortBy('subject')}>
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Trier par sujet
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
+                      {sortOrder === 'asc' ? '⬇️ Décroissant' : '⬆️ Croissant'}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Barre de filtres */}
+        <div className="px-6 py-3 bg-white/10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-white hover:bg-white/20">
+                    <Filter className="w-4 h-4 mr-2" />
+                    {filterCategory === 'all' ? 'Tous les types' : 
+                     filterCategory === 'files' ? 'Fichiers' :
+                     filterCategory === 'folders' ? 'Dossiers' :
+                     filterCategory === 'documents' ? 'Documents' : 'Médias'}
+                    <ChevronDown className="w-4 h-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => setFilterCategory('all')}>
+                    <Mail className="w-4 h-4 mr-2" />
+                    Tous les messages
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setFilterCategory('files')}>
+                    <Paperclip className="w-4 h-4 mr-2" />
+                    Fichiers partagés
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setFilterCategory('folders')}>
+                    <Folder className="w-4 h-4 mr-2" />
+                    Dossiers partagés
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setFilterCategory('documents')}>
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Documents
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setFilterCategory('media')}>
+                    <Eye className="w-4 h-4 mr-2" />
+                    Médias
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-            <Button
-              variant={showArchived ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowArchived(!showArchived)}
-            >
-              <Archive className="w-4 h-4 mr-2" />
-              {showArchived ? 'Masquer archivés' : 'Voir archivés'}
-            </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowArchived(!showArchived)}
+                className={cn(
+                  "text-white hover:bg-white/20",
+                  showArchived && "bg-white/20"
+                )}
+              >
+                <Archive className="w-4 h-4 mr-2" />
+                {showArchived ? 'Masquer archivés' : 'Archivés'}
+              </Button>
+            </div>
+
+            {/* Actions en lot */}
+            {selectedEmails.size > 0 && (
+              <div className="flex items-center space-x-2">
+                <Badge variant="secondary" className="bg-white/20 text-white">
+                  {selectedEmails.size} sélectionné{selectedEmails.size > 1 ? 's' : ''}
+                </Badge>
+                <Button variant="ghost" size="sm" className="text-white hover:bg-white/20">
+                  <Archive className="w-4 h-4 mr-2" />
+                  Archiver
+                </Button>
+                <Button variant="ghost" size="sm" className="text-white hover:bg-white/20">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Supprimer
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="bg-white border-b px-6 py-3">
-        <div className="flex items-center justify-between text-sm text-gray-600">
-          <span>
-            {filteredEmails.length} message{filteredEmails.length !== 1 ? 's' : ''} 
-            {searchQuery && ` pour "${searchQuery}"`}
-            {filterCategory !== 'all' && ` dans ${filterCategory}`}
-          </span>
-          <div className="flex space-x-4">
-            <span>{filteredEmails.length} total</span>
+      {/* Barre d'outils et statistiques */}
+      <div className="bg-white border-b shadow-sm">
+        <div className="px-6 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={selectedEmails.size === filteredEmails.length && filteredEmails.length > 0}
+                  onChange={selectAllEmails}
+                  className="rounded border-gray-300"
+                />
+                <span className="text-sm text-gray-600">
+                  {selectedEmails.size > 0 
+                    ? `${selectedEmails.size} sélectionné${selectedEmails.size > 1 ? 's' : ''}` 
+                    : `${filteredEmails.length} message${filteredEmails.length !== 1 ? 's' : ''}`
+                  }
+                  {searchQuery && ` pour "${searchQuery}"`}
+                  {filterCategory !== 'all' && ` • ${filterCategory}`}
+                </span>
+              </div>
+
+              {/* Statistiques détaillées */}
+              <div className="flex items-center space-x-4 text-xs text-gray-500">
+                <span className="flex items-center">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full mr-1"></div>
+                  {emails.filter(e => !readEmails.has(e.id)).length} non lus
+                </span>
+                <span className="flex items-center">
+                  <Star className="w-3 h-3 text-yellow-500 mr-1" />
+                  {pinnedEmails.size} épinglés
+                </span>
+                <span className="flex items-center">
+                  <Paperclip className="w-3 h-3 text-gray-400 mr-1" />
+                  {emails.filter(e => e.hasAttachment).length} avec pièces jointes
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedEmails(new Set())}
+                disabled={selectedEmails.size === 0}
+              >
+                <X className="w-4 h-4 mr-1" />
+                Désélectionner
+              </Button>
+              
+              <div className="text-xs text-gray-500">
+                Dernière mise à jour: {new Date().toLocaleTimeString()}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -531,130 +753,237 @@ export default function MailPage() {
             filteredEmails.map((email) => (
               <div
                 key={email.id}
-                className="border-b border-gray-200 p-4 cursor-pointer hover:bg-gray-50 transition-colors bg-blue-50 hover:bg-blue-100"
+                className={cn(
+                  "border-b border-gray-100 transition-all duration-200 group relative",
+                  "hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50",
+                  !readEmails.has(email.id) && "bg-blue-50/30 border-l-4 border-l-blue-500",
+                  pinnedEmails.has(email.id) && "bg-yellow-50/50 border-l-4 border-l-yellow-500",
+                  selectedEmails.has(email.id) && "bg-blue-100 ring-2 ring-blue-500",
+                  "cursor-pointer"
+                )}
                 onClick={() => {
+                  markAsRead(email.id);
                   setSelectedEmail(email);
                   setShowEmailReader(true);
                 }}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-4 flex-1 min-w-0">
-                    {/* Avatar */}
-                    <div className={cn(
-                      "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
-                      email.category === 'folders' ? "bg-blue-500" : "bg-orange-500"
-                    )}>
-                      <span className="text-white font-bold text-sm">
-                        {email.sender.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                      </span>
+                <div className="p-4">
+                  <div className="flex items-start space-x-4">
+                    {/* Checkbox de sélection */}
+                    <div className="flex items-center space-x-3 pt-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedEmails.has(email.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleEmailSelection(email.id);
+                        }}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      
+                      {/* Bouton épingler */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePin(email.id);
+                        }}
+                        className={cn(
+                          "p-1 rounded transition-colors opacity-0 group-hover:opacity-100",
+                          pinnedEmails.has(email.id) 
+                            ? "text-yellow-500 opacity-100" 
+                            : "text-gray-400 hover:text-yellow-500"
+                        )}
+                      >
+                        <Star className={cn("w-4 h-4", pinnedEmails.has(email.id) && "fill-current")} />
+                      </button>
                     </div>
 
-                    {/* Contenu */}
+                    {/* Avatar amélioré */}
+                    <div className="relative">
+                      <div className={cn(
+                        "w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm",
+                        email.category === 'folders' 
+                          ? "bg-gradient-to-br from-blue-500 to-blue-600" 
+                          : email.category === 'files'
+                          ? "bg-gradient-to-br from-green-500 to-green-600"
+                          : email.category === 'media'
+                          ? "bg-gradient-to-br from-purple-500 to-purple-600"
+                          : "bg-gradient-to-br from-orange-500 to-orange-600"
+                      )}>
+                        <span>
+                          {email.sender.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                        </span>
+                      </div>
+                      
+                      {/* Indicateur de priorité */}
+                      {email.priority === 'high' && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                          <AlertCircle className="w-2 h-2 text-white" />
+                        </div>
+                      )}
+                      
+                      {/* Indicateur non lu */}
+                      {!readEmails.has(email.id) && (
+                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full"></div>
+                      )}
+                    </div>
+
+                    {/* Contenu principal */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
-                          <span className="font-medium text-gray-900">
+                          <span className={cn(
+                            "text-gray-900 truncate max-w-xs",
+                            !readEmails.has(email.id) ? "font-bold" : "font-medium"
+                          )}>
                             {email.sender}
                           </span>
-                          <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                          
                           {email.hasAttachment && (
                             <Paperclip className="w-4 h-4 text-gray-400" />
                           )}
-                          {email.priority === 'high' && (
-                            <AlertCircle className="w-4 h-4 text-red-500" />
-                          )}
+                          
+                          {/* Badge de catégorie */}
+                          <Badge 
+                            variant="outline" 
+                            className={cn(
+                              "text-xs px-2 py-0.5",
+                              email.category === 'files' && "bg-green-50 text-green-700 border-green-200",
+                              email.category === 'folders' && "bg-blue-50 text-blue-700 border-blue-200",
+                              email.category === 'media' && "bg-purple-50 text-purple-700 border-purple-200",
+                              email.category === 'documents' && "bg-orange-50 text-orange-700 border-orange-200"
+                            )}
+                          >
+                            {email.category === 'files' && <Paperclip className="w-3 h-3 mr-1" />}
+                            {email.category === 'folders' && <Folder className="w-3 h-3 mr-1" />}
+                            {email.category === 'media' && <Eye className="w-3 h-3 mr-1" />}
+                            {email.category === 'documents' && <MessageSquare className="w-3 h-3 mr-1" />}
+                            {email.category === 'files' ? 'Fichier' :
+                             email.category === 'folders' ? 'Dossier' :
+                             email.category === 'media' ? 'Média' : 'Document'}
+                          </Badge>
                         </div>
-                        <div className="flex items-center space-x-3 text-sm text-gray-500">
-                          <span>{email.date}</span>
+                        
+                        <div className="flex items-center space-x-2 text-sm text-gray-500">
+                          <Clock className="w-3 h-3" />
                           <span>{email.time}</span>
+                          <span>{email.date}</span>
                         </div>
                       </div>
                       
-                      <h3 className="text-sm mb-1 truncate font-semibold text-gray-900">
+                      <h3 className={cn(
+                        "text-sm mb-2 truncate",
+                        !readEmails.has(email.id) ? "font-bold text-gray-900" : "font-medium text-gray-800"
+                      )}>
                         {email.subject}
                       </h3>
                       
-                      <p className="text-sm text-gray-600 truncate">
-                        {email.preview}
-                      </p>
+                      {showPreview && (
+                        <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
+                          {email.content}
+                        </p>
+                      )}
 
-                      {/* Badges de catégorie */}
-                      <div className="flex items-center space-x-2 mt-2">
-                        <Badge 
-                          variant={email.category === 'files' ? 'default' : email.category === 'folders' ? 'secondary' : 'outline'}
-                          className="text-xs"
-                        >
-                          {email.category === 'files' && '📄 Fichier'}
-                          {email.category === 'folders' && '📁 Dossier'}
-                          {email.category === 'documents' && '📋 Document'}
-                          {email.category === 'media' && '🎨 Média'}
-                        </Badge>
-                        <Badge variant="default" className="text-xs bg-blue-600">
-                          Nouveau
-                        </Badge>
+                      {/* Badges et statuts */}
+                      <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center space-x-2">
+                          {!readEmails.has(email.id) && (
+                            <Badge variant="default" className="text-xs bg-blue-600 text-white">
+                              Nouveau
+                            </Badge>
+                          )}
+                          
+                          {pinnedEmails.has(email.id) && (
+                            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
+                              <Star className="w-3 h-3 mr-1 fill-current" />
+                              Épinglé
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Actions rapides */}
+                        <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEmail(email);
+                              setShowReplyDialog(true);
+                            }}
+                          >
+                            <Reply className="w-4 h-4" />
+                          </Button>
+                          
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEmail(email);
+                              setShowForwardDialog(true);
+                            }}
+                          >
+                            <Forward className="w-4 h-4" />
+                          </Button>
+                          
+                          {email.folder && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedFolder(email.folder);
+                                exploreFolderMutation.mutate(email.folder.id);
+                              }}
+                            >
+                              <FolderOpen className="w-4 h-4" />
+                            </Button>
+                          )}
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                markAsRead(email.id);
+                              }}>
+                                <Check className="w-4 h-4 mr-2" />
+                                Marquer comme lu
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                togglePin(email.id);
+                              }}>
+                                <Star className="w-4 h-4 mr-2" />
+                                {pinnedEmails.has(email.id) ? 'Désépingler' : 'Épingler'}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem>
+                                <Archive className="w-4 h-4 mr-2" />
+                                Archiver
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600">
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Supprimer
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center space-x-1 ml-4">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedEmail(email);
-                          setShowReplyDialog(true);
-                        }}>
-                          <Reply className="w-4 h-4 mr-2" />
-                          Répondre
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedEmail(email);
-                          setShowForwardDialog(true);
-                        }}>
-                          <Forward className="w-4 h-4 mr-2" />
-                          Transférer
-                        </DropdownMenuItem>
-                        {email.folder && (
-                          <DropdownMenuItem onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedFolder(email.folder);
-                            exploreFolderMutation.mutate(email.folder.id);
-                          }}>
-                            <FolderOpen className="w-4 h-4 mr-2" />
-                            Explorer le dossier
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={(e) => {
-                          e.stopPropagation();
-                          // Archiver logic ici
-                        }}>
-                          <Archive className="w-4 h-4 mr-2" />
-                          Archiver
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Supprimer logic ici
-                          }}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Supprimer
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </div>
                 </div>
               </div>
