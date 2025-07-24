@@ -166,16 +166,16 @@ export default function MessageItem({
 
     return (
       <div className="mt-2 max-w-sm">
-        {isImage && (
+        {isImage && message.fileUrl && (
           <img 
             src={message.fileUrl} 
             alt={message.fileName || 'Image'} 
             className="rounded-lg max-h-48 object-cover cursor-pointer"
-            onClick={() => window.open(message.fileUrl, '_blank')}
+            onClick={() => window.open(message.fileUrl!, '_blank')}
           />
         )}
         
-        {isVideo && (
+        {isVideo && message.fileUrl && (
           <video 
             src={message.fileUrl} 
             controls 
@@ -184,7 +184,7 @@ export default function MessageItem({
           />
         )}
         
-        {isAudio && (
+        {isAudio && message.fileUrl && (
           <audio 
             src={message.fileUrl} 
             controls 
@@ -350,8 +350,8 @@ export default function MessageItem({
           {renderReactions()}
         </div>
         
-        {/* Message actions */}
-        <div className={`absolute ${isOwnMessage ? 'left-0 -translate-x-full' : 'right-0 translate-x-full'} top-0 opacity-0 group-hover:opacity-100 transition-opacity`}>
+        {/* Message actions - côte à côte avec le message */}
+        <div className={`flex-shrink-0 ${isOwnMessage ? 'order-first mr-2' : 'order-last ml-2'} opacity-0 group-hover:opacity-100 transition-opacity`}>
           <div className="flex items-center gap-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg p-1">
             {/* Reaction button */}
             <Popover open={showReactions} onOpenChange={setShowReactions}>

@@ -218,106 +218,178 @@ export default function MessageInput({
 
   const startRecording = async () => {
     try {
-      // Vérifier si le navigateur supporte l'enregistrement
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        toast({
-          title: "Non supporté",
-          description: "Votre navigateur ne supporte pas l'enregistrement audio",
-          variant: "destructive"
-        });
-        return;
+      console.log("🎤 Tentative d'accès au microphone...");
+      
+      // Vérification de support robuste
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("L'enregistrement audio n'est pas supporté sur ce navigateur");
       }
 
-      console.log("Demande d'accès au microphone...");
+      // Configuration audio optimisée
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          sampleRate: 44100
+          autoGainControl: true,
+          sampleRate: 44100,
+          channelCount: 1
         }
       });
       
-      console.log("Microphone accessible, démarrage de l'enregistrement");
+      console.log("✅ Microphone accessible, configuration de l'enregistrement");
       
-      // Tenter d'utiliser différents formats audio
-      let mimeType = 'audio/webm';
-      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-        mimeType = 'audio/webm;codecs=opus';
-      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-        mimeType = 'audio/mp4';
-      } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
-        mimeType = 'audio/ogg';
+      // Détection du meilleur format supporté
+      const supportedFormats = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+        'audio/wav'
+      ];
+      
+      let selectedFormat = 'audio/wav'; // Fallback
+      for (const format of supportedFormats) {
+        if (MediaRecorder.isTypeSupported(format)) {
+          selectedFormat = format;
+          break;
+        }
       }
       
-      const recorder = new MediaRecorder(stream, { mimeType });
-      const chunks: Blob[] = [];
+      console.log("🔊 Format audio sélectionné:", selectedFormat);
+      
+      const recorder = new MediaRecorder(stream, { 
+        mimeType: selectedFormat,
+        audioBitsPerSecond: 128000
+      });
+      
+      const audioChunks: Blob[] = [];
 
-      recorder.ondataavailable = (e) => {
-        console.log("Données audio reçues:", e.data.size, "bytes");
-        if (e.data.size > 0) chunks.push(e.data);
+      recorder.ondataavailable = (event) => {
+        console.log("📊 Chunk audio reçu:", event.data.size, "bytes");
+        if (event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
       };
       
-      recorder.onstop = () => {
-        console.log("Arrêt de l'enregistrement, chunks:", chunks.length);
-        if (chunks.length > 0) {
-          const blob = new Blob(chunks, { type: mimeType });
-          const extension = mimeType.includes('webm') ? 'webm' : 
-                            mimeType.includes('mp4') ? 'mp4' : 'ogg';
-          const file = new File([blob], `vocal-${Date.now()}.${extension}`, { type: mimeType });
-          console.log("Fichier audio créé:", file.name, file.size, "bytes");
-          setSelectedFiles(prev => [...prev, file]);
+      recorder.onstop = async () => {
+        console.log("⏹️ Enregistrement terminé, assemblage:", audioChunks.length, "chunks");
+        
+        if (audioChunks.length > 0) {
+          const audioBlob = new Blob(audioChunks, { type: selectedFormat });
+          console.log("🎵 Blob audio créé:", audioBlob.size, "bytes");
+          
+          // Générer nom de fichier avec extension appropriée
+          const extension = selectedFormat.includes('webm') ? 'webm' : 
+                           selectedFormat.includes('mp4') ? 'm4a' : 
+                           selectedFormat.includes('ogg') ? 'ogg' : 'wav';
+          
+          const fileName = `message_vocal_${Date.now()}.${extension}`;
+          const audioFile = new File([audioBlob], fileName, { type: selectedFormat });
+          
+          console.log("✅ Fichier audio finalisé:", {
+            name: audioFile.name,
+            size: audioFile.size,
+            type: audioFile.type
+          });
+          
+          // Ajouter le fichier à la liste
+          setSelectedFiles(prev => [...prev, audioFile]);
+          
+          toast({
+            title: "Enregistrement réussi",
+            description: `Message vocal de ${(audioFile.size / 1024).toFixed(1)} KB créé`
+          });
+        } else {
+          console.warn("⚠️ Aucune donnée audio capturée");
+          toast({
+            title: "Échec",
+            description: "Aucun audio n'a été enregistré",
+            variant: "destructive"
+          });
         }
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      recorder.onerror = (e) => {
-        console.error("Erreur MediaRecorder:", e);
-        toast({
-          title: "Erreur d'enregistrement",
-          description: "Une erreur est survenue pendant l'enregistrement",
-          variant: "destructive"
+        
+        // Nettoyer les ressources
+        stream.getTracks().forEach(track => {
+          track.stop();
+          console.log("🔇 Piste audio fermée");
         });
       };
 
-      recorder.start(1000); // Enregistrer par chunks de 1 seconde
+      recorder.onerror = (event) => {
+        console.error("❌ Erreur MediaRecorder:", event);
+        toast({
+          title: "Erreur d'enregistrement",
+          description: "Problème technique pendant l'enregistrement",
+          variant: "destructive"
+        });
+        
+        // Nettoyer en cas d'erreur
+        stream.getTracks().forEach(track => track.stop());
+        setIsRecording(false);
+        setMediaRecorder(null);
+      };
+
+      // Démarrer l'enregistrement
+      recorder.start(100); // Chunks plus fréquents pour plus de données
       setMediaRecorder(recorder);
       setIsRecording(true);
       
+      console.log("🎙️ Enregistrement actif");
       toast({
-        title: "Enregistrement démarré",
-        description: "Parlez maintenant dans votre microphone"
+        title: "🎤 Enregistrement en cours",
+        description: "Parlez maintenant. Cliquez à nouveau pour arrêter."
       });
-    } catch (error: any) {
-      console.error("Erreur accès microphone:", error);
-      let message = "Impossible d'accéder au microphone";
       
-      if (error.name === 'NotAllowedError') {
-        message = "Permission microphone refusée. Autorisez l'accès au microphone dans votre navigateur.";
-      } else if (error.name === 'NotFoundError') {
-        message = "Aucun microphone détecté sur votre appareil.";
-      } else if (error.name === 'NotSupportedError') {
-        message = "L'enregistrement audio n'est pas supporté sur ce navigateur.";
+    } catch (error: any) {
+      console.error("💥 Erreur complète:", error);
+      
+      let errorMessage = "Erreur d'accès au microphone";
+      
+      switch (error.name) {
+        case 'NotAllowedError':
+          errorMessage = "Permission refusée. Autorisez l'accès au microphone dans les paramètres du navigateur.";
+          break;
+        case 'NotFoundError':
+          errorMessage = "Aucun microphone détecté. Vérifiez que votre microphone est connecté.";
+          break;
+        case 'NotSupportedError':
+          errorMessage = "Enregistrement audio non supporté sur ce navigateur.";
+          break;
+        case 'NotReadableError':
+          errorMessage = "Microphone déjà utilisé par une autre application.";
+          break;
+        default:
+          errorMessage = error.message || "Erreur technique inconnue";
       }
       
       toast({
-        title: "Erreur",
-        description: message,
+        title: "❌ Erreur microphone",
+        description: errorMessage,
         variant: "destructive"
       });
+      
+      setIsRecording(false);
+      setMediaRecorder(null);
     }
   };
 
   const stopRecording = () => {
-    console.log("Arrêt demandé, état:", mediaRecorder?.state);
+    console.log("⏹️ Arrêt demandé, état actuel:", mediaRecorder?.state);
+    
     if (mediaRecorder && mediaRecorder.state === 'recording') {
+      console.log("🛑 Arrêt de l'enregistrement...");
       mediaRecorder.stop();
       setIsRecording(false);
       setMediaRecorder(null);
       
       toast({
-        title: "Enregistrement terminé",
-        description: "Votre message vocal a été ajouté"
+        title: "⏹️ Arrêt enregistrement",
+        description: "Traitement du message vocal..."
       });
+    } else {
+      console.warn("⚠️ Impossible d'arrêter:", mediaRecorder?.state || "pas de recorder");
+      setIsRecording(false);
+      setMediaRecorder(null);
     }
   };
 
