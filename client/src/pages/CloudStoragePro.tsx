@@ -186,25 +186,72 @@ export default function CloudStoragePro() {
   });
 
   const shareFilesMutation = useMutation({
-    mutationFn: () => {
-      const selectedFileIds = getSelectedFileIds();
-      return apiRequest('/api/files/share', {
-        method: 'POST',
-        body: JSON.stringify({
-          fileIds: selectedFileIds,
-          sharedWith: shareRecipient,
-          permission: sharePermission,
-        }),
-      });
+    mutationFn: async () => {
+      try {
+        const selectedFileIds = getSelectedFileIds();
+        
+        if (selectedFileIds.length === 0) {
+          throw new Error("Aucun fichier sélectionné");
+        }
+
+        if (!shareRecipient.trim()) {
+          throw new Error("Nom d'utilisateur du destinataire requis");
+        }
+
+        // Vérifier que l'utilisateur destinataire existe
+        const usersRes = await fetch('/api/users', { credentials: 'include' });
+        if (!usersRes.ok) throw new Error("Impossible de récupérer les utilisateurs");
+        
+        const usersData = await usersRes.json();
+        const allUsers = Array.isArray(usersData) ? usersData : usersData.data || [];
+        const targetUser = allUsers.find((u: any) => u.username === shareRecipient.trim());
+        
+        if (!targetUser) {
+          throw new Error("Utilisateur destinataire introuvable");
+        }
+
+        // Partager chaque fichier individuellement
+        const results = [];
+        for (const fileId of selectedFileIds) {
+          const response = await fetch('/api/files/share', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              fileId: fileId,
+              sharedWithId: targetUser.id,
+              permission: sharePermission,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Erreur lors du partage du fichier ${fileId}`);
+          }
+          
+          const result = await response.json();
+          results.push(result);
+        }
+
+        return results;
+      } catch (error) {
+        console.error("Erreur détaillée lors du partage:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
       setIsShareDialogOpen(false);
       setShareRecipient("");
       setSelectedFiles({});
       toast({ title: "Fichiers partagés avec succès" });
     },
-    onError: () => {
-      toast({ title: "Erreur lors du partage", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ 
+        title: "Erreur lors du partage", 
+        description: error.message,
+        variant: "destructive" 
+      });
     },
   });
 
