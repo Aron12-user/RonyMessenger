@@ -115,11 +115,35 @@ export default function MessageItem({
 
   const addReactionMutation = useMutation({
     mutationFn: async ({ messageId, emoji }: { messageId: number; emoji: string }) => {
-      return apiRequest("POST", `/api/messages/${messageId}/reactions`, { emoji });
+      console.log("🎯 Ajout réaction:", { messageId, emoji });
+      const response = await fetch(`/api/messages/${messageId}/reactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ emoji })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de l\'ajout de la réaction');
+      }
+      
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("✅ Réaction ajoutée avec succès:", data);
       queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.MESSAGES] });
+      queryClient.invalidateQueries({ queryKey: [`/api/conversations/${message.conversationId}/messages`] });
       setShowReactions(false);
+      toast({ title: "Réaction ajoutée", description: "Votre réaction a été ajoutée au message" });
+    },
+    onError: (error: Error) => {
+      console.error("❌ Erreur réaction:", error);
+      toast({ 
+        title: "Erreur", 
+        description: error.message || "Impossible d'ajouter la réaction", 
+        variant: "destructive" 
+      });
     }
   });
 
