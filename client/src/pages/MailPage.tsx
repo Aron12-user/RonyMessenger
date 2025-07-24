@@ -318,12 +318,12 @@ export default function MailPage() {
               isDeleted: false,
               priority: 'high',
               category: messageData.type === 'folder' ? 'folders' : 'files',
-              attachment: messageData.type === 'file' ? {
-                id: messageData.fileId,
-                name: messageData.fileName,
-                type: messageData.fileType,
-                size: messageData.fileSize,
-                url: messageData.fileUrl,
+              attachment: messageData.type === 'file_share' && messageData.attachmentInfo ? {
+                id: messageData.attachmentInfo.fileId,
+                name: messageData.attachmentInfo.fileName,
+                type: messageData.attachmentInfo.fileType,
+                size: messageData.attachmentInfo.fileSize,
+                url: messageData.attachmentInfo.fileUrl || '#',
                 uploaderId: 0,
                 uploadedAt: messageData.timestamp,
                 sharedBy: {
@@ -332,11 +332,11 @@ export default function MailPage() {
                   displayName: messageData.sender
                 }
               } : undefined,
-              folder: messageData.type === 'folder' ? {
-                id: messageData.folderId,
-                name: messageData.folderName,
-                fileCount: messageData.fileCount,
-                totalSize: messageData.totalSize,
+              folder: messageData.type === 'folder_share' && messageData.attachmentInfo ? {
+                id: messageData.attachmentInfo.folderId,
+                name: messageData.attachmentInfo.folderName,
+                fileCount: messageData.attachmentInfo.fileCount || 0,
+                totalSize: messageData.attachmentInfo.totalSize || 0,
                 uploaderId: 0,
                 uploadedAt: messageData.timestamp,
                 sharedBy: {
@@ -566,15 +566,11 @@ export default function MailPage() {
     if (folder) {
       return `Bonjour,
 
-J'ai le plaisir de partager avec vous le dossier "${folder.name}" qui contient ${folder.fileCount} fichiers essentiels pour notre collaboration.
+J'ai le plaisir de partager avec vous le dossier "${folder.name}" qui contient ${folder.fileCount || 'plusieurs'} fichiers.
 
-Ce dossier comprend :
-• Documents de travail mis à jour
-• Ressources et références importantes  
-• Fichiers de configuration nécessaires
-• Éléments visuels et graphiques
+Ce dossier a été partagé avec vous pour faciliter notre collaboration.
 
-Taille totale : ${formatFileSize(folder.totalSize)}
+Taille totale : ${folder.totalSize ? formatFileSize(folder.totalSize) : 'Calcul en cours'}
 
 Vous pouvez accéder à l'ensemble des fichiers directement depuis cette interface ou télécharger le dossier complet.
 
@@ -776,7 +772,7 @@ Bien cordialement,`;
           originalSender: originalEmail.sender,
           originalContent: originalEmail.content,
           senderName: user.displayName || user.username,
-          senderEmail: user.email || `${user.username}`
+          senderEmail: user.email || `${user.username}@rony.com`
         })
       });
       
@@ -820,7 +816,7 @@ Bien cordialement,`;
             folder: originalEmail.folder
           },
           senderName: user.displayName || user.username,
-          senderEmail: user.email || `${user.username}`
+          senderEmail: user.email || `${user.username}@rony.com`
         })
       });
       

@@ -222,6 +222,10 @@ Changelog:
 - June 24, 2025. VERIFIED COMPLETE FUNCTIONALITY: All courrier features now work correctly - file sharing, folder sharing, Reply, and Forward
 - June 24, 2025. Implemented robust user validation and WebSocket delivery system for instant notifications
 - June 24, 2025. Ensured all existing functions remain functional as requested by user
+- June 24, 2025. FINAL COURRIER FIXES: Eliminated duplicate courrier messages by removing duplicate /api/files/:id/share route
+- June 24, 2025. Corrected @example.com email extensions in Reply/Forward functions - now properly uses @rony.com domain
+- June 24, 2025. Fixed auto-generated folder sharing message content - removed incorrect "Documents de travail" and "NaN undefined" text
+- June 24, 2025. ALL COURRIER ISSUES RESOLVED: No more double messages, proper email domains, accurate auto-generated content
 ```
 
 ## User Preferences
