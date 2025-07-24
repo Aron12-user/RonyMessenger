@@ -226,6 +226,9 @@ Changelog:
 - June 24, 2025. Corrected @example.com email extensions in Reply/Forward functions - now properly uses @rony.com domain
 - June 24, 2025. Fixed auto-generated folder sharing message content - removed incorrect "Documents de travail" and "NaN undefined" text
 - June 24, 2025. ALL COURRIER ISSUES RESOLVED: No more double messages, proper email domains, accurate auto-generated content
+- June 24, 2025. CRITICAL SECURITY FIX: Fixed Cloud storage user isolation - getFilesByFolder now filters by userId to prevent cross-user file visibility
+- June 24, 2025. ELIMINATED PERSISTENT DOUBLE COURRIER: Removed server-side WebSocket notifications to prevent duplicate messages - frontend MailPage.tsx handles all notifications
+- June 24, 2025. VERIFIED CLOUD PRIVACY: Users can now only see their own uploaded files, no longer see other users' files in Cloud interface
 ```
 
 ## User Preferences
