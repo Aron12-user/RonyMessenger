@@ -184,6 +184,17 @@ export class MemStorage implements IStorage {
     return Array.from(this.users.values());
   }
   
+  async updateUserProfile(userId: number, updates: Partial<User>): Promise<User> {
+    const user = this.users.get(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    const updatedUser = { ...user, ...updates };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+
   async getPaginatedUsers(options: PaginationOptions): Promise<PaginatedResult<User>> {
     const { page = 1, pageSize = 50, sortBy = 'id', sortOrder = 'asc' } = options;
     
@@ -243,18 +254,7 @@ export class MemStorage implements IStorage {
     }
   }
   
-  async updateUserProfile(userId: number, profileData: { displayName?: string; email?: string; phone?: string; title?: string }): Promise<void> {
-    const user = await this.getUser(userId);
-    if (user) {
-      // Mettre à jour uniquement les champs fournis
-      if (profileData.displayName !== undefined) user.displayName = profileData.displayName;
-      if (profileData.email !== undefined) user.email = profileData.email;
-      if (profileData.phone !== undefined) user.phone = profileData.phone;
-      if (profileData.title !== undefined) user.title = profileData.title;
-      
-      this.users.set(userId, user);
-    }
-  }
+
   
   // Conversation methods
   async getConversation(id: number): Promise<Conversation | undefined> {

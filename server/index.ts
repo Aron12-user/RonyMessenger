@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes-clean";
+import { setupMessagingRoutes } from "./routes-messaging";
 import { setupVite, serveStatic, log } from "./vite";
 // WebRTC server removed
 import session from 'express-session';
@@ -69,6 +70,8 @@ app.use('/uploads', express.static('uploads'));
   }
 
   const server = await registerRoutes(app);
+  setupMessagingRoutes(app);
+  console.log("Routes configured successfully");
 
   // WebRTC server removed
 
