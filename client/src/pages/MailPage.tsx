@@ -131,11 +131,10 @@ export default function MailPage() {
     return { ...email, ...state };
   };
 
-  // Convertir les fichiers/dossiers partagés en emails et charger depuis localStorage
+  // Charger les emails depuis localStorage seulement
   useEffect(() => {
     if (!user) return;
     
-    // Charger les emails persistants depuis localStorage
     try {
       const savedEmails = localStorage.getItem(`courrier_${user.id}`);
       if (savedEmails) {
@@ -146,10 +145,18 @@ export default function MailPage() {
     } catch (error) {
       console.error('Erreur lors du chargement des emails:', error);
     }
+  }, [user]);
 
-    // Convertir les nouveaux fichiers/dossiers partagés en emails
-    if (sharedFiles.length > 0 || sharedFolders.length > 0) {
-      const emailsFromFiles = sharedFiles.map(file => ({
+  // Convertir les fichiers/dossiers partagés en emails UNIQUEMENT s'ils ne sont pas déjà stockés
+  useEffect(() => {
+    if (!user || (!sharedFiles.length && !sharedFolders.length)) return;
+
+    // Vérifier quels emails sont déjà stockés pour éviter les doublons
+    const existingIds = new Set(persistentEmails.map(email => email.id));
+    
+    const emailsFromFiles = sharedFiles
+      .filter(file => !existingIds.has(file.id + 10000))
+      .map(file => ({
         id: file.id + 10000,
         sender: file.sharedBy.displayName || file.sharedBy.username,
         senderEmail: `${file.sharedBy.username}@rony.com`,
@@ -164,7 +171,9 @@ export default function MailPage() {
         attachment: file
       }));
 
-      const emailsFromFolders = sharedFolders.map(folder => ({
+    const emailsFromFolders = sharedFolders
+      .filter(folder => !existingIds.has(folder.id + 20000))
+      .map(folder => ({
         id: folder.id + 20000,
         sender: folder.sharedBy.displayName || folder.sharedBy.username,
         senderEmail: `${folder.sharedBy.username}@rony.com`,
@@ -179,15 +188,17 @@ export default function MailPage() {
         folder: folder
       }));
 
-      const allNewEmails = [...emailsFromFiles, ...emailsFromFolders];
-      setRealtimeEmails(allNewEmails);
+    const newEmails = [...emailsFromFiles, ...emailsFromFolders];
+    
+    if (newEmails.length > 0) {
+      console.log(`📧 Ajout de ${newEmails.length} nouveaux emails (${emailsFromFiles.length} fichiers, ${emailsFromFolders.length} dossiers)`);
       
-      // Sauvegarder dans localStorage pour la persistance
-      const updatedEmails = [...persistentEmails, ...allNewEmails];
-      localStorage.setItem(`courrier_${user.id}`, JSON.stringify(updatedEmails));
+      // Ajouter seulement les nouveaux emails aux emails persistants
+      const updatedEmails = [...persistentEmails, ...newEmails];
       setPersistentEmails(updatedEmails);
+      localStorage.setItem(`courrier_${user.id}`, JSON.stringify(updatedEmails));
     }
-  }, [user, sharedFiles, sharedFolders]);
+  }, [user, sharedFiles, sharedFolders, persistentEmails]);
 
   // WebSocket pour les mises à jour en temps réel
   useEffect(() => {
@@ -400,8 +411,8 @@ export default function MailPage() {
     }
   });
 
-  // Combiner tous les emails (persistants + temps réel)
-  const allEmails = [...persistentEmails, ...realtimeEmails];
+  // Utiliser seulement les emails persistants (plus de doublons avec realtimeEmails)
+  const allEmails = persistentEmails;
 
   // Filtrer les emails selon les critères
   const filteredEmails = allEmails
@@ -458,89 +469,87 @@ export default function MailPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold text-gray-900">📧 Courrier</h1>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => refetch()}
-              className="flex items-center space-x-2"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>Actualiser</span>
+    <div className="h-screen flex bg-gray-50">
+      {/* Sidebar étroite pour navigation */}
+      <div className="w-16 bg-white border-r border-gray-200 flex flex-col items-center py-4 space-y-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => refetch()}
+          className="w-10 h-10 p-0"
+        >
+          <RotateCcw className="w-4 h-4" />
+        </Button>
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="w-10 h-10 p-0">
+              <Filter className="w-4 h-4" />
             </Button>
-          </div>
-          
-          <div className="flex items-center space-x-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Rechercher dans le courrier..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-80"
-              />
-            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right">
+            <DropdownMenuItem onClick={() => setFilterCategory('all')}>
+              Tous les messages
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setFilterCategory('files')}>
+              📄 Fichiers
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setFilterCategory('folders')}>
+              📁 Dossiers
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setFilterCategory('documents')}>
+              📋 Documents
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setFilterCategory('media')}>
+              🎨 Médias
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <Button
+          variant={showArchived ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setShowArchived(!showArchived)}
+          className="w-10 h-10 p-0"
+        >
+          <Archive className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Main content area - Interface plus mince */}
+      <div className="flex-1 flex flex-col max-w-4xl">
+        {/* Header compact */}
+        <div className="bg-white border-b px-4 py-3">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-bold text-gray-900">📧 Courrier</h1>
             
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Filter className="w-4 h-4 mr-2" />
-                  {filterCategory === 'all' ? 'Tous' : 
-                   filterCategory === 'files' ? 'Fichiers' :
-                   filterCategory === 'folders' ? 'Dossiers' :
-                   filterCategory === 'documents' ? 'Documents' : 'Médias'}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => setFilterCategory('all')}>
-                  Tous les messages
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilterCategory('files')}>
-                  📄 Fichiers
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilterCategory('folders')}>
-                  📁 Dossiers
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilterCategory('documents')}>
-                  📋 Documents
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilterCategory('media')}>
-                  🎨 Médias
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Button
-              variant={showArchived ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowArchived(!showArchived)}
-            >
-              <Archive className="w-4 h-4 mr-2" />
-              {showArchived ? 'Masquer archivés' : 'Voir archivés'}
-            </Button>
+            <div className="flex items-center space-x-2">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Rechercher..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 w-48 h-8 text-sm"
+                />
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Stats */}
-      <div className="bg-white border-b px-6 py-3">
-        <div className="flex items-center justify-between text-sm text-gray-600">
-          <span>
-            {filteredEmails.length} message{filteredEmails.length !== 1 ? 's' : ''} 
-            {searchQuery && ` pour "${searchQuery}"`}
-            {filterCategory !== 'all' && ` dans ${filterCategory}`}
-          </span>
-          <div className="flex space-x-4">
-            <span>{filteredEmails.filter(e => !getCurrentEmail(e).isRead).length} non lus</span>
-            <span>{filteredEmails.filter(e => getCurrentEmail(e).isStarred).length} favoris</span>
+        {/* Stats compactes */}
+        <div className="bg-white border-b px-4 py-2">
+          <div className="flex items-center justify-between text-xs text-gray-600">
+            <span>
+              {filteredEmails.length} message{filteredEmails.length !== 1 ? 's' : ''} 
+              {searchQuery && ` pour "${searchQuery}"`}
+            </span>
+            <div className="flex space-x-3">
+              <span>{filteredEmails.filter(e => !getCurrentEmail(e).isRead).length} non lus</span>
+              <span>{filteredEmails.filter(e => getCurrentEmail(e).isStarred).length} favoris</span>
+            </div>
           </div>
         </div>
-      </div>
 
       {/* Liste des emails */}
       <div className="flex-1 overflow-hidden">
@@ -562,25 +571,35 @@ export default function MailPage() {
                 <div
                   key={email.id}
                   className={cn(
-                    "border-b border-gray-200 p-4 cursor-pointer hover:bg-gray-50 transition-colors",
+                    "border-b border-gray-200 p-3 cursor-pointer hover:bg-gray-50 transition-colors",
                     !currentEmail.isRead && "bg-blue-50 hover:bg-blue-100"
                   )}
                   onClick={() => {
-                    setSelectedEmail(currentEmail);
+                    console.log('📧 Ouverture du message:', email.subject);
+                    setSelectedEmail(email);
                     setViewMode('reading');
                     if (!currentEmail.isRead) {
                       markAsReadMutation.mutate(email.id);
                     }
+                    
+                    // Ouvrir directement le fichier/dossier attaché si présent
+                    if (email.attachment) {
+                      console.log('📄 Ouverture du fichier attaché:', email.attachment.name);
+                      window.open(email.attachment.url, '_blank');
+                    } else if (email.folder) {
+                      console.log('📁 Exploration du dossier:', email.folder.name);
+                      exploreFolderMutation.mutate(email.folder.id);
+                    }
                   }}
                 >
                   <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-4 flex-1 min-w-0">
-                      {/* Avatar */}
+                    <div className="flex items-start space-x-3 flex-1 min-w-0">
+                      {/* Avatar plus petit */}
                       <div className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
+                        "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
                         email.category === 'folders' ? "bg-blue-500" : "bg-orange-500"
                       )}>
-                        <span className="text-white font-bold text-sm">
+                        <span className="text-white font-bold text-xs">
                           {email.sender.split(' ').map(n => n[0]).join('').substring(0, 2)}
                         </span>
                       </div>
@@ -713,6 +732,7 @@ export default function MailPage() {
               );
             })
           )}
+          </div>
         </div>
       </div>
 
