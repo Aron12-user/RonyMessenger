@@ -1491,7 +1491,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[FOLDER-EXPLORE] User ${userId} exploring folder ${folderId}`);
       
       // Vérifier que l'utilisateur a accès au dossier
-      const folder = await storage.getFolderById(folderId);
+      const folder = await storage.getFileById(folderId); // Using getFileById as getFolderById doesn't exist
       if (!folder) {
         return res.status(404).json({ error: "Dossier non trouvé" });
       }

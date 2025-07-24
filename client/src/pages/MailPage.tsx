@@ -468,6 +468,337 @@ export default function MailPage() {
     );
   }
 
+  // Vue de lecture d'un message (comme Gmail)
+  if (viewMode === 'reading' && selectedEmail) {
+    return (
+      <div className="h-screen flex bg-gray-50">
+        {/* Vue de lecture étroite (comme Gmail) */}
+        <div className="w-full max-w-2xl mx-auto bg-white">
+          {/* Header de la vue de lecture */}
+          <div className="border-b px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="flex items-center space-x-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Retour</span>
+              </Button>
+              <h1 className="text-lg font-semibold">Lecture du message</h1>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectedEmail(selectedEmail);
+                  setShowReplyDialog(true);
+                }}
+              >
+                <Reply className="w-4 h-4 mr-1" />
+                Répondre
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectedEmail(selectedEmail);
+                  setShowForwardDialog(true);
+                }}
+              >
+                <Forward className="w-4 h-4 mr-1" />
+                Transférer
+              </Button>
+            </div>
+          </div>
+
+          {/* Contenu du message */}
+          <div className="p-6">
+            {/* En-tête du message */}
+            <div className="border-b pb-4 mb-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">{selectedEmail.subject}</h2>
+              <div className="flex items-center space-x-4 text-sm text-gray-600">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                    <span className="text-white font-bold text-xs">
+                      {selectedEmail.sender.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="font-medium">{selectedEmail.sender}</div>
+                    <div className="text-xs">{selectedEmail.senderEmail}</div>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2 text-xs">
+                  <span>{selectedEmail.date}</span>
+                  <span>{selectedEmail.time}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Corps du message */}
+            <div className="prose max-w-none mb-6">
+              <p className="text-gray-700 leading-relaxed">{selectedEmail.content}</p>
+            </div>
+
+            {/* Pièces jointes */}
+            {(selectedEmail.attachment || selectedEmail.folder) && (
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold mb-4">Pièces jointes</h3>
+                
+                {selectedEmail.attachment && (
+                  <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded flex items-center justify-center">
+                          <span className="text-blue-600 font-bold text-xs">
+                            {selectedEmail.attachment.name.split('.').pop()?.toUpperCase() || 'FILE'}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="font-medium">{selectedEmail.attachment.name}</div>
+                          <div className="text-sm text-gray-500">
+                            {(selectedEmail.attachment.size / 1024).toFixed(1)} KB
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(selectedEmail.attachment.url, '_blank')}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          Voir
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = selectedEmail.attachment.url;
+                            link.download = selectedEmail.attachment.name;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }}
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          Télécharger
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {selectedEmail.folder && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-blue-500 rounded flex items-center justify-center">
+                          <Folder className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <div className="font-medium">{selectedEmail.folder.name}</div>
+                          <div className="text-sm text-gray-500">
+                            {selectedEmail.folder.fileCount} fichier{selectedEmail.folder.fileCount !== 1 ? 's' : ''}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedFolder(selectedEmail.folder);
+                            exploreFolderMutation.mutate(selectedEmail.folder.id);
+                          }}
+                        >
+                          <FolderOpen className="w-4 h-4 mr-1" />
+                          Explorer
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => downloadFolderMutation.mutate(selectedEmail.folder.id)}
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          Télécharger
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Dialogs (réutilisés) */}
+        <Dialog open={showReplyDialog} onOpenChange={setShowReplyDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Répondre à {selectedEmail?.sender}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-gray-50 p-3 rounded text-sm">
+                <strong>Message original:</strong> {selectedEmail?.subject}
+              </div>
+              <Textarea
+                placeholder="Votre réponse..."
+                value={replyMessage}
+                onChange={(e) => setReplyMessage(e.target.value)}
+                rows={4}
+              />
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowReplyDialog(false)}>
+                  Annuler
+                </Button>
+                <Button 
+                  onClick={() => {
+                    if (selectedEmail) {
+                      replyMutation.mutate({
+                        recipientEmail: selectedEmail.senderEmail,
+                        message: replyMessage,
+                        originalEmail: selectedEmail
+                      });
+                    }
+                  }}
+                  disabled={!replyMessage.trim() || replyMutation.isPending}
+                >
+                  {replyMutation.isPending ? 'Envoi...' : 'Envoyer la réponse'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showForwardDialog} onOpenChange={setShowForwardDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Transférer le message</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-gray-50 p-3 rounded text-sm">
+                <strong>Message à transférer:</strong> {selectedEmail?.subject}
+              </div>
+              <Input
+                placeholder="Email du destinataire (ex: user@rony.com)"
+                value={forwardRecipient}
+                onChange={(e) => setForwardRecipient(e.target.value)}
+              />
+              <Textarea
+                placeholder="Message d'accompagnement (optionnel)..."
+                value={forwardMessage}
+                onChange={(e) => setForwardMessage(e.target.value)}
+                rows={3}
+              />
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowForwardDialog(false)}>
+                  Annuler
+                </Button>
+                <Button 
+                  onClick={() => {
+                    if (selectedEmail) {
+                      forwardMutation.mutate({
+                        recipientEmail: forwardRecipient,
+                        message: forwardMessage || `Message transféré de ${selectedEmail.sender}`,
+                        originalEmail: selectedEmail
+                      });
+                    }
+                  }}
+                  disabled={!forwardRecipient.trim() || forwardMutation.isPending}
+                >
+                  {forwardMutation.isPending ? 'Transfert...' : 'Transférer'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog pour explorer un dossier */}
+        <Dialog open={showFolderExplorer} onOpenChange={setShowFolderExplorer}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-2">
+                <Folder className="w-5 h-5" />
+                <span>Explorer: {selectedFolder?.name}</span>
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="text-sm text-gray-600">
+                {folderFiles.length} fichier{folderFiles.length !== 1 ? 's' : ''} dans ce dossier
+              </div>
+              <div className="max-h-96 overflow-y-auto">
+                {folderFiles.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    Aucun fichier dans ce dossier
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2">
+                    {folderFiles.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between p-3 border rounded hover:bg-gray-50">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+                            <span className="text-blue-600 text-xs font-bold">
+                              {file.name.split('.').pop()?.toUpperCase() || 'FILE'}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="font-medium text-sm">{file.name}</div>
+                            <div className="text-xs text-gray-500">
+                              {(file.size / 1024).toFixed(1)} KB • {new Date(file.uploadedAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => window.open(file.url, '_blank')}
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            Voir
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = file.url;
+                              link.download = file.name;
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            }}
+                          >
+                            <Download className="w-4 h-4 mr-1" />
+                            Télécharger
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={() => setShowFolderExplorer(false)}>
+                  Fermer
+                </Button>
+                {selectedFolder && (
+                  <Button onClick={() => downloadFolderMutation.mutate(selectedFolder.id)}>
+                    <Download className="w-4 h-4 mr-2" />
+                    Télécharger tout le dossier
+                  </Button>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex bg-gray-50">
       {/* Sidebar étroite pour navigation */}
@@ -580,15 +911,6 @@ export default function MailPage() {
                     setViewMode('reading');
                     if (!currentEmail.isRead) {
                       markAsReadMutation.mutate(email.id);
-                    }
-                    
-                    // Ouvrir directement le fichier/dossier attaché si présent
-                    if (email.attachment) {
-                      console.log('📄 Ouverture du fichier attaché:', email.attachment.name);
-                      window.open(email.attachment.url, '_blank');
-                    } else if (email.folder) {
-                      console.log('📁 Exploration du dossier:', email.folder.name);
-                      exploreFolderMutation.mutate(email.folder.id);
                     }
                   }}
                 >
