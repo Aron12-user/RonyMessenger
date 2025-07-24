@@ -1109,9 +1109,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[SHARED-API] Found ${folderSharings.length} folder sharings for user ${userId}:`, folderSharings);
         
         for (const sharing of folderSharings) {
-          const folder = Array.from((storage as any).folders.values()).find((f: any) => f.id === sharing.folderId);
+          console.log(`[SHARED-API] Processing folder sharing:`, sharing);
+          const allFolders = Array.from((storage as any).folders.values());
+          console.log(`[SHARED-API] All folders in storage:`, allFolders);
+          
+          const folder = allFolders.find((f: any) => f.id === sharing.folderId);
+          console.log(`[SHARED-API] Looking for folder ID ${sharing.folderId}, found:`, folder);
+          
           if (folder) {
             const sharedByUser = Array.from((storage as any).users.values()).find((u: any) => u.id === sharing.ownerId);
+            console.log(`[SHARED-API] Found shared by user:`, sharedByUser);
+            
+            // Récupérer les fichiers dans ce dossier
+            const folderFiles = Array.from((storage as any).files.values()).filter((f: any) => f.folderId === folder.id);
+            console.log(`[SHARED-API] Files in shared folder ${folder.id}:`, folderFiles);
+            
             const sharedFolder = {
               ...folder,
               sharedBy: sharedByUser ? {
@@ -1120,12 +1132,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 displayName: sharedByUser.displayName
               } : null,
               permission: sharing.permission,
-              sharedAt: sharing.createdAt
+              sharedAt: sharing.createdAt,
+              files: folderFiles.map((f: any) => ({
+                id: f.id,
+                name: f.name,
+                type: f.type,
+                size: f.size,
+                url: f.url,
+                uploadedAt: f.uploadedAt
+              }))
             };
             sharedFolders.push(sharedFolder);
-            console.log(`[SHARED-API] Added shared folder:`, sharedFolder);
+            console.log(`[SHARED-API] Added shared folder with ${folderFiles.length} files:`, sharedFolder);
           } else {
             console.log(`[SHARED-API] Folder ${sharing.folderId} not found in storage`);
+            console.log(`[SHARED-API] Available folder IDs:`, allFolders.map((f: any) => f.id));
           }
         }
       } else {
