@@ -926,14 +926,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           recipientId: sharedWithId,
           sender: req.user?.displayName || req.user?.username || 'Utilisateur',
           senderEmail: req.user?.email || req.user?.username + '@rony.com',
-          subject: `Partage de fichier : ${file.originalName}`,
-          message: `${req.user?.displayName || req.user?.username} a partagé le fichier "${file.originalName}" avec vous.`,
+          subject: `Partage de fichier : ${file.name}`,
+          message: `${req.user?.displayName || req.user?.username} a partagé le fichier "${file.name}" avec vous.`,
           timestamp: new Date().toISOString(),
           priority: 'high',
           attachmentInfo: {
             fileId: fileId,
-            fileName: file.originalName,
-            fileType: file.mimeType,
+            fileName: file.name,
+            fileType: file.type,
             fileSize: file.size,
             fileUrl: file.url,
             permission: permission || 'read'
@@ -990,8 +990,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Utilisateur destinataire introuvable" });
       }
 
-      // Vérifier que le dossier existe et appartient à l'utilisateur  
-      const folder = await storage.getFileById(folderId); // Utilisation temporaire de getFileById car getFolderById n'existe pas
+      // Vérifier que le dossier existe dans le stockage en mémoire
+      console.log(`[folders] Looking for folder ${folderId} for user ${userId}`);
+      console.log(`[folders] All folders:`, Array.from((storage as any).folders.values()));
+      
+      const folder = Array.from((storage as any).folders.values()).find((f: any) => f.id === folderId && f.ownerId === userId);
+      console.log(`[folders] Found folder:`, folder);
+      
       if (!folder) {
         return res.status(404).json({ error: "Dossier introuvable" });
       }
