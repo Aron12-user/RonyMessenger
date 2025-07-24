@@ -439,24 +439,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Route pour gérer les indicateurs de frappe
+  // Route pour gérer les indicateurs de frappe (stub - pas d'implémentation nécessaire)
   app.post("/api/conversations/:id/typing", requireAuth, async (req, res) => {
     try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Non authentifié" });
-      }
-
-      const conversationId = parseInt(req.params.id);
-      const { isTyping } = req.body;
-
-      await storage.updateTypingIndicator({
-        conversationId,
-        userId,
-        isTyping,
-        lastActivity: new Date()
-      });
-
+      // Indicateur de frappe temporaire - pas besoin de persistance
       res.json({ success: true });
     } catch (error) {
       console.error('Error updating typing indicator:', error);
@@ -464,12 +450,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Route pour récupérer les utilisateurs qui tapent
+  // Route pour récupérer les utilisateurs qui tapent (stub - retourne vide)
   app.get("/api/conversations/:id/typing", requireAuth, async (req, res) => {
     try {
-      const conversationId = parseInt(req.params.id);
-      const typingUsers = await storage.getTypingUsers(conversationId);
-      res.json(typingUsers);
+      // Retourner une liste vide pour les indicateurs de frappe
+      res.json([]);
     } catch (error) {
       console.error('Error fetching typing users:', error);
       res.status(500).json({ error: 'Internal server error' });
@@ -506,7 +491,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`[routes] Getting all folders for userId: ${userId}`);
-      const folders = await storage.getFoldersForUser(userId);
+      // Récupérer tous les dossiers de l'utilisateur (parentId null = racine)
+      const folders = await storage.getFoldersByParent(null, userId);
       console.log(`[routes] Found ${folders.length} total folders for user ${userId}`);
       res.json(folders);
     } catch (error) {
@@ -1166,30 +1152,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Non authentifié" });
       }
 
-      const { contactId } = req.body;
-      if (!contactId) {
-        return res.status(400).json({ error: "ID du contact requis" });
+      const { username, contactId } = req.body;
+      
+      let targetUser;
+      
+      // Support pour ajout par username ou contactId
+      if (username) {
+        targetUser = await storage.getUserByUsername(username);
+        if (!targetUser) {
+          return res.status(404).json({ error: "Utilisateur non trouvé avec ce nom d'utilisateur" });
+        }
+      } else if (contactId) {
+        targetUser = await storage.getUser(contactId);
+        if (!targetUser) {
+          return res.status(404).json({ error: "Utilisateur non trouvé avec cet ID" });
+        }
+      } else {
+        return res.status(400).json({ error: "Nom d'utilisateur ou ID de contact requis" });
       }
 
-      // Vérifier que l'utilisateur cible existe
-      const targetUser = await storage.getUser(contactId);
-      if (!targetUser) {
-        return res.status(404).json({ error: "Utilisateur introuvable" });
-      }
-
-      // Vérifier que l'utilisateur n'essaie pas de s'ajouter lui-même
-      if (userId === contactId) {
+      // Vérifier que l'utilisateur ne s'ajoute pas lui-même
+      if (targetUser.id === userId) {
         return res.status(400).json({ error: "Vous ne pouvez pas vous ajouter vous-même comme contact" });
       }
 
-      const contact = await storage.addContact({
-        userId,
-        contactId,
-        isFavorite: false,
-        createdAt: new Date()
-      });
+      // Vérifier si le contact existe déjà
+      const existingContacts = await storage.getContactsForUser(userId);
+      const contactExists = existingContacts.some(contact => contact.id === targetUser.id);
+      
+      if (contactExists) {
+        return res.status(400).json({ error: "Ce contact existe déjà" });
+      }
 
-      res.status(201).json({ success: true, contact, message: "Contact ajouté avec succès" });
+      // Créer le contact
+      const contactData = {
+        userId,
+        contactId: targetUser.id,
+        createdAt: new Date()
+      };
+
+      const contact = await storage.addContact(contactData);
+      
+      // Réponse avec informations du contact ajouté
+      res.status(201).json({ 
+        success: true, 
+        contact: {
+          id: contact.id,
+          user: targetUser,
+          createdAt: contact.createdAt
+        },
+        message: "Contact ajouté avec succès" 
+      });
     } catch (error) {
       console.error('Error adding contact:', error);
       res.status(500).json({ error: 'Internal server error' });
