@@ -52,6 +52,7 @@ export default function MailPage() {
   const [selectedEmail, setSelectedEmail] = useState<any>(null);
   const [folderFiles, setFolderFiles] = useState<any[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<any>(null);
+  const [showEmailReader, setShowEmailReader] = useState(false);
   
   // États pour les dialogs
   const [showReplyDialog, setShowReplyDialog] = useState(false);
@@ -86,7 +87,7 @@ export default function MailPage() {
     const emailsFromFiles = sharedFiles.map((file: any) => ({
       id: file.id + 10000,
       sender: file.sharedBy.displayName || file.sharedBy.username,
-      senderEmail: `${file.sharedBy.username}@rony.com`,
+      senderEmail: file.sharedBy.username.replace('@rony.com', '') + '@rony.com',
       subject: `Fichier partagé: ${file.name}`,
       content: `${file.sharedBy.displayName || file.sharedBy.username} a partagé le fichier "${file.name}" avec vous.`,
       preview: `Fichier: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`,
@@ -101,10 +102,10 @@ export default function MailPage() {
     const emailsFromFolders = sharedFolders.map((folder: any) => ({
       id: folder.id + 20000,
       sender: folder.sharedBy.displayName || folder.sharedBy.username,
-      senderEmail: `${folder.sharedBy.username}@rony.com`,
+      senderEmail: folder.sharedBy.username.replace('@rony.com', '') + '@rony.com',
       subject: `Dossier partagé: ${folder.name}`,
       content: `${folder.sharedBy.displayName || folder.sharedBy.username} a partagé le dossier "${folder.name}" avec vous.`,
-      preview: `Dossier: ${folder.name} (${folder.fileCount} fichiers)`,
+      preview: `Dossier: ${folder.name} (${folder.fileCount || 0} fichiers)`,
       date: new Date(folder.uploadedAt).toLocaleDateString(),
       time: new Date(folder.uploadedAt).toLocaleTimeString(),
       hasAttachment: true,
@@ -131,7 +132,7 @@ export default function MailPage() {
           originalSender: originalEmail.sender,
           originalContent: originalEmail.content,
           senderName: user?.displayName || user?.username,
-          senderEmail: `${user?.username}@rony.com`
+          senderEmail: user?.username.replace('@rony.com', '') + '@rony.com'
         })
       });
       
@@ -165,7 +166,7 @@ export default function MailPage() {
           originalSender: originalEmail.sender,
           originalContent: originalEmail.content,
           senderName: user?.displayName || user?.username,
-          senderEmail: `${user?.username}@rony.com`
+          senderEmail: user?.username.replace('@rony.com', '') + '@rony.com'
         })
       });
       
@@ -257,6 +258,173 @@ export default function MailPage() {
           <Mail className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">Connexion requise</h3>
           <p className="text-gray-600">Veuillez vous connecter pour accéder à votre courrier</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Vue de lecture d'email - interface étroite comme Gmail
+  if (showEmailReader && selectedEmail) {
+    return (
+      <div className="h-screen flex bg-gray-50">
+        <div className="flex-1 flex justify-center p-4">
+          <div className="max-w-2xl w-full bg-white rounded-lg shadow-sm border">
+            {/* Header de lecture */}
+            <div className="border-b p-4">
+              <div className="flex items-center justify-between mb-4">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setShowEmailReader(false)}
+                  className="flex items-center space-x-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>Retour</span>
+                </Button>
+                <div className="flex space-x-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setShowReplyDialog(true);
+                      setShowEmailReader(false);
+                    }}
+                  >
+                    <Reply className="w-4 h-4 mr-1" />
+                    Répondre
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setShowForwardDialog(true);
+                      setShowEmailReader(false);
+                    }}
+                  >
+                    <Forward className="w-4 h-4 mr-1" />
+                    Transférer
+                  </Button>
+                </div>
+              </div>
+              
+              <h1 className="text-xl font-semibold mb-2">{selectedEmail.subject}</h1>
+              
+              <div className="flex items-center space-x-3 text-sm text-gray-600">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                    <span className="text-white font-bold text-xs">
+                      {selectedEmail.sender.split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="font-medium">{selectedEmail.sender}</div>
+                    <div className="text-xs text-gray-500">{selectedEmail.senderEmail}</div>
+                  </div>
+                </div>
+                <div className="ml-auto">
+                  <div>{selectedEmail.date} à {selectedEmail.time}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Contenu du message */}
+            <div className="p-6">
+              <div className="prose prose-sm max-w-none">
+                <p className="text-gray-700 leading-relaxed">
+                  {selectedEmail.content}
+                </p>
+              </div>
+
+              {/* Pièces jointes */}
+              {(selectedEmail.attachment || selectedEmail.folder) && (
+                <div className="mt-6 border-t pt-4">
+                  <h3 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                    <Paperclip className="w-4 h-4 mr-2" />
+                    Pièces jointes
+                  </h3>
+                  
+                  {selectedEmail.attachment && (
+                    <div className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded flex items-center justify-center">
+                          <span className="text-blue-600 text-xs font-bold">
+                            {selectedEmail.attachment.name.split('.').pop()?.toUpperCase() || 'FILE'}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="font-medium text-sm">{selectedEmail.attachment.name}</div>
+                          <div className="text-xs text-gray-500">
+                            {(selectedEmail.attachment.size / 1024).toFixed(1)} KB
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(selectedEmail.attachment.url, '_blank')}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          Voir
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = selectedEmail.attachment.url;
+                            link.download = selectedEmail.attachment.name;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }}
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          Télécharger
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedEmail.folder && (
+                    <div className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-orange-100 rounded flex items-center justify-center">
+                          <Folder className="w-5 h-5 text-orange-600" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-sm">{selectedEmail.folder.name}</div>
+                          <div className="text-xs text-gray-500">
+                            {selectedEmail.folder.fileCount || 0} fichiers
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedFolder(selectedEmail.folder);
+                            exploreFolderMutation.mutate(selectedEmail.folder.id);
+                          }}
+                        >
+                          <FolderOpen className="w-4 h-4 mr-1" />
+                          Explorer
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => downloadFolderMutation.mutate(selectedEmail.folder.id)}
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          Télécharger
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -365,13 +533,8 @@ export default function MailPage() {
                 key={email.id}
                 className="border-b border-gray-200 p-4 cursor-pointer hover:bg-gray-50 transition-colors bg-blue-50 hover:bg-blue-100"
                 onClick={() => {
-                  // Ouvrir directement le fichier/dossier attaché si présent
-                  if (email.attachment) {
-                    window.open(email.attachment.url, '_blank');
-                  } else if (email.folder) {
-                    setSelectedFolder(email.folder);
-                    exploreFolderMutation.mutate(email.folder.id);
-                  }
+                  setSelectedEmail(email);
+                  setShowEmailReader(true);
                 }}
               >
                 <div className="flex items-start justify-between">
