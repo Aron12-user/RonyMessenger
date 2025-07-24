@@ -1475,5 +1475,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Jitsi routes temporarily disabled - using WebRTC native solution
   console.log("Routes configured successfully");
 
+  // API pour explorer les fichiers d'un dossier partagé
+  app.get("/api/files/folder/:folderId/files", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const folderId = parseInt(req.params.folderId);
+      if (isNaN(folderId)) {
+        return res.status(400).json({ error: "ID de dossier invalide" });
+      }
+
+      console.log(`[FOLDER-EXPLORE] User ${userId} exploring folder ${folderId}`);
+      
+      // Vérifier que l'utilisateur a accès au dossier
+      const folder = await storage.getFolderById(folderId);
+      if (!folder) {
+        return res.status(404).json({ error: "Dossier non trouvé" });
+      }
+
+      // Récupérer les fichiers du dossier
+      const files = await storage.getFilesByFolder(folderId);
+      console.log(`[FOLDER-EXPLORE] Found ${files.length} files in folder ${folderId}`);
+
+      res.json({ 
+        success: true, 
+        files: files.map(file => ({
+          id: file.id,
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          url: file.url,
+          uploadedAt: file.uploadedAt
+        }))
+      });
+    } catch (error) {
+      console.error('Erreur exploration dossier:', error);
+      res.status(500).json({ error: 'Erreur lors de l\'exploration du dossier' });
+    }
+  });
+
+  // API pour télécharger un fichier individuel d'un dossier
+  app.get("/api/files/:fileId/download", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const fileId = parseInt(req.params.fileId);
+      if (isNaN(fileId)) {
+        return res.status(400).json({ error: "ID de fichier invalide" });
+      }
+
+      const file = await storage.getFileById(fileId);
+      if (!file) {
+        return res.status(404).json({ error: "Fichier non trouvé" });
+      }
+
+      console.log(`[FILE-DOWNLOAD] User ${userId} downloading file ${fileId}: ${file.name}`);
+      
+      // Rediriger vers l'URL du fichier pour téléchargement
+      res.redirect(file.url);
+    } catch (error) {
+      console.error('Erreur téléchargement fichier:', error);
+      res.status(500).json({ error: 'Erreur lors du téléchargement' });
+    }
+  });
+
   return httpServer;
 }
