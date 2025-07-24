@@ -124,6 +124,106 @@ export default function MailPage() {
 
   // Écouter les messages en temps réel via WebSocket avec reconnection automatique
   useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('[MailPage] Setting up WebSocket connection for courrier notifications');
+    
+    let socket: WebSocket | null = null;
+    let reconnectTimer: NodeJS.Timeout;
+    
+    const connectWebSocket = () => {
+      try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        
+        console.log('[MailPage] Connecting to WebSocket:', wsUrl);
+        socket = new WebSocket(wsUrl);
+        
+        socket.onopen = () => {
+          console.log('[MailPage] WebSocket connected for courrier notifications');
+        };
+        
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('[MailPage] WebSocket message received:', data);
+            
+            if (data.type === 'courrier_message' && data.data.recipientId === user.id) {
+              const messageData = data.data;
+              console.log('[MailPage] Processing courrier notification:', messageData);
+              
+              // Créer un nouvel email pour le courrier
+              const newEmail: EmailItem = {
+                id: Date.now() + Math.floor(Math.random() * 1000000),
+                sender: messageData.sender,
+                senderEmail: messageData.senderEmail,
+                subject: messageData.subject,
+                preview: messageData.message,
+                content: messageData.message,
+                date: new Date().toLocaleDateString('fr-FR'),
+                time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                hasAttachment: !!messageData.attachmentInfo,
+                isRead: false,
+                isStarred: false,
+                isArchived: false,
+                isDeleted: false,
+                priority: messageData.priority || 'high',
+                category: messageData.type === 'file_share' ? 'files' : 'folders',
+                attachment: messageData.attachmentInfo ? {
+                  id: messageData.attachmentInfo.fileId,
+                  name: messageData.attachmentInfo.fileName,
+                  type: messageData.attachmentInfo.fileType,
+                  size: messageData.attachmentInfo.fileSize,
+                  url: messageData.attachmentInfo.fileUrl,
+                  uploaderId: 0,
+                  uploadedAt: new Date().toISOString()
+                } : undefined
+              };
+              
+              setRealtimeEmails(prev => [newEmail, ...prev]);
+              
+              // Notification toast
+              toast({
+                title: "📧 Nouveau courrier",
+                description: `${messageData.sender} a partagé un fichier avec vous`,
+                duration: 5000
+              });
+              
+              // Actualiser les données partagées
+              refetch();
+            }
+          } catch (error) {
+            console.error('[MailPage] Error processing WebSocket message:', error);
+          }
+        };
+        
+        socket.onclose = () => {
+          console.log('[MailPage] WebSocket disconnected, attempting reconnection...');
+          reconnectTimer = setTimeout(connectWebSocket, 3000);
+        };
+        
+        socket.onerror = (error) => {
+          console.error('[MailPage] WebSocket error:', error);
+        };
+        
+      } catch (error) {
+        console.error('[MailPage] Failed to connect WebSocket:', error);
+        reconnectTimer = setTimeout(connectWebSocket, 5000);
+      }
+    };
+    
+    connectWebSocket();
+    
+    return () => {
+      if (socket) {
+        socket.close();
+      }
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
+    };
+  }, [user?.id, toast, refetch]);
+  useEffect(() => {
     if (!user) return;
 
     let socket: WebSocket;

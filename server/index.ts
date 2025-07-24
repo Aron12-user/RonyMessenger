@@ -5,6 +5,7 @@ import { setupVite, serveStatic, log } from "./vite";
 // WebRTC server removed
 import session from 'express-session';
 import MemoryStore from 'memorystore';
+import { WebSocketServer } from 'ws';
 
 const app = express();
 app.use(express.json());
@@ -72,6 +73,49 @@ app.use('/uploads', express.static('uploads'));
   const server = await registerRoutes(app);
   setupMessagingRoutes(app);
   console.log("Routes configured successfully");
+  
+  // Configuration WebSocket pour les notifications temps réel
+  const wss = new WebSocketServer({ 
+    server,
+    path: '/ws',
+    verifyClient: (info) => {
+      console.log('[WS] Client connection attempt from:', info.origin);
+      return true;
+    }
+  });
+  
+  // Stockage global pour les WebSockets
+  (global as any).wss = wss;
+  
+  wss.on('connection', (ws, req) => {
+    console.log('[WS] New client connected');
+    
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        console.log('[WS] Message received:', data);
+        
+        // Echo le message à tous les autres clients connectés
+        wss.clients.forEach((client) => {
+          if (client !== ws && client.readyState === 1) { // WebSocket.OPEN = 1
+            client.send(JSON.stringify(data));
+          }
+        });
+      } catch (error) {
+        console.error('[WS] Error processing message:', error);
+      }
+    });
+    
+    ws.on('close', () => {
+      console.log('[WS] Client disconnected');
+    });
+    
+    ws.on('error', (error) => {
+      console.error('[WS] WebSocket error:', error);
+    });
+  });
+  
+  console.log('[WS] WebSocket server configured on path /ws');
 
   // WebRTC server removed
 
