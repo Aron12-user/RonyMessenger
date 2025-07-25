@@ -302,7 +302,7 @@ export default function MailPage() {
     let sourceType = 'API';
     
     // ÉTAPE 2: Fallback vers le cache local si pas de données API
-    if (!dataToUse || !(dataToUse as any).files || !(dataToUse as any).folders) {
+    if (!dataToUse || (!Array.isArray((dataToUse as any).files) && !Array.isArray((dataToUse as any).folders))) {
       try {
         const cachedData = localStorage.getItem('courrierCache');
         if (cachedData) {
@@ -319,7 +319,7 @@ export default function MailPage() {
     }
 
     // ÉTAPE 3: Si toujours pas de données, essayer le cache d'emails direct
-    if (!dataToUse || !(dataToUse as any).files || !(dataToUse as any).folders) {
+    if (!dataToUse || (!Array.isArray((dataToUse as any).files) && !Array.isArray((dataToUse as any).folders))) {
       try {
         const cachedEmails = localStorage.getItem('courrierEmails');
         if (cachedEmails) {
@@ -335,17 +335,32 @@ export default function MailPage() {
       }
     }
 
-    if (!dataToUse || !(dataToUse as any).files || !(dataToUse as any).folders) {
-      console.log('[COURRIER] ⚠️ Aucune donnée disponible - attente...');
+    // CORRECTION CRITIQUE: Vérifier qu'on a au moins des fichiers OU des dossiers
+    const hasFiles = Array.isArray((dataToUse as any)?.files) && (dataToUse as any).files.length > 0;
+    const hasFolders = Array.isArray((dataToUse as any)?.folders) && (dataToUse as any).folders.length > 0;
+    
+    if (!dataToUse || (!hasFiles && !hasFolders)) {
+      console.log('[COURRIER] ⚠️ Aucune donnée utilisable - attente...', {
+        hasData: !!dataToUse,
+        filesLength: (dataToUse as any)?.files?.length || 0,
+        foldersLength: (dataToUse as any)?.folders?.length || 0
+      });
       return;
     }
+    
+    console.log('[COURRIER] ✅ DONNÉES VALIDES DÉTECTÉES!', {
+      hasFiles,
+      hasFolders,
+      filesCount: (dataToUse as any)?.files?.length || 0,
+      foldersCount: (dataToUse as any)?.folders?.length || 0
+    });
 
     // Protection anti-blocage: utiliser setTimeout pour éviter les conflits d'état
     setTimeout(() => {
       try {
         const allEmails = [
           // Convertir les fichiers partagés en emails
-          ...(dataToUse as any).files.map((file: any, index: number) => ({
+          ...((dataToUse as any).files || []).map((file: any, index: number) => ({
             id: 1000 + index,
             subject: `Fichier partagé: ${file.name}`,
             sender: file.sharedBy?.displayName || 'Utilisateur',
@@ -365,7 +380,7 @@ export default function MailPage() {
           })),
 
           // Convertir les dossiers partagés en emails
-          ...(dataToUse as any).folders.map((folder: any, index: number) => ({
+          ...((dataToUse as any).folders || []).map((folder: any, index: number) => ({
             id: 2000 + index,
             subject: `Dossier partagé: ${folder.name}`,
             sender: folder.sharedBy?.displayName || 'Utilisateur',
