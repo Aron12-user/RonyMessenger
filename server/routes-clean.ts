@@ -103,6 +103,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Static file serving for uploads
   app.use('/uploads', expressStatic(uploadsDir));
 
+  // Routes pour les groupes de conversation
+  app.post("/api/groups", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const { name, description, selectedContactIds, isPrivate } = req.body;
+      
+      if (!name || !selectedContactIds || !Array.isArray(selectedContactIds)) {
+        return res.status(400).json({ error: "Nom du groupe et contacts requis" });
+      }
+
+      // Créer le groupe
+      const group = await storage.createConversationGroup({
+        name,
+        description: description || null,
+        createdBy: userId,
+        isPrivate: isPrivate || false,
+      });
+
+      // Ajouter le créateur comme admin
+      await storage.addGroupMember({
+        groupId: group.id,
+        userId: userId,
+        role: 'admin',
+      });
+
+      // Ajouter les contacts sélectionnés comme membres
+      for (const contactId of selectedContactIds) {
+        await storage.addGroupMember({
+          groupId: group.id,
+          userId: contactId,
+          role: 'member',
+        });
+      }
+
+      console.log(`[GROUPS] Groupe créé: ${group.name} avec ${selectedContactIds.length} membres`);
+      res.json(group);
+    } catch (error) {
+      console.error('Error creating group:', error);
+      res.status(500).json({ error: 'Erreur lors de la création du groupe' });
+    }
+  });
+
+  app.get("/api/groups", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const groups = await storage.getConversationGroups(userId);
+      res.json(groups);
+    } catch (error) {
+      console.error('Error fetching groups:', error);
+      res.status(500).json({ error: 'Erreur lors de la récupération des groupes' });
+    }
+  });
+
+  app.get("/api/groups/:id/members", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      const members = await storage.getGroupMembers(groupId);
+      
+      // Récupérer les détails des utilisateurs
+      const membersWithDetails = await Promise.all(
+        members.map(async (member) => {
+          const user = await storage.getUser(member.userId);
+          return { ...member, user };
+        })
+      );
+      
+      res.json(membersWithDetails);
+    } catch (error) {
+      console.error('Error fetching group members:', error);
+      res.status(500).json({ error: 'Erreur lors de la récupération des membres' });
+    }
+  });
+
+  app.delete("/api/groups/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      const groupId = parseInt(req.params.id);
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      // Vérifier que l'utilisateur est admin du groupe
+      const members = await storage.getGroupMembers(groupId);
+      const userMember = members.find(m => m.userId === userId);
+      
+      if (!userMember || userMember.role !== 'admin') {
+        return res.status(403).json({ error: "Seuls les administrateurs peuvent supprimer le groupe" });
+      }
+
+      await storage.deleteConversationGroup(groupId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting group:', error);
+      res.status(500).json({ error: 'Erreur lors de la suppression du groupe' });
+    }
+  });
+
   // User routes
   app.get("/api/users", async (req, res) => {
     try {
