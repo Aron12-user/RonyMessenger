@@ -70,7 +70,7 @@ export default function MailPage() {
   const [showEmailReader, setShowEmailReader] = useState(false);
   const [selectedEmails, setSelectedEmails] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<'date' | 'sender' | 'subject' | 'priority'>('date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc'); // TOUJOURS desc par défaut (plus récent en premier)
   const [showPreview, setShowPreview] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [pinnedEmails, setPinnedEmails] = useState<Set<number>>(new Set());
@@ -255,12 +255,15 @@ export default function MailPage() {
         ];
 
         console.log('Emails convertis depuis sharedData:', allEmails.length);
-        // Trier par date décroissante (plus récent en premier)
+        
+        // FORCER L'ORDRE DÉCROISSANT : Plus récent en premier
         const sortedEmails = allEmails.sort((a, b) => {
           const dateA = new Date(`${a.date} ${a.time}`).getTime();
           const dateB = new Date(`${b.date} ${b.time}`).getTime();
-          return dateB - dateA; // Ordre décroissant
+          return dateB - dateA; // Plus récent en haut (ordre décroissant FORCÉ)
         });
+        
+        console.log('Emails triés par date (plus récent en premier):', sortedEmails.map(e => `${e.subject} - ${e.date} ${e.time}`));
         setEmails(sortedEmails);
       } catch (error) {
         console.error('[COURRIER] Erreur conversion sharedData:', error);
@@ -563,7 +566,7 @@ export default function MailPage() {
         case 'date':
           const dateA = new Date(`${a.date} ${a.time}`).getTime();
           const dateB = new Date(`${b.date} ${b.time}`).getTime();
-          comparison = dateA - dateB;
+          comparison = dateB - dateA; // TOUJOURS desc par défaut pour date (plus récent en premier)
           break;
         case 'sender':
           comparison = a.sender.localeCompare(b.sender);
@@ -580,7 +583,12 @@ export default function MailPage() {
           comparison = 0;
       }
       
-      return sortOrder === 'asc' ? comparison : -comparison;
+      // Pour la date, on force toujours desc. Pour les autres, on respecte sortOrder
+      if (sortBy === 'date') {
+        return comparison; // dateB - dateA déjà calculé
+      } else {
+        return sortOrder === 'asc' ? comparison : -comparison;
+      }
     })
     .sort((a, b) => {
       // Les épinglés en premier
@@ -840,30 +848,25 @@ export default function MailPage() {
                       {viewMode === 'list' ? '🔲 Vue grille' : '📋 Vue liste'}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => {
-                      setSortBy('date');
-                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                    }}>
+                    <DropdownMenuItem onClick={() => setSortBy('date')}>
                       <Clock className="w-4 h-4 mr-2" />
-                      Trier par date {sortBy === 'date' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
+                      Trier par date (récent en premier)
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => {
-                      setSortBy('sender');
-                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                    }}>
+                    <DropdownMenuItem onClick={() => setSortBy('sender')}>
                       <User className="w-4 h-4 mr-2" />
-                      Trier par expéditeur {sortBy === 'sender' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
+                      Trier par expéditeur
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => {
-                      setSortBy('subject');
-                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                    }}>
+                    <DropdownMenuItem onClick={() => setSortBy('subject')}>
                       <MessageSquare className="w-4 h-4 mr-2" />
-                      Trier par sujet {sortBy === 'subject' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
+                      Trier par sujet
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortBy('priority')}>
+                      <Star className="w-4 h-4 mr-2" />
+                      Trier par priorité
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
-                      {sortOrder === 'asc' ? '⬇️ Décroissant' : '⬆️ Croissant'}
+                      {sortOrder === 'asc' ? 'Ordre décroissant ↓' : 'Ordre croissant ↑'}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
