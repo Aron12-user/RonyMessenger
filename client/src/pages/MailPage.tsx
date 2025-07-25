@@ -175,7 +175,10 @@ export default function MailPage() {
   const sharedFiles = (sharedData as any)?.files || [];
   const sharedFolders = (sharedData as any)?.folders || [];
 
-  // Convertir les fichiers/dossiers partagés en emails et charger persistance
+  // Les données sont déjà formatées côté serveur - pas besoin de transformation
+  const allEmails = [...sharedFiles, ...sharedFolders];
+
+  // Charger les emails et la persistance
   useEffect(() => {
     if (!user) return;
 
@@ -185,39 +188,9 @@ export default function MailPage() {
     setDeletedEmails(new Set(savedDeleted));
     setArchivedEmails(new Set(savedArchived));
 
-    const emailsFromFiles = sharedFiles.map((file: any) => ({
-      id: file.id + 10000,
-      sender: file.sharedBy.displayName || file.sharedBy.username,
-      senderEmail: file.sharedBy.username.replace('@rony.com', '') + '@rony.com',
-      subject: `Fichier partagé: ${file.name}`,
-      content: `Fichier partagé: ${file.name}`,
-      preview: `Fichier: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`,
-      date: new Date(file.uploadedAt).toLocaleDateString(),
-      time: new Date(file.uploadedAt).toLocaleTimeString(),
-      hasAttachment: true,
-      priority: 'medium' as const,
-      category: file.type.startsWith('image/') ? 'media' as const : 'files' as const,
-      attachment: file
-    }));
-
-    const emailsFromFolders = sharedFolders.map((folder: any) => ({
-      id: folder.id + 20000,
-      sender: folder.sharedBy.displayName || folder.sharedBy.username,
-      senderEmail: folder.sharedBy.username.replace('@rony.com', '') + '@rony.com',
-      subject: `Dossier partagé: ${folder.name}`,
-      content: `Dossier partagé: ${folder.name}`,
-      preview: `Dossier: ${folder.name} (${folder.fileCount || 0} fichiers)`,
-      date: new Date(folder.uploadedAt).toLocaleDateString(),
-      time: new Date(folder.uploadedAt).toLocaleTimeString(),
-      hasAttachment: true,
-      priority: 'medium' as const,
-      category: 'folders' as const,
-      folder: folder
-    }));
-
-    const allEmails = [...emailsFromFiles, ...emailsFromFolders];
+    // Utiliser directement les emails formatés du serveur
     setEmails(allEmails);
-  }, [user, sharedFiles, sharedFolders]);
+  }, [user, allEmails]);
 
   // Mutations pour les actions sur les emails - CORRIGÉES
   const replyMutation = useMutation({
