@@ -923,9 +923,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[files] File shared successfully:`, sharing);
       
-      // SUPPRIMÉ : Notifications courrier pour éviter les doublons
-      // Les notifications sont gérées automatiquement dans MailPage.tsx
-      console.log(`[files] File sharing completed - notifications handled by frontend`);
+      // RÉTABLI : Notifications WebSocket pour réception instantanée
+      try {
+        const sharedByUser = await storage.getUser(userId);
+        const courierData = {
+          type: 'courrier_shared',
+          data: {
+            recipientId: sharedWithId,
+            sender: sharedByUser?.displayName || sharedByUser?.username || 'Utilisateur',
+            senderEmail: sharedByUser?.username || '',
+            subject: `Fichier partagé: ${file.name}`,
+            content: message || `Le fichier "${file.name}" a été partagé avec vous.`,
+            fileId: fileId,
+            fileName: file.name,
+            fileType: file.type,
+            fileSize: file.size,
+            shareType: 'file'
+          }
+        };
+        
+        // Diffuser via WebSocket pour réception instantanée  
+        if ((global as any).wss?.clients) {
+          (global as any).wss.clients.forEach((client: any) => {
+            if (client.readyState === 1) { // WebSocket.OPEN
+              client.send(JSON.stringify(courierData));
+            }
+          });
+        }
+        
+        console.log(`[files] WebSocket notification sent for file sharing`);
+      } catch (wsError) {
+        console.error('[files] WebSocket notification error:', wsError);
+      }
       
       res.json({ 
         success: true, 
@@ -988,9 +1017,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[folders] Folder sharing created:`, folderSharing);
       
-      // SUPPRIMÉ : Notifications courrier pour éviter les doublons
-      // Les notifications sont gérées automatiquement dans MailPage.tsx
-      console.log(`[folders] Folder sharing completed - notifications handled by frontend`);
+      // RÉTABLI : Notifications WebSocket pour réception instantanée
+      try {
+        const sharedByUser = await storage.getUser(userId);
+        const courierData = {
+          type: 'courrier_shared',
+          data: {
+            recipientId: sharedWithId,
+            sender: sharedByUser?.displayName || sharedByUser?.username || 'Utilisateur',
+            senderEmail: sharedByUser?.username || '',
+            subject: `Dossier partagé: ${folder.name}`,
+            content: message || `Le dossier "${folder.name}" a été partagé avec vous.`,
+            folderId: folderId,
+            folderName: folder.name,
+            shareType: 'folder'
+          }
+        };
+        
+        // Diffuser via WebSocket pour réception instantanée  
+        if ((global as any).wss?.clients) {
+          (global as any).wss.clients.forEach((client: any) => {
+            if (client.readyState === 1) { // WebSocket.OPEN
+              client.send(JSON.stringify(courierData));
+            }
+          });
+        }
+        
+        console.log(`[folders] WebSocket notification sent for folder sharing`);
+      } catch (wsError) {
+        console.error('[folders] WebSocket notification error:', wsError);
+      }
 
       res.json({ 
         success: true, 

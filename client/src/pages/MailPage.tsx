@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -77,6 +78,7 @@ export default function MailPage() {
   
   // WebSocket pour les mises à jour temps réel
   const wsRef = useRef<WebSocket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
   
   // États pour les dialogs et fonctionnalités avancées
   const [showReplyDialog, setShowReplyDialog] = useState(false);
@@ -104,11 +106,13 @@ export default function MailPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Récupérer les fichiers et dossiers partagés
-  const { data: sharedData, refetch } = useQuery({
+  // Récupérer les fichiers et dossiers partagés avec gestion d'erreur améliorée
+  const { data: sharedData, refetch, isLoading: isLoadingSharedData, error: sharedDataError } = useQuery({
     queryKey: ['/api/files/shared'],
     enabled: !!user,
     staleTime: 30 * 1000,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Connexion WebSocket pour les mises à jour temps réel
@@ -124,6 +128,7 @@ export default function MailPage() {
 
       ws.onopen = () => {
         console.log('WebSocket connecté pour courrier');
+        setIsConnected(true);
       };
 
       ws.onmessage = (event) => {
@@ -135,12 +140,37 @@ export default function MailPage() {
           if (data.type === 'courrier_shared' || data.type === 'courrier_message') {
             console.log('Nouveau courrier reçu en temps réel:', data);
             
-            // Forcer la mise à jour immédiate des données
-            queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
-            refetch();
-            
-            // Notification toast pour l'utilisateur
-            if (data.data && data.data.recipientId === (user as any).id) {
+            // Vérifier si c'est pour cet utilisateur
+            if (data.data && data.data.recipientId === (user as any)?.id) {
+              console.log('Courrier destiné à cet utilisateur, mise à jour instantanée');
+              
+              // Ajouter immédiatement le nouveau courrier à la liste locale
+              const newEmail = {
+                id: data.data.id || Date.now(),
+                sender: data.data.sender,
+                senderEmail: data.data.senderEmail,
+                subject: data.data.subject,
+                content: data.data.content,
+                preview: data.data.content?.substring(0, 100) || '',
+                date: data.data.date || new Date().toLocaleDateString('fr-FR'),
+                time: data.data.time || new Date().toLocaleTimeString('fr-FR'),
+                hasAttachment: data.data.hasAttachment || false,
+                priority: data.data.priority || 'medium',
+                category: data.data.category || 'documents',
+                attachment: data.data.attachment,
+                folder: data.data.folder
+              };
+              
+              // Mettre à jour immédiatement la liste des emails
+              setEmails(prevEmails => [newEmail, ...prevEmails]);
+              
+              // Aussi invalider le cache pour synchroniser avec le serveur
+              setTimeout(() => {
+                queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
+                refetch();
+              }, 100);
+              
+              // Notification toast pour l'utilisateur
               toast({
                 title: 'Nouveau courrier reçu',
                 description: `De: ${data.data.sender} - ${data.data.subject || 'Partage de fichier'}`,
@@ -155,6 +185,7 @@ export default function MailPage() {
 
       ws.onclose = () => {
         console.log('WebSocket fermé, tentative de reconnexion...');
+        setIsConnected(false);
         setTimeout(connectWebSocket, 3000);
       };
 
@@ -172,24 +203,44 @@ export default function MailPage() {
     };
   }, [user, queryClient, refetch]);
 
+  // CORRECTION CRITIQUE : Gérer les données en toute sécurité pour éviter les pages blanches
   const sharedFiles = (sharedData as any)?.files || [];
   const sharedFolders = (sharedData as any)?.folders || [];
 
-  // Les données sont déjà formatées côté serveur - pas besoin de transformation
-  const allEmails = [...sharedFiles, ...sharedFolders];
+  // Les données sont déjà formatées côté serveur - fusion sécurisée
+  const allEmails = React.useMemo(() => {
+    try {
+      if (!sharedFiles && !sharedFolders) return [];
+      return [...(Array.isArray(sharedFiles) ? sharedFiles : []), ...(Array.isArray(sharedFolders) ? sharedFolders : [])];
+    } catch (error) {
+      console.error('Erreur fusion emails:', error);
+      return [];
+    }
+  }, [sharedFiles, sharedFolders]);
 
-  // Charger les emails et la persistance
+  // CORRECTION : Charger les emails et la persistance avec protection contre les pages blanches
   useEffect(() => {
     if (!user) return;
 
-    // Charger les emails supprimés et archivés depuis localStorage
-    const savedDeleted = JSON.parse(localStorage.getItem('deletedEmails') || '[]');
-    const savedArchived = JSON.parse(localStorage.getItem('archivedEmails') || '[]');
-    setDeletedEmails(new Set(savedDeleted));
-    setArchivedEmails(new Set(savedArchived));
+    try {
+      // Charger les emails supprimés et archivés depuis localStorage
+      const savedDeleted = JSON.parse(localStorage.getItem('deletedEmails') || '[]');
+      const savedArchived = JSON.parse(localStorage.getItem('archivedEmails') || '[]');
+      setDeletedEmails(new Set(savedDeleted));
+      setArchivedEmails(new Set(savedArchived));
 
-    // Utiliser directement les emails formatés du serveur
-    setEmails(allEmails);
+      // Utiliser directement les emails formatés du serveur avec vérification de sécurité
+      if (Array.isArray(allEmails) && allEmails.length >= 0) {
+        console.log('Chargement de', allEmails.length, 'emails dans l\'interface');
+        setEmails(allEmails);
+      } else {
+        console.log('Aucun email à charger, liste vide maintenue');
+        setEmails([]);
+      }
+    } catch (error) {
+      console.error('Erreur chargement emails:', error);
+      setEmails([]); // Failsafe pour éviter les crashes
+    }
   }, [user, allEmails]);
 
   // Mutations pour les actions sur les emails - CORRIGÉES
@@ -905,16 +956,42 @@ export default function MailPage() {
                 Désélectionner
               </Button>
               
-              <div className="text-xs text-gray-500">
-                Dernière mise à jour: {new Date().toLocaleTimeString()}
+              <div className="flex items-center space-x-2 text-xs text-gray-500">
+                <div className="flex items-center space-x-1">
+                  <div className={cn("w-2 h-2 rounded-full", isConnected ? "bg-green-500" : "bg-red-500")}></div>
+                  <span>{isConnected ? 'Connecté' : 'Déconnecté'}</span>
+                </div>
+                <span>•</span>
+                <span>Dernière MAJ: {new Date().toLocaleTimeString()}</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Liste des emails */}
+      {/* Liste des emails avec état de chargement */}
       <div className="flex-1 overflow-hidden">
+        {isLoadingSharedData ? (
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center">
+              <RefreshCw className="w-8 h-8 text-blue-500 mx-auto mb-4 animate-spin" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Chargement du courrier...</h3>
+              <p className="text-gray-600">Récupération des messages en cours</p>
+            </div>
+          </div>
+        ) : sharedDataError ? (
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center">
+              <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Erreur de chargement</h3>
+              <p className="text-gray-600 mb-4">Impossible de charger les messages</p>
+              <Button onClick={() => refetch()} variant="outline">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Réessayer
+              </Button>
+            </div>
+          </div>
+        ) : (
         <div className="h-full overflow-y-auto pb-16">
           {filteredEmails.length === 0 ? (
             <div className="h-full flex items-center justify-center">
@@ -1176,6 +1253,7 @@ export default function MailPage() {
             ))
           )}
         </div>
+        )}
       </div>
 
       {/* Dialog pour répondre */}
