@@ -76,8 +76,8 @@ export default function MailPage() {
   const [pinnedEmails, setPinnedEmails] = useState<Set<number>>(new Set());
   const [readEmails, setReadEmails] = useState<Set<number>>(new Set());
   
-  // WebSocket pour les mises à jour temps réel
-  const wsRef = useRef<WebSocket | null>(null);
+  // SSE pour les mises à jour temps réel (PLUS FIABLE que WebSocket)
+  const sseRef = useRef<EventSource | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   
   // États pour les dialogs et fonctionnalités avancées
@@ -115,90 +115,95 @@ export default function MailPage() {
     retryDelay: 1000,
   });
 
-  // Connexion WebSocket pour les mises à jour temps réel
+  // Connexion SSE pour les mises à jour temps réel (PLUS FIABLE que WebSocket)
   useEffect(() => {
     if (!user) return;
 
-    const connectWebSocket = () => {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const connectSSE = () => {
+      try {
+        const sseUrl = `/api/courrier/events`;
+        console.log('Connexion SSE pour courrier:', sseUrl);
       
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
+        const eventSource = new EventSource(sseUrl);
+        sseRef.current = eventSource;
 
-      ws.onopen = () => {
-        console.log('WebSocket connecté pour courrier');
-        setIsConnected(true);
-      };
+        eventSource.onopen = () => {
+          console.log('SSE connecté pour courrier');
+          setIsConnected(true);
+        };
 
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('Message WebSocket reçu:', data);
-          
-          // Écouter TOUS les types de messages courrier
-          if (data.type === 'courrier_shared' || data.type === 'courrier_message') {
-            console.log('Nouveau courrier reçu en temps réel:', data);
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('Message SSE reçu:', data);
             
-            // Vérifier si c'est pour cet utilisateur
-            if (data.data && data.data.recipientId === (user as any)?.id) {
-              console.log('Courrier destiné à cet utilisateur, mise à jour instantanée');
+            // Écouter TOUS les types de messages courrier
+            if (data.type === 'courrier_shared' || data.type === 'courrier_message') {
+              console.log('Nouveau courrier reçu en temps réel:', data);
               
-              // Ajouter immédiatement le nouveau courrier à la liste locale
-              const newEmail = {
-                id: data.data.id || Date.now(),
-                sender: data.data.sender,
-                senderEmail: data.data.senderEmail,
-                subject: data.data.subject,
-                content: data.data.content,
-                preview: data.data.content?.substring(0, 100) || '',
-                date: data.data.date || new Date().toLocaleDateString('fr-FR'),
-                time: data.data.time || new Date().toLocaleTimeString('fr-FR'),
-                hasAttachment: data.data.hasAttachment || false,
-                priority: data.data.priority || 'medium',
-                category: data.data.category || 'documents',
-                attachment: data.data.attachment,
-                folder: data.data.folder
-              };
-              
-              // Mettre à jour immédiatement la liste des emails
-              setEmails(prevEmails => [newEmail, ...prevEmails]);
-              
-              // Aussi invalider le cache pour synchroniser avec le serveur
-              setTimeout(() => {
-                queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
-                refetch();
-              }, 100);
-              
-              // Notification toast pour l'utilisateur
-              toast({
-                title: 'Nouveau courrier reçu',
-                description: `De: ${data.data.sender} - ${data.data.subject || 'Partage de fichier'}`,
-                duration: 4000
-              });
+              // Vérifier si c'est pour cet utilisateur
+              if (data.data && data.data.recipientId === (user as any)?.id) {
+                console.log('Courrier destiné à cet utilisateur, mise à jour instantanée');
+                
+                // Ajouter immédiatement le nouveau courrier à la liste locale
+                const newEmail = {
+                  id: data.data.id || Date.now(),
+                  sender: data.data.sender,
+                  senderEmail: data.data.senderEmail,
+                  subject: data.data.subject,
+                  content: data.data.content,
+                  preview: data.data.content?.substring(0, 100) || '',
+                  date: data.data.date || new Date().toLocaleDateString('fr-FR'),
+                  time: data.data.time || new Date().toLocaleTimeString('fr-FR'),
+                  hasAttachment: data.data.hasAttachment || false,
+                  priority: data.data.priority || 'medium',
+                  category: data.data.category || 'documents',
+                  attachment: data.data.attachment,
+                  folder: data.data.folder
+                };
+                
+                // Mettre à jour immédiatement la liste des emails
+                setEmails(prevEmails => [newEmail, ...prevEmails]);
+                
+                // Aussi invalider le cache pour synchroniser avec le serveur
+                setTimeout(() => {
+                  queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
+                  refetch();
+                }, 100);
+                
+                // Notification toast pour l'utilisateur
+                toast({
+                  title: '📧 Nouveau courrier reçu',
+                  description: `De: ${data.data.sender} - ${data.data.subject || 'Partage de fichier'}`,
+                  duration: 4000
+                });
+              }
             }
+          } catch (error) {
+            console.error('Erreur parsing SSE courrier:', error);
           }
-        } catch (error) {
-          console.error('Erreur parsing WebSocket courrier:', error);
-        }
-      };
+        };
 
-      ws.onclose = () => {
-        console.log('WebSocket fermé, tentative de reconnexion...');
-        setIsConnected(false);
-        setTimeout(connectWebSocket, 3000);
-      };
-
-      ws.onerror = (error) => {
-        console.error('Erreur WebSocket:', error);
-      };
+        eventSource.onerror = (error) => {
+          console.error('Erreur SSE:', error);
+          setIsConnected(false);
+          eventSource.close();
+          
+          // Reconnexion automatique après 3 secondes (reconnexion native SSE)
+          setTimeout(connectSSE, 3000);
+        };
+      } catch (error) {
+        console.error('Erreur création SSE:', error);
+        setTimeout(connectSSE, 5000);
+      }
     };
 
-    connectWebSocket();
+    connectSSE();
 
     return () => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.close();
+      if (sseRef.current) {
+        sseRef.current.close();
+        sseRef.current = null;
       }
     };
   }, [user, queryClient, refetch]);
