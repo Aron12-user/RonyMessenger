@@ -76,8 +76,7 @@ export default function MailPage() {
   const [pinnedEmails, setPinnedEmails] = useState<Set<number>>(new Set());
   const [readEmails, setReadEmails] = useState<Set<number>>(new Set());
   
-  // WebSocket pour les mises à jour temps réel (SOLUTION ROBUSTE)
-  const wsRef = useRef<WebSocket | null>(null);
+  // États pour la connexion (solution polling)
   const [isConnected, setIsConnected] = useState(false);
   
   // États pour les dialogs et fonctionnalités avancées
@@ -106,133 +105,117 @@ export default function MailPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Récupérer les fichiers et dossiers partagés avec gestion d'erreur améliorée
-  const { data: sharedData, refetch, isLoading: isLoadingSharedData, error: sharedDataError } = useQuery({
-    queryKey: ['/api/files/shared'],
-    enabled: !!user,
-    staleTime: 30 * 1000,
-    retry: 3,
-    retryDelay: 1000,
-  });
+  // SUPPRIMER LA QUERY REACT-QUERY QUI CAUSE DES CONFLITS
+  // const { data: sharedData, refetch, isLoading: isLoadingSharedData, error: sharedDataError } = useQuery({
+  //   queryKey: ['/api/files/shared'],
+  //   enabled: !!user,
+  //   staleTime: 30 * 1000,
+  //   retry: 3,
+  //   retryDelay: 1000,
+  // });
+  
+  // États locaux simplifiés pour éviter les conflits
+  const [isLoadingSharedData, setIsLoadingSharedData] = useState(false);
+  const [sharedDataError, setSharedDataError] = useState<any>(null);
 
-  // Connexion WebSocket pour les mises à jour temps réel avec persistance
+  // SOLUTION RADICALE: POLLING SIMPLE AU LIEU DE WEBSOCKET POUR ÉVITER LES BLOCAGES
   useEffect(() => {
     if (!user) return;
 
-    const connectWebSocket = () => {
-      try {
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
-        console.log('Connexion WebSocket pour courrier:', wsUrl, 'userId:', (user as any)?.id);
-      
-        const ws = new WebSocket(wsUrl);
-        wsRef.current = ws;
+    let pollingInterval: NodeJS.Timeout;
+    let isPolling = true;
 
-        ws.onopen = () => {
-          console.log('WebSocket connecté pour courrier');
+    const pollForUpdates = async () => {
+      if (!isPolling) return;
+
+      try {
+        console.log('[POLLING] Vérification des nouveaux courriers...');
+        
+        // Simple fetch sans cache pour obtenir les derniers courriers
+        const response = await fetch('/api/files/shared', {
+          method: 'GET',
+          credentials: 'include',
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Convertir les données en format email simplifié
+          const allEmails = [
+            // Fichiers partagés
+            ...data.files.map((file: any, index: number) => ({
+              id: 1000 + index,
+              subject: `Fichier partagé: ${file.name}`,
+              sender: file.sharedBy?.displayName || 'Utilisateur',
+              senderEmail: file.sharedBy?.username || 'user@rony.com',
+              content: `Fichier "${file.name}" a été partagé avec vous.\n\nTaille: ${(file.size / 1024).toFixed(1)} KB\nType: ${file.type || 'Non spécifié'}\n\nCliquez pour télécharger.`,
+              date: new Date(file.sharedAt).toLocaleDateString('fr-FR'),
+              time: new Date(file.sharedAt).toLocaleTimeString('fr-FR'),
+              priority: 'medium',
+              hasAttachment: true,
+              attachment: {
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                url: file.url
+              },
+              category: 'documents'
+            })),
+            // Dossiers partagés
+            ...data.folders.map((folder: any, index: number) => ({
+              id: 2000 + index,
+              subject: `Dossier partagé: ${folder.name}`,
+              sender: folder.sharedBy?.displayName || 'Utilisateur',
+              senderEmail: folder.sharedBy?.username || 'user@rony.com',
+              content: `Dossier "${folder.name}" a été partagé avec vous.\n\nContient plusieurs fichiers.\n\nCliquez pour explorer.`,
+              date: new Date(folder.sharedAt).toLocaleDateString('fr-FR'),
+              time: new Date(folder.sharedAt).toLocaleTimeString('fr-FR'),
+              priority: 'medium',
+              hasAttachment: true,
+              folder: {
+                id: folder.id,
+                name: folder.name,
+                fileCount: folder.fileCount || 0
+              },
+              category: 'documents'
+            }))
+          ];
+
+          // Mise à jour directe sans conflits d'état
+          setEmails(allEmails);
           setIsConnected(true);
           
-          // Envoyer l'ID utilisateur pour identifier la connexion
-          ws.send(JSON.stringify({
-            type: 'identify',
-            userId: (user as any)?.id
-          }));
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            console.log('Message WebSocket reçu:', data);
-            
-            // Écouter TOUS les types de messages courrier
-            if (data.type === 'courrier_shared' || data.type === 'courrier_message') {
-              console.log('Nouveau courrier reçu en temps réel:', data);
-              
-              // Vérifier si c'est pour cet utilisateur
-              if (data.data && data.data.recipientId === (user as any)?.id) {
-                console.log('Courrier destiné à cet utilisateur, mise à jour instantanée');
-                
-                // Ajouter immédiatement le nouveau courrier à la liste locale
-                const newEmail = {
-                  id: data.data.id || Date.now(),
-                  sender: data.data.sender,
-                  senderEmail: data.data.senderEmail,
-                  subject: data.data.subject,
-                  content: data.data.content,
-                  preview: data.data.content?.substring(0, 100) || '',
-                  date: data.data.date || new Date().toLocaleDateString('fr-FR'),
-                  time: data.data.time || new Date().toLocaleTimeString('fr-FR'),
-                  hasAttachment: data.data.hasAttachment || false,
-                  priority: data.data.priority || 'medium',
-                  category: data.data.category || 'documents',
-                  attachment: data.data.attachment,
-                  folder: data.data.folder
-                };
-                
-                // Mettre à jour immédiatement la liste des emails
-                setEmails(prevEmails => [newEmail, ...prevEmails]);
-                
-                // Aussi invalider le cache pour synchroniser avec le serveur
-                setTimeout(() => {
-                  queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
-                  refetch();
-                }, 100);
-                
-                // Notification toast pour l'utilisateur
-                toast({
-                  title: '📧 Nouveau courrier reçu',
-                  description: `De: ${data.data.sender} - ${data.data.subject || 'Partage de fichier'}`,
-                  duration: 4000
-                });
-              }
-            }
-          } catch (error) {
-            console.error('Erreur parsing WebSocket courrier:', error);
-          }
-        };
-
-        ws.onclose = () => {
-          console.log('WebSocket fermé, tentative de reconnexion...');
+          console.log(`[POLLING] ${allEmails.length} courriers chargés`);
+        } else {
+          console.error('[POLLING] Erreur fetch:', response.status);
           setIsConnected(false);
-          setTimeout(connectWebSocket, 3000);
-        };
-
-        ws.onerror = (error) => {
-          console.error('Erreur WebSocket:', error);
-          setIsConnected(false);
-        };
+        }
       } catch (error) {
-        console.error('Erreur création WebSocket:', error);
-        setTimeout(connectWebSocket, 5000);
+        console.error('[POLLING] Erreur:', error);
+        setIsConnected(false);
       }
     };
 
-    connectWebSocket();
+    // Première exécution immédiate
+    pollForUpdates();
+
+    // Ensuite polling toutes les 3 secondes
+    pollingInterval = setInterval(pollForUpdates, 3000);
 
     return () => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.close();
-        wsRef.current = null;
+      isPolling = false;
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
       }
     };
-  }, [user, queryClient, refetch]);
+  }, [user]);
 
-  // CORRECTION CRITIQUE : Gérer les données en toute sécurité pour éviter les pages blanches
-  const sharedFiles = (sharedData as any)?.files || [];
-  const sharedFolders = (sharedData as any)?.folders || [];
-
-  // Les données sont déjà formatées côté serveur - fusion sécurisée
-  const allEmails = React.useMemo(() => {
-    try {
-      if (!sharedFiles && !sharedFolders) return [];
-      return [...(Array.isArray(sharedFiles) ? sharedFiles : []), ...(Array.isArray(sharedFolders) ? sharedFolders : [])];
-    } catch (error) {
-      console.error('Erreur fusion emails:', error);
-      return [];
-    }
-  }, [sharedFiles, sharedFolders]);
-
-  // CORRECTION : Charger les emails et la persistance avec protection contre les pages blanches
+  // Charger les données persistantes depuis localStorage
   useEffect(() => {
     if (!user) return;
 
@@ -242,20 +225,12 @@ export default function MailPage() {
       const savedArchived = JSON.parse(localStorage.getItem('archivedEmails') || '[]');
       setDeletedEmails(new Set(savedDeleted));
       setArchivedEmails(new Set(savedArchived));
-
-      // Utiliser directement les emails formatés du serveur avec vérification de sécurité
-      if (Array.isArray(allEmails) && allEmails.length >= 0) {
-        console.log('Chargement de', allEmails.length, 'emails dans l\'interface');
-        setEmails(allEmails);
-      } else {
-        console.log('Aucun email à charger, liste vide maintenue');
-        setEmails([]);
-      }
+      
+      console.log('[COURRIER] États persistants chargés');
     } catch (error) {
-      console.error('Erreur chargement emails:', error);
-      setEmails([]); // Failsafe pour éviter les crashes
+      console.error('Erreur chargement localStorage:', error);
     }
-  }, [user, allEmails]);
+  }, [user]);
 
   // Mutations pour les actions sur les emails - CORRIGÉES
   const replyMutation = useMutation({
@@ -753,7 +728,7 @@ export default function MailPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => refetch()}
+                  onClick={() => window.location.reload()}
                   className="text-blue-700 hover:bg-white/30 border-blue/20 text-xs"
                 >
                   <RefreshCw className="w-3 h-3 mr-1" />
@@ -761,7 +736,7 @@ export default function MailPage() {
                 </Button>
                 
                 <Badge variant="secondary" className="bg-white/40 text-blue-700 border-blue/20 text-xs">
-                  {filteredEmails.length} messages | {sharedFiles.length} fichiers | {sharedFolders.length} dossiers
+                  {filteredEmails.length} messages
                 </Badge>
               </div>
             </div>
@@ -999,7 +974,7 @@ export default function MailPage() {
               <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">Erreur de chargement</h3>
               <p className="text-gray-600 mb-4">Impossible de charger les messages</p>
-              <Button onClick={() => refetch()} variant="outline">
+              <Button onClick={() => window.location.reload()} variant="outline">
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Réessayer
               </Button>
