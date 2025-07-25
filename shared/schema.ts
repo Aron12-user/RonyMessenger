@@ -258,3 +258,87 @@ export type InsertFileSharing = z.infer<typeof insertFileSharingSchema>;
 
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
+
+// Folder Sharing Table
+export const folderSharing = pgTable("folder_sharing", {
+  id: serial("id").primaryKey(),
+  folderId: integer("folder_id").references(() => folders.id).notNull(),
+  ownerId: integer("owner_id").references(() => users.id).notNull(),
+  sharedWithId: integer("shared_with_id").references(() => users.id).notNull(),
+  permission: text("permission").notNull(), // 'read', 'write', etc.
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    folderIdIdx: index("folder_sharing_folder_id_idx").on(table.folderId),
+    sharedWithIdIdx: index("folder_sharing_with_id_idx").on(table.sharedWithId),
+    folderUserIdx: uniqueIndex("folder_user_idx").on(table.folderId, table.sharedWithId),
+  }
+});
+
+// Events/Planning Table - Système de planification complet
+export const events = pgTable("events", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  creatorId: integer("creator_id").notNull().references(() => users.id),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  startTime: text("start_time"), // "09:00" format
+  endTime: text("end_time"), // "17:30" format
+  isAllDay: boolean("is_all_day").default(false),
+  isRecurring: boolean("is_recurring").default(false),
+  recurrencePattern: text("recurrence_pattern"), // "daily", "weekly", "monthly", "yearly"
+  recurrenceInterval: integer("recurrence_interval").default(1), // every X days/weeks/months
+  recurrenceEndDate: timestamp("recurrence_end_date"),
+  location: text("location"),
+  isInPerson: boolean("is_in_person").default(true),
+  isPrivate: boolean("is_private").default(false),
+  reminderMinutes: integer("reminder_minutes").default(15), // 15 minutes avant
+  calendar: text("calendar").default("default"), // nom du calendrier
+  status: text("status").default("confirmed"), // confirmed, cancelled, tentative
+  attendeeResponse: text("attendee_response").default("needs_action"), // needs_action, accepted, declined, tentative
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    creatorIdIdx: index("event_creator_id_idx").on(table.creatorId),
+    startDateIdx: index("event_start_date_idx").on(table.startDate),
+    endDateIdx: index("event_end_date_idx").on(table.endDate),
+    statusIdx: index("event_status_idx").on(table.status),
+    calendarIdx: index("event_calendar_idx").on(table.calendar),
+    isRecurringIdx: index("event_is_recurring_idx").on(table.isRecurring),
+  }
+});
+
+// Event Participants Table
+export const eventParticipants = pgTable("event_participants", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  response: text("response").default("pending"), // pending, accepted, declined, maybe
+  isOrganizer: boolean("is_organizer").default(false),
+  invitedAt: timestamp("invited_at").defaultNow().notNull(),
+  respondedAt: timestamp("responded_at"),
+}, (table) => {
+  return {
+    eventIdIdx: index("event_participants_event_id_idx").on(table.eventId),
+    userIdIdx: index("event_participants_user_id_idx").on(table.userId),
+    uniqueParticipant: uniqueIndex("unique_event_participant").on(table.eventId, table.userId),
+    responseIdx: index("event_participants_response_idx").on(table.response),
+  }
+});
+
+// Schemas pour les nouveaux modèles
+export const insertFolderSharingSchema = createInsertSchema(folderSharing).omit({ id: true });
+export const insertEventSchema = createInsertSchema(events).omit({ id: true });
+export const insertEventParticipantSchema = createInsertSchema(eventParticipants).omit({ id: true });
+
+// Types pour les nouveaux modèles
+export type FolderSharing = typeof folderSharing.$inferSelect;
+export type InsertFolderSharing = z.infer<typeof insertFolderSharingSchema>;
+
+export type Event = typeof events.$inferSelect;
+export type InsertEvent = z.infer<typeof insertEventSchema>;
+
+export type EventParticipant = typeof eventParticipants.$inferSelect;
+export type InsertEventParticipant = z.infer<typeof insertEventParticipantSchema>;

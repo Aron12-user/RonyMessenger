@@ -1072,6 +1072,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Route /api/files/:id/share supprimée pour éviter les doublons - utilise uniquement /api/files/share
 
+  // APIs PLANIFICATION - Système d'événements complet
+  
+  // Créer un nouvel événement
+  app.post("/api/events", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const eventData = {
+        ...req.body,
+        creatorId: userId,
+        startDate: new Date(req.body.startDate),
+        endDate: new Date(req.body.endDate)
+      };
+
+      console.log(`[EVENTS] Créer événement pour utilisateur ${userId}:`, eventData);
+      
+      const event = await storage.createEvent(eventData);
+      
+      res.json({ success: true, event });
+    } catch (error: any) {
+      console.error('Erreur création événement:', error);
+      res.status(500).json({ error: error.message || "Erreur serveur" });
+    }
+  });
+
+  // Récupérer les événements d'un utilisateur
+  app.get("/api/events", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      console.log(`[EVENTS] Récupérer événements pour utilisateur ${userId}`);
+      
+      const events = await storage.getEventsForUser(userId);
+      
+      res.json(events);
+    } catch (error: any) {
+      console.error('Erreur récupération événements:', error);
+      res.status(500).json({ error: error.message || "Erreur serveur" });
+    }
+  });
+
+  // Récupérer un événement spécifique
+  app.get("/api/events/:id", requireAuth, async (req, res) => {
+    try {
+      const eventId = parseInt(req.params.id);
+      const event = await storage.getEventById(eventId);
+      
+      if (!event) {
+        return res.status(404).json({ error: "Événement introuvable" });
+      }
+      
+      res.json(event);
+    } catch (error: any) {
+      console.error('Erreur récupération événement:', error);
+      res.status(500).json({ error: error.message || "Erreur serveur" });
+    }
+  });
+
+  // Modifier un événement
+  app.put("/api/events/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      const eventId = parseInt(req.params.id);
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const event = await storage.getEventById(eventId);
+      if (!event || event.creatorId !== userId) {
+        return res.status(403).json({ error: "Accès refusé" });
+      }
+
+      const updates = {
+        ...req.body,
+        startDate: req.body.startDate ? new Date(req.body.startDate) : undefined,
+        endDate: req.body.endDate ? new Date(req.body.endDate) : undefined
+      };
+
+      const updatedEvent = await storage.updateEvent(eventId, updates);
+      
+      res.json({ success: true, event: updatedEvent });
+    } catch (error: any) {
+      console.error('Erreur modification événement:', error);
+      res.status(500).json({ error: error.message || "Erreur serveur" });
+    }
+  });
+
+  // Supprimer un événement
+  app.delete("/api/events/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      const eventId = parseInt(req.params.id);
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const event = await storage.getEventById(eventId);
+      if (!event || event.creatorId !== userId) {
+        return res.status(403).json({ error: "Accès refusé" });
+      }
+
+      await storage.deleteEvent(eventId);
+      
+      res.json({ success: true, message: "Événement supprimé" });
+    } catch (error: any) {
+      console.error('Erreur suppression événement:', error);
+      res.status(500).json({ error: error.message || "Erreur serveur" });
+    }
+  });
+
+  // Ajouter un participant à un événement
+  app.post("/api/events/:id/participants", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      const eventId = parseInt(req.params.id);
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const event = await storage.getEventById(eventId);
+      if (!event || event.creatorId !== userId) {
+        return res.status(403).json({ error: "Accès refusé" });
+      }
+
+      const participantData = {
+        eventId,
+        userId: req.body.userId,
+        response: "pending",
+        isOrganizer: false
+      };
+
+      const participant = await storage.addEventParticipant(participantData);
+      
+      res.json({ success: true, participant });
+    } catch (error: any) {
+      console.error('Erreur ajout participant:', error);
+      res.status(500).json({ error: error.message || "Erreur serveur" });
+    }
+  });
+
+  // Récupérer les participants d'un événement
+  app.get("/api/events/:id/participants", requireAuth, async (req, res) => {
+    try {
+      const eventId = parseInt(req.params.id);
+      const participants = await storage.getEventParticipants(eventId);
+      
+      res.json(participants);
+    } catch (error: any) {
+      console.error('Erreur récupération participants:', error);
+      res.status(500).json({ error: error.message || "Erreur serveur" });
+    }
+  });
+
   // Contacts routes
   app.get("/api/contacts", requireAuth, async (req, res) => {
     try {
