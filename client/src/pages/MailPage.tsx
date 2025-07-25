@@ -219,10 +219,16 @@ export default function MailPage() {
                 
                 // ÉTAPE BONUS: Persistance locale et vérification périodique
                 setTimeout(() => {
-                  console.log('[WS] 🔄 ÉTAPE BONUS: Sauvegarde locale et vérification');
-                  // Sauvegarder dans localStorage pour persistance
+                  console.log('[WS] 🔄 ÉTAPE BONUS: Sauvegarde locale et vérification finale');
+                  // Sauvegarder timestamp de dernière mise à jour
                   localStorage.setItem('lastCourrierUpdate', Date.now().toString());
+                  // Force refresh ultime
                   setForceRefreshTrigger(prev => prev + 1);
+                  // Vérifier si les emails sont bien présents
+                  setTimeout(() => {
+                    const currentEmails = JSON.parse(localStorage.getItem('courrierEmails') || '{"emails":[]}');
+                    console.log('[WS] 🔍 Vérification finale: ' + currentEmails.emails.length + ' emails en cache');
+                  }, 1000);
                 }, 5000);
                 
                 console.log('[WS] 🚀 PROTOCOLE RÉCEPTION ABSOLUE ACTIVÉ - 8 ÉTAPES EN COURS');
@@ -287,12 +293,15 @@ export default function MailPage() {
     performLocalCacheUpdate();
   }, [sharedData, user]);
 
-  // Charger les emails depuis les données partagées (CONVERSION AUTOMATIQUE PROTÉGÉE)
+  // SOLUTION ABSOLUTUE: Système de persistance et conversion garantie
   useEffect(() => {
-    // ÉTAPE 1: Essayer les données React Query
-    let dataToUse = sharedData;
+    console.log('[COURRIER] 🚀 DÉBUT CONVERSION - sharedData:', sharedData);
     
-    // ÉTAPE 2: Fallback vers le cache local si pas de données
+    // ÉTAPE 1: Utiliser les données React Query si disponibles
+    let dataToUse = sharedData;
+    let sourceType = 'API';
+    
+    // ÉTAPE 2: Fallback vers le cache local si pas de données API
     if (!dataToUse || !(dataToUse as any).files || !(dataToUse as any).folders) {
       try {
         const cachedData = localStorage.getItem('courrierCache');
@@ -300,6 +309,7 @@ export default function MailPage() {
           const parsed = JSON.parse(cachedData);
           if (parsed.userId === (user as any)?.id && parsed.data) {
             dataToUse = parsed.data;
+            sourceType = 'Cache';
             console.log('[CACHE] 📦 Utilisation des données en cache local');
           }
         }
@@ -308,7 +318,27 @@ export default function MailPage() {
       }
     }
 
-    if (!dataToUse || !(dataToUse as any).files || !(dataToUse as any).folders) return;
+    // ÉTAPE 3: Si toujours pas de données, essayer le cache d'emails direct
+    if (!dataToUse || !(dataToUse as any).files || !(dataToUse as any).folders) {
+      try {
+        const cachedEmails = localStorage.getItem('courrierEmails');
+        if (cachedEmails) {
+          const parsed = JSON.parse(cachedEmails);
+          if (parsed.userId === (user as any)?.id && parsed.emails.length > 0) {
+            console.log('[CACHE] 🚑 Restauration directe des emails depuis cache');
+            setEmails(parsed.emails);
+            return; // Arrêter ici si on a des emails en cache
+          }
+        }
+      } catch (error) {
+        console.error('[CACHE] ❌ Erreur lecture cache emails:', error);
+      }
+    }
+
+    if (!dataToUse || !(dataToUse as any).files || !(dataToUse as any).folders) {
+      console.log('[COURRIER] ⚠️ Aucune donnée disponible - attente...');
+      return;
+    }
 
     // Protection anti-blocage: utiliser setTimeout pour éviter les conflits d'état
     setTimeout(() => {
@@ -354,7 +384,9 @@ export default function MailPage() {
           }))
         ];
 
-        console.log('[COURRIER] ✅ Emails convertis depuis sharedData:', allEmails.length);
+        console.log('[COURRIER] ✅ Emails convertis:', allEmails.length, 'Source:', sourceType);
+        console.log('[COURRIER] 📂 Fichiers:', (dataToUse as any).files?.length || 0);
+        console.log('[COURRIER] 📁 Dossiers:', (dataToUse as any).folders?.length || 0);
         
         // FORCER L'ORDRE DÉCROISSANT : Plus récent en premier
         const sortedEmails = allEmails.sort((a, b) => {
@@ -365,15 +397,23 @@ export default function MailPage() {
         
         console.log('[COURRIER] 📧 Emails triés par date (plus récent en premier):', sortedEmails.map(e => `${e.subject} - ${e.date} ${e.time}`));
         console.log('[COURRIER] 🎯 MISE À JOUR STATE EMAILS - AFFICHAGE GARANTI');
-        console.log('[COURRIER] 📊 Statistiques: Total=' + sortedEmails.length + ', Source=' + (sharedData ? 'API' : 'Cache'));
-        setEmails(sortedEmails);
+        console.log('[COURRIER] 📊 Statistiques: Total=' + sortedEmails.length + ', Source=' + sourceType);
         
-        // Sauvegarder également les emails convertis
-        localStorage.setItem('courrierEmails', JSON.stringify({
-          emails: sortedEmails,
-          timestamp: Date.now(),
-          userId: (user as any)?.id
-        }));
+        // MISE À JOUR FORCÉE: Toujours mettre à jour même si identique
+        setEmails([...sortedEmails]); // Spread pour forcer la mise à jour
+        
+        // Sauvegarder les emails convertis avec timestamp
+        try {
+          localStorage.setItem('courrierEmails', JSON.stringify({
+            emails: sortedEmails,
+            timestamp: Date.now(),
+            userId: (user as any)?.id,
+            source: sourceType
+          }));
+          console.log('[CACHE] ✅ Emails sauvegardés en cache local');
+        } catch (error) {
+          console.error('[CACHE] ❌ Erreur sauvegarde emails:', error);
+        }
       } catch (error) {
         console.error('[COURRIER] Erreur conversion sharedData:', error);
         setEmails([]);
@@ -391,8 +431,11 @@ export default function MailPage() {
       // Si pas d'emails et que l'utilisateur est connecté, forcer un refetch
       if (emails.length === 0 && !isLoadingSharedData) {
         console.log('[RECOVERY] ⚠️ Aucun email détecté - RÉCUPÉRATION D\'URGENCE');
+        console.log('[RECOVERY] 📊 État: emails=' + emails.length + ', loading=' + isLoadingSharedData + ', user=' + !!(user as any)?.id);
         setForceRefreshTrigger(prev => prev + 1);
         refetch();
+      } else if (emails.length > 0) {
+        console.log('[RECOVERY] ✅ ' + emails.length + ' emails présents - OK');
       }
       
       // Vérifier si nous avons des données en cache
