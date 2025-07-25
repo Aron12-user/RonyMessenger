@@ -37,12 +37,12 @@ import {
 import folderOrangeIcon from "@assets/icons8-dossier-mac-94_1750386744627.png";
 import folderBlueIcon from "@assets/icons8-dossier-mac-64_1750386753922.png";
 import folderArchiveIcon from "@assets/icons8-dossier-mac-48_1750386762042.png";
-import imageIcon from "@assets/icons8-image-50_1750773959798.png";
-import excelIcon from "@assets/icons8-microsoft-excel-2019-50_1750774269876.png";
-import powerpointIcon from "@assets/icons8-ms-powerpoint-50_1750774279717.png";
-import csvIcon from "@assets/icons8-fichier-csv-50_1750774291865.png";
+import imageIcon from "@assets/icons8-image-50_1750542458133.png";
+import excelIcon from "@assets/icons8-microsoft-excel-2019-50_1750542395351.png";
+import powerpointIcon from "@assets/icons8-ms-powerpoint-50_1750542416904.png";
+import csvIcon from "@assets/icons8-fichier-csv-50_1750542435006.png";
 import audioIcon from "@assets/icons8-fichier-audio-50_1750774307203.png";
-import videoIcon from "@assets/icons8-fichier-vidéo-64_1750774317888.png";
+import videoIcon from "@assets/icons8-fichier-vidéo-64_1750542479690.png";
 
 interface Folder {
   id: number;
