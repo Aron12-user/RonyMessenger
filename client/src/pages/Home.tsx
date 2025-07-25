@@ -12,7 +12,7 @@ import FilesManager from "@/pages/FilesManager";
 import CloudStorage from "@/pages/CloudStorage";
 import Contacts from "@/pages/Contacts";
 import SettingsPage from "@/pages/SettingsPage";
-import MailPageSimple from "@/pages/MailPageSimple";
+import MailPage from "@/pages/MailPage";
 import PlanningPage from "@/pages/PlanningPage";
 import { useToast } from "@/hooks/use-toast";
 
@@ -49,7 +49,7 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
       case "cloud":
         return <CloudStorage />;
       case "mail":
-        return <MailPageSimple />;
+        return <MailPage />;
       case "planning":
         return <PlanningPage />;
       case "contacts":
