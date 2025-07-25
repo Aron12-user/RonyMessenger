@@ -428,7 +428,23 @@ export class CompleteMemStorage implements IStorageComplete {
   }
   
   async deleteFile(fileId: number): Promise<void> {
+    console.log(`[STORAGE] Deleting file ${fileId} and cleaning related shares`);
+    
+    // Supprimer le fichier
     this.files.delete(fileId);
+    
+    // Nettoyer automatiquement tous les partages liés à ce fichier
+    const sharingToDelete = [];
+    for (const [shareId, sharing] of this.fileSharing.entries()) {
+      if (sharing.fileId === fileId) {
+        sharingToDelete.push(shareId);
+      }
+    }
+    
+    for (const shareId of sharingToDelete) {
+      this.fileSharing.delete(shareId);
+      console.log(`[STORAGE] ✅ Cleaned file sharing ${shareId} for deleted file ${fileId}`);
+    }
   }
   
   async getSharedFiles(userId: number): Promise<File[]> {
@@ -464,7 +480,10 @@ export class CompleteMemStorage implements IStorageComplete {
           sharedAt: sharing.createdAt
         });
       } else {
-        console.log(`[STORAGE] ERROR: File ${sharing.fileId} not found in files map!`);
+        console.log(`[STORAGE] ERROR: File ${sharing.fileId} not found - CLEANING ORPHANED SHARE`);
+        // Nettoyer automatiquement les partages orphelins
+        this.fileSharing.delete(sharing.id);
+        console.log(`[STORAGE] ✅ Cleaned orphaned file sharing record ${sharing.id}`);
       }
     }
     
