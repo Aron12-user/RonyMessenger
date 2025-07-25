@@ -140,7 +140,7 @@ export default function MailPage() {
             refetch();
             
             // Notification toast pour l'utilisateur
-            if (data.data && data.data.recipientId === user.id) {
+            if (data.data && data.data.recipientId === (user as any).id) {
               toast({
                 title: 'Nouveau courrier reçu',
                 description: `De: ${data.data.sender} - ${data.data.subject || 'Partage de fichier'}`,

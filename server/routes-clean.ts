@@ -1004,7 +1004,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // SYSTÈME COURRIER COMPLET - API simplifiée pour tous les messages
+  // API COURRIER CORRIGÉE - utilise les méthodes de stockage existantes
   app.get("/api/files/shared", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
@@ -1012,66 +1012,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Non authentifié" });
       }
 
-      console.log(`[COURRIER] Récupération messages pour utilisateur ${userId}`);
+      console.log(`[COURRIER-FIX] Récupération courrier pour utilisateur ${userId}`);
       
-      // Partages de fichiers
-      const fileShares = Array.from((storage as any).fileSharing.values())
-        .filter((share: any) => share.sharedWithId === userId)
-        .map((share: any, index: number) => {
-          const file = (storage as any).files.get(share.fileId);
-          const sharer = Array.from((storage as any).users.values())
-            .find((u: any) => u.id === share.ownerId);
-          
-          if (!file) return null;
-          
-          return {
-            id: 1000 + index,
-            subject: `Fichier: ${file.name}`,
-            sender: (sharer as any)?.displayName || 'Utilisateur',
-            senderEmail: (sharer as any)?.username || 'user@rony.com',
-            content: `Fichier "${file.name}" partagé.\nTaille: ${(file.size / 1024).toFixed(1)} KB`,
-            date: new Date().toLocaleDateString('fr-FR'),
-            time: new Date().toLocaleTimeString('fr-FR'),
-            priority: 'medium',
-            hasAttachment: true,
-            attachment: { name: file.name, size: file.size, url: `/api/files/${file.id}/download` },
-            category: 'files'
-          };
-        })
-        .filter(Boolean);
+      // Utiliser les méthodes de stockage existantes qui fonctionnent
+      const sharedFiles = await storage.getSharedFiles(userId);
+      const sharedFolders = await storage.getSharedFolders(userId);
+      
+      console.log(`[COURRIER-FIX] Storage retourné: ${sharedFiles.length} fichiers, ${sharedFolders.length} dossiers`);
 
-      // Partages de dossiers
-      const folderShares = Array.from((storage as any).folderSharing.values())
-        .filter((share: any) => share.sharedWithId === userId)
-        .map((share: any, index: number) => {
-          const folder = (storage as any).folders.get(share.folderId);
-          const sharer = Array.from((storage as any).users.values())
-            .find((u: any) => u.id === share.ownerId);
-          
-          if (!folder) return null;
-          
-          return {
-            id: 2000 + index,
-            subject: `Dossier: ${folder.name}`,
-            sender: (sharer as any)?.displayName || 'Utilisateur',
-            senderEmail: (sharer as any)?.username || 'user@rony.com',
-            content: `Dossier "${folder.name}" partagé.`,
-            date: new Date().toLocaleDateString('fr-FR'),
-            time: new Date().toLocaleTimeString('fr-FR'),
-            priority: 'medium',
-            hasAttachment: true,
-            folder: { id: folder.id, name: folder.name, fileCount: 0 },
-            category: 'folders'
-          };
-        })
-        .filter(Boolean);
+      // Convertir en format courrier
+      const fileEmails = sharedFiles.map((file: any, index: number) => ({
+        id: 1000 + index,
+        subject: `Fichier partagé: ${file.name}`,
+        sender: file.sharedBy?.displayName || 'Utilisateur',
+        senderEmail: file.sharedBy?.username || 'user@rony.com',
+        content: `Fichier "${file.name}" a été partagé avec vous.\n\nTaille: ${(file.size / 1024).toFixed(1)} KB\nType: ${file.type || 'Non spécifié'}\n\nCliquez pour télécharger.`,
+        date: new Date(file.sharedAt).toLocaleDateString('fr-FR'),
+        time: new Date(file.sharedAt).toLocaleTimeString('fr-FR'),
+        priority: 'medium',
+        hasAttachment: true,
+        attachment: {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          url: `/api/files/${file.id}/download`
+        },
+        category: 'files'
+      }));
 
-      const allMessages = [...fileShares, ...folderShares];
-      console.log(`[COURRIER] ${allMessages.length} messages trouvés`);
+      const folderEmails = sharedFolders.map((folder: any, index: number) => ({
+        id: 2000 + index,
+        subject: `Dossier partagé: ${folder.name}`,
+        sender: folder.sharedBy?.displayName || 'Utilisateur',
+        senderEmail: folder.sharedBy?.username || 'user@rony.com',
+        content: `Dossier "${folder.name}" a été partagé avec vous.\n\nVous pouvez l'explorer et télécharger son contenu.`,
+        date: new Date(folder.sharedAt).toLocaleDateString('fr-FR'),
+        time: new Date(folder.sharedAt).toLocaleTimeString('fr-FR'),
+        priority: 'medium',
+        hasAttachment: true,
+        folder: {
+          id: folder.id,
+          name: folder.name,
+          fileCount: 0
+        },
+        category: 'folders'
+      }));
 
-      res.json({ files: fileShares, folders: folderShares });
+      console.log(`[COURRIER-FIX] Emails générés: ${fileEmails.length} fichiers, ${folderEmails.length} dossiers`);
+
+      res.json({ 
+        files: fileEmails, 
+        folders: folderEmails 
+      });
     } catch (error: any) {
-      console.error('[COURRIER] Erreur:', error);
+      console.error('[COURRIER-FIX] Erreur:', error);
       res.status(500).json({ error: "Erreur serveur" });
     }
   });
@@ -1621,13 +1615,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Non authentifié" });
       }
 
-      // Compter les fichiers et dossiers partagés avec cet utilisateur
-      const sharedFilesCount = Array.from((storage as any).fileSharing.values())
-        .filter((share: any) => share.sharedWithId === userId).length;
-
-      const sharedFoldersCount = Array.from((storage as any).folderSharing.values())
-        .filter((share: any) => share.sharedWithId === userId).length;
-
+      // Utiliser les méthodes de stockage pour statistiques précises
+      const sharedFiles = await storage.getSharedFiles(userId);
+      const sharedFolders = await storage.getSharedFolders(userId);
+      
+      const sharedFilesCount = sharedFiles.length;
+      const sharedFoldersCount = sharedFolders.length;
       const totalMessages = sharedFilesCount + sharedFoldersCount;
 
       // Statistiques détaillées
