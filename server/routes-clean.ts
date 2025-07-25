@@ -1492,6 +1492,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // API pour composer un nouveau message courrier
+  app.post("/api/courrier/compose", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const { recipientEmail, subject, message, senderName, senderEmail } = req.body;
+
+      console.log(`[COMPOSE] Processing new message from user ${userId} to ${recipientEmail}`);
+      
+      // Trouver l'utilisateur destinataire par email/username
+      console.log(`[COMPOSE] Looking for recipient: ${recipientEmail}`);
+      console.log(`[COMPOSE] Storage users size:`, (storage as any).users.size);
+      
+      const recipient = Array.from((storage as any).users.values()).find((u: any) => {
+        const matches = u.email === recipientEmail || 
+                       u.username === recipientEmail ||
+                       u.username === recipientEmail + '@rony.com' ||
+                       u.email === recipientEmail + '@rony.com';
+        console.log(`[COMPOSE] Checking user ${u.username} (${u.email}) - matches: ${matches}`);
+        return matches;
+      });
+      
+      if (!recipient) {
+        console.log(`[COMPOSE] Recipient not found for: ${recipientEmail}`);
+        console.log(`[COMPOSE] Available users:`, Array.from((storage as any).users.values()).map((u: any) => ({ 
+          id: u.id, email: u.email, username: u.username 
+        })));
+        return res.status(200).json({ success: false, error: "Utilisateur destinataire introuvable. Vérifiez l'adresse email." });
+      }
+
+      console.log(`[COMPOSE] Found recipient:`, { id: recipient.id, email: recipient.email, username: recipient.username });
+
+      // Créer le nouveau message
+      const newMessage = {
+        type: 'compose',
+        recipientId: recipient.id,
+        sender: senderName,
+        senderEmail: senderEmail,
+        subject: subject,
+        message: message,
+        timestamp: new Date().toISOString(),
+        priority: 'medium'
+      };
+
+      // Envoyer via WebSocket
+      if (global.wss && global.wss.clients) {
+        const messageData = JSON.stringify({
+          type: 'courrier_message',
+          data: newMessage
+        });
+        
+        global.wss.clients.forEach((client: any) => {
+          if (client.readyState === 1) {
+            client.send(messageData);
+          }
+        });
+      }
+
+      res.json({ success: true, message: "Message envoyé avec succès" });
+    } catch (error: any) {
+      console.error('Erreur composition courrier:', error);
+      res.status(500).json({ error: error.message || "Erreur serveur" });
+    }
+  });
+
   // Jitsi routes temporarily disabled - using WebRTC native solution
   console.log("Routes configured successfully");
 

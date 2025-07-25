@@ -78,13 +78,23 @@ export default function MailPage() {
   // WebSocket pour les mises à jour temps réel
   const wsRef = useRef<WebSocket | null>(null);
   
-  // États pour les dialogs
+  // États pour les dialogs et fonctionnalités avancées
   const [showReplyDialog, setShowReplyDialog] = useState(false);
   const [showForwardDialog, setShowForwardDialog] = useState(false);
   const [showFolderExplorer, setShowFolderExplorer] = useState(false);
+  const [showCompose, setShowCompose] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false);
   const [replyMessage, setReplyMessage] = useState('');
   const [forwardMessage, setForwardMessage] = useState('');
   const [forwardRecipient, setForwardRecipient] = useState('');
+  const [composeRecipient, setComposeRecipient] = useState('');
+  const [composeSubject, setComposeSubject] = useState('');
+  const [composeMessage, setComposeMessage] = useState('');
+  const [emailTemplates, setEmailTemplates] = useState([
+    { id: 1, name: 'Remerciement', content: 'Merci beaucoup pour votre partage. J\'apprécie vraiment.' },
+    { id: 2, name: 'Demande info', content: 'Pouvez-vous me fournir plus d\'informations sur ce fichier ?' },
+    { id: 3, name: 'Confirmation', content: 'Je confirme avoir bien reçu le document. Merci !' }
+  ]);
 
   const queryClient = useQueryClient();
 
@@ -264,6 +274,44 @@ export default function MailPage() {
       setShowForwardDialog(false);
       setForwardMessage('');
       setForwardRecipient('');
+    },
+    onError: (error: any) => {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  // Nouveau : Mutation pour composer un nouveau message
+  const composeMutation = useMutation({
+    mutationFn: async ({ recipientEmail, subject, message }: any) => {
+      console.log('Envoi nouveau courrier:', { recipientEmail, subject, message });
+      
+      const response = await fetch('/api/courrier/compose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          recipientEmail: recipientEmail.includes('@') ? recipientEmail.replace('@rony.com', '') : recipientEmail,
+          subject,
+          message,
+          senderName: (user as any)?.displayName || (user as any)?.username,
+          senderEmail: (user as any)?.username
+        })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Erreur composition courrier:', errorText);
+        throw new Error('Erreur lors de l\'envoi du courrier');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Message envoyé', description: 'Votre message a été envoyé avec succès' });
+      setShowCompose(false);
+      setComposeRecipient('');
+      setComposeSubject('');
+      setComposeMessage('');
     },
     onError: (error: any) => {
       toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
@@ -774,6 +822,16 @@ export default function MailPage() {
               >
                 <Archive className="w-4 h-4 mr-2" />
                 {showArchived ? 'Masquer archivés' : 'Archivés'}
+              </Button>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Button
+                onClick={() => setShowCompose(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm"
+              >
+                <MessageSquare className="w-4 h-4 mr-2" />
+                Nouveau message
               </Button>
             </div>
 
@@ -1289,6 +1347,108 @@ export default function MailPage() {
                   Télécharger tout le dossier
                 </Button>
               )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Nouveau : Dialog de composition de message */}
+      <Dialog open={showCompose} onOpenChange={setShowCompose}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <MessageSquare className="w-5 h-5 text-blue-600" />
+              <span>Nouveau message</span>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Destinataire</label>
+              <Input
+                placeholder="Email du destinataire (ex: nom@rony.com)"
+                value={composeRecipient}
+                onChange={(e) => setComposeRecipient(e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium mb-2 block">Sujet</label>
+              <Input
+                placeholder="Objet du message"
+                value={composeSubject}
+                onChange={(e) => setComposeSubject(e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium">Message</label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <MessageSquare className="w-4 h-4 mr-1" />
+                      Modèles
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {emailTemplates.map((template) => (
+                      <DropdownMenuItem
+                        key={template.id}
+                        onClick={() => setComposeMessage(template.content)}
+                      >
+                        {template.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              <Textarea
+                placeholder="Tapez votre message ici..."
+                value={composeMessage}
+                onChange={(e) => setComposeMessage(e.target.value)}
+                rows={6}
+              />
+            </div>
+            
+            <div className="flex justify-between items-center pt-4">
+              <div className="text-sm text-gray-500">
+                {composeMessage.length} caractères
+              </div>
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowCompose(false);
+                    setComposeRecipient('');
+                    setComposeSubject('');
+                    setComposeMessage('');
+                  }}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (composeRecipient && composeSubject && composeMessage) {
+                      composeMutation.mutate({
+                        recipientEmail: composeRecipient,
+                        subject: composeSubject,
+                        message: composeMessage
+                      });
+                    } else {
+                      toast({ 
+                        title: 'Champs requis', 
+                        description: 'Veuillez remplir tous les champs',
+                        variant: 'destructive' 
+                      });
+                    }
+                  }}
+                  disabled={composeMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {composeMutation.isPending ? 'Envoi...' : 'Envoyer'}
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
