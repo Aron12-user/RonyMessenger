@@ -76,8 +76,8 @@ export default function MailPage() {
   const [pinnedEmails, setPinnedEmails] = useState<Set<number>>(new Set());
   const [readEmails, setReadEmails] = useState<Set<number>>(new Set());
   
-  // SSE pour les mises à jour temps réel (PLUS FIABLE que WebSocket)
-  const sseRef = useRef<EventSource | null>(null);
+  // WebSocket pour les mises à jour temps réel (SOLUTION ROBUSTE)
+  const wsRef = useRef<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   
   // États pour les dialogs et fonctionnalités avancées
@@ -115,27 +115,34 @@ export default function MailPage() {
     retryDelay: 1000,
   });
 
-  // Connexion SSE pour les mises à jour temps réel (PLUS FIABLE que WebSocket)
+  // Connexion WebSocket pour les mises à jour temps réel avec persistance
   useEffect(() => {
     if (!user) return;
 
-    const connectSSE = () => {
+    const connectWebSocket = () => {
       try {
-        const sseUrl = `/api/courrier/events`;
-        console.log('Connexion SSE pour courrier:', sseUrl);
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        console.log('Connexion WebSocket pour courrier:', wsUrl, 'userId:', (user as any)?.id);
       
-        const eventSource = new EventSource(sseUrl);
-        sseRef.current = eventSource;
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
 
-        eventSource.onopen = () => {
-          console.log('SSE connecté pour courrier');
+        ws.onopen = () => {
+          console.log('WebSocket connecté pour courrier');
           setIsConnected(true);
+          
+          // Envoyer l'ID utilisateur pour identifier la connexion
+          ws.send(JSON.stringify({
+            type: 'identify',
+            userId: (user as any)?.id
+          }));
         };
 
-        eventSource.onmessage = (event) => {
+        ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            console.log('Message SSE reçu:', data);
+            console.log('Message WebSocket reçu:', data);
             
             // Écouter TOUS les types de messages courrier
             if (data.type === 'courrier_shared' || data.type === 'courrier_message') {
@@ -180,30 +187,32 @@ export default function MailPage() {
               }
             }
           } catch (error) {
-            console.error('Erreur parsing SSE courrier:', error);
+            console.error('Erreur parsing WebSocket courrier:', error);
           }
         };
 
-        eventSource.onerror = (error) => {
-          console.error('Erreur SSE:', error);
+        ws.onclose = () => {
+          console.log('WebSocket fermé, tentative de reconnexion...');
           setIsConnected(false);
-          eventSource.close();
-          
-          // Reconnexion automatique après 3 secondes (reconnexion native SSE)
-          setTimeout(connectSSE, 3000);
+          setTimeout(connectWebSocket, 3000);
+        };
+
+        ws.onerror = (error) => {
+          console.error('Erreur WebSocket:', error);
+          setIsConnected(false);
         };
       } catch (error) {
-        console.error('Erreur création SSE:', error);
-        setTimeout(connectSSE, 5000);
+        console.error('Erreur création WebSocket:', error);
+        setTimeout(connectWebSocket, 5000);
       }
     };
 
-    connectSSE();
+    connectWebSocket();
 
     return () => {
-      if (sseRef.current) {
-        sseRef.current.close();
-        sseRef.current = null;
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.close();
+        wsRef.current = null;
       }
     };
   }, [user, queryClient, refetch]);

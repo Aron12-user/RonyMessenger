@@ -248,12 +248,12 @@ Changelog:
 - July 25, 2025. Integrated Planning menu item with Calendar icon in main navigation sidebar
 - July 25, 2025. Implemented complete API endpoints for event creation, modification, deletion, and participant management
 - July 25, 2025. CRITICAL COURRIER SYSTEM FIXES: Resolved interface blocking and non-instantaneous reception issues
-- July 25, 2025. MIGRATED FROM WEBSOCKET TO SSE: Replaced WebSocket with Server-Sent Events for superior reliability
-- July 25, 2025. SSE IMPLEMENTATION: Added /api/courrier/events endpoint for real-time notifications (more efficient than WebSocket)
-- July 25, 2025. Enhanced MailPage.tsx with SSE connection and automatic reconnection capabilities
+- July 25, 2025. TESTED SSE vs WebSocket: SSE had authentication and routing conflicts with Vite dev server
+- July 25, 2025. RETURNED TO WEBSOCKET: More reliable in development environment with proper connection persistence
+- July 25, 2025. Enhanced WebSocket with user identification system for targeted message delivery
 - July 25, 2025. Added comprehensive error handling and loading states to prevent blank page crashes
-- July 25, 2025. Fixed Reply, Forward, and Compose APIs with proper SSE broadcasting for instant reception
-- July 25, 2025. TECHNICAL DECISION: SSE chosen over WebSocket for unidirectional courrier notifications (better network compatibility)
+- July 25, 2025. Fixed Reply, Forward, and Compose APIs with proper WebSocket broadcasting for instant reception
+- July 25, 2025. TECHNICAL DECISION: WebSocket chosen for bidirectional real-time communication (works better with session auth)
 - July 25, 2025. Implemented safe data handling and React hooks to eliminate interface blocking issues
 ```
 
