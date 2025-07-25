@@ -264,6 +264,10 @@ Changelog:
 - July 25, 2025. Added comprehensive logging and multiple fallback mechanisms for reliable courrier reception
 - July 25, 2025. Enhanced WebSocket message handling with user validation and forced refresh cycles
 - July 25, 2025. Forced mail ordering (newest first) and guaranteed display synchronization
+- July 25, 2025. ABSOLUTE COURRIER SYSTEM: Implemented triple-layer cache system (API + localStorage + emergency recovery)
+- July 25, 2025. Added automatic background refresh every 10 seconds and emergency recovery every 15 seconds
+- July 25, 2025. Enhanced logging with source tracking (API vs Cache) and comprehensive error handling
+- July 25, 2025. Fixed orphaned sharing cleanup to preserve mail display functionality
 ```
 
 ## User Preferences
