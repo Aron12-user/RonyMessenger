@@ -230,6 +230,10 @@ export const insertFileSchema = createInsertSchema(files).omit({ id: true });
 export const insertFolderSchema = createInsertSchema(folders).omit({ id: true });
 export const insertFileSharingSchema = createInsertSchema(fileSharing).omit({ id: true });
 export const insertContactSchema = createInsertSchema(contacts).omit({ id: true });
+export const insertEventSchema = createInsertSchema(events).omit({ id: true });
+export const insertEventParticipantSchema = createInsertSchema(eventParticipants).omit({ id: true });
+export const insertConversationGroupSchema = createInsertSchema(conversationGroups).omit({ id: true });
+export const insertGroupMemberSchema = createInsertSchema(groupMembers).omit({ id: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -258,6 +262,18 @@ export type InsertFileSharing = z.infer<typeof insertFileSharingSchema>;
 
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
+
+export type Event = typeof events.$inferSelect;
+export type InsertEvent = z.infer<typeof insertEventSchema>;
+
+export type EventParticipant = typeof eventParticipants.$inferSelect;
+export type InsertEventParticipant = z.infer<typeof insertEventParticipantSchema>;
+
+export type ConversationGroup = typeof conversationGroups.$inferSelect;
+export type InsertConversationGroup = z.infer<typeof insertConversationGroupSchema>;
+
+export type GroupMember = typeof groupMembers.$inferSelect;
+export type InsertGroupMember = z.infer<typeof insertGroupMemberSchema>;
 
 // Folder Sharing Table
 export const folderSharing = pgTable("folder_sharing", {
@@ -323,6 +339,41 @@ export const eventParticipants = pgTable("event_participants", {
   return {
     eventIdIdx: index("event_participants_event_id_idx").on(table.eventId),
     userIdIdx: index("event_participants_user_id_idx").on(table.userId),
+    uniqueEventUser: uniqueIndex("unique_event_user_idx").on(table.eventId, table.userId),
+  }
+});
+
+// Groupes de conversation
+export const conversationGroups = pgTable('conversation_groups', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description'),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  avatar: text('avatar'), // URL ou chemin vers l'image du groupe
+  isPrivate: boolean('is_private').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => {
+  return {
+    createdByIdx: index("groups_created_by_idx").on(table.createdBy),
+    nameIdx: index("groups_name_idx").on(table.name),
+  }
+});
+
+// Membres des groupes
+export const groupMembers = pgTable('group_members', {
+  id: serial('id').primaryKey(),
+  groupId: integer('group_id').references(() => conversationGroups.id, { onDelete: 'cascade' }).notNull(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  role: text('role').default('member').notNull(), // admin, member
+  joinedAt: timestamp('joined_at').defaultNow().notNull(),
+}, (table) => {
+  return {
+    groupIdIdx: index("group_members_group_id_idx").on(table.groupId),
+    userIdIdx: index("group_members_user_id_idx").on(table.userId),
+    uniqueGroupUser: uniqueIndex("unique_group_user_idx").on(table.groupId, table.userId),
+  }
+});
     uniqueParticipant: uniqueIndex("unique_event_participant").on(table.eventId, table.userId),
     responseIdx: index("event_participants_response_idx").on(table.response),
   }
@@ -332,6 +383,8 @@ export const eventParticipants = pgTable("event_participants", {
 export const insertFolderSharingSchema = createInsertSchema(folderSharing).omit({ id: true });
 export const insertEventSchema = createInsertSchema(events).omit({ id: true });
 export const insertEventParticipantSchema = createInsertSchema(eventParticipants).omit({ id: true });
+export const insertConversationGroupSchema = createInsertSchema(conversationGroups).omit({ id: true });
+export const insertGroupMemberSchema = createInsertSchema(groupMembers).omit({ id: true });
 
 // Types pour les nouveaux modèles
 export type FolderSharing = typeof folderSharing.$inferSelect;
@@ -342,3 +395,9 @@ export type InsertEvent = z.infer<typeof insertEventSchema>;
 
 export type EventParticipant = typeof eventParticipants.$inferSelect;
 export type InsertEventParticipant = z.infer<typeof insertEventParticipantSchema>;
+
+// Types pour les groupes de conversation
+export type ConversationGroup = typeof conversationGroups.$inferSelect;
+export type InsertConversationGroup = z.infer<typeof insertConversationGroupSchema>;
+export type GroupMember = typeof groupMembers.$inferSelect;
+export type InsertGroupMember = z.infer<typeof insertGroupMemberSchema>;

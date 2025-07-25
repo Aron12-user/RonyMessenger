@@ -12,7 +12,8 @@ import { API_ENDPOINTS } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { User } from "@shared/schema";
-import { ChevronLeft, ChevronRight, MoreVertical, Trash2, MessageCircle, Phone } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreVertical, Trash2, MessageCircle, Phone, Users } from "lucide-react";
+import CreateGroupDialog from "../components/CreateGroupDialog";
 
 export default function Contacts() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -20,6 +21,7 @@ export default function Contacts() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<User | null>(null);
+  const [showCreateGroupDialog, setShowCreateGroupDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(12);
   const [sortBy, setSortBy] = useState("displayName");
@@ -324,6 +326,13 @@ export default function Contacts() {
                 </span>
               </div>
               <Button 
+                onClick={() => setShowCreateGroupDialog(true)}
+                className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg flex items-center space-x-2"
+              >
+                <Users className="h-4 w-4" />
+                <span>Créer Groupe</span>
+              </Button>
+              <Button 
                 onClick={handleAddContact}
                 className="bg-primary hover:bg-primary-dark text-white py-2 px-4 rounded-lg flex items-center space-x-2"
               >
@@ -474,6 +483,13 @@ export default function Contacts() {
           )}
         </div>
       </div>
+
+      {/* Create Group Dialog */}
+      <CreateGroupDialog
+        isOpen={showCreateGroupDialog}
+        onClose={() => setShowCreateGroupDialog(false)}
+        contacts={contacts}
+      />
 
       {/* Modal d'ajout de contact */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>

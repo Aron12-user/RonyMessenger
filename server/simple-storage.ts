@@ -13,7 +13,11 @@ import {
   FileSharing,
   InsertFileSharing,
   Contact,
-  InsertContact
+  InsertContact,
+  ConversationGroup,
+  InsertConversationGroup,
+  GroupMember,
+  InsertGroupMember
 } from '@shared/schema';
 
 export interface PaginationOptions {
@@ -40,6 +44,8 @@ export class SimpleStorage implements IStorage {
   private folders: Map<number, Folder> = new Map();
   private fileSharing: Map<number, FileSharing> = new Map();
   private contacts: Map<number, Contact> = new Map();
+  private conversationGroups: Map<number, ConversationGroup> = new Map();
+  private groupMembers: Map<number, GroupMember> = new Map();
 
   private userId = 1;
   private conversationId = 1;
@@ -48,6 +54,8 @@ export class SimpleStorage implements IStorage {
   private folderId = 1;
   private fileSharingId = 1;
   private contactId = 1;
+  private groupId = 1;
+  private groupMemberId = 1;
 
   constructor() {
     // Environnement vide pour tests réels - pas de données fictives
@@ -549,5 +557,77 @@ export class SimpleStorage implements IStorage {
     if (contactToRemove) {
       this.contacts.delete(contactToRemove.id);
     }
+  }
+
+  // Groupes de conversation
+  async createConversationGroup(groupData: InsertConversationGroup): Promise<ConversationGroup> {
+    const group: ConversationGroup = {
+      id: this.groupId++,
+      name: groupData.name,
+      description: groupData.description || null,
+      createdBy: groupData.createdBy,
+      avatar: groupData.avatar || null,
+      isPrivate: groupData.isPrivate || false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.conversationGroups.set(group.id, group);
+    return group;
+  }
+
+  async getConversationGroups(userId: number): Promise<ConversationGroup[]> {
+    // Récupérer les groupes où l'utilisateur est membre
+    const userGroupIds = Array.from(this.groupMembers.values())
+      .filter(member => member.userId === userId)
+      .map(member => member.groupId);
+    
+    return Array.from(this.conversationGroups.values())
+      .filter(group => userGroupIds.includes(group.id));
+  }
+
+  async addGroupMember(memberData: InsertGroupMember): Promise<GroupMember> {
+    const member: GroupMember = {
+      id: this.groupMemberId++,
+      groupId: memberData.groupId,
+      userId: memberData.userId,
+      role: memberData.role || 'member',
+      joinedAt: new Date()
+    };
+    this.groupMembers.set(member.id, member);
+    return member;
+  }
+
+  async getGroupMembers(groupId: number): Promise<GroupMember[]> {
+    return Array.from(this.groupMembers.values())
+      .filter(member => member.groupId === groupId);
+  }
+
+  async removeGroupMember(groupId: number, userId: number): Promise<void> {
+    for (const [id, member] of this.groupMembers.entries()) {
+      if (member.groupId === groupId && member.userId === userId) {
+        this.groupMembers.delete(id);
+        break;
+      }
+    }
+  }
+
+  async deleteConversationGroup(groupId: number): Promise<void> {
+    this.conversationGroups.delete(groupId);
+    // Supprimer tous les membres du groupe
+    for (const [id, member] of this.groupMembers.entries()) {
+      if (member.groupId === groupId) {
+        this.groupMembers.delete(id);
+      }
+    }
+  }
+
+  async updateConversationGroup(groupId: number, updates: Partial<ConversationGroup>): Promise<ConversationGroup | undefined> {
+    const group = this.conversationGroups.get(groupId);
+    if (group) {
+      const updatedGroup = { ...group, ...updates, updatedAt: new Date() };
+      this.conversationGroups.set(groupId, updatedGroup);
+      return updatedGroup;
+    }
+    return undefined;
   }
 }
