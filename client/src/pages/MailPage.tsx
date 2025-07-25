@@ -76,7 +76,8 @@ export default function MailPage() {
   const [pinnedEmails, setPinnedEmails] = useState<Set<number>>(new Set());
   const [readEmails, setReadEmails] = useState<Set<number>>(new Set());
   
-  // États pour la connexion (solution polling)
+  // WebSocket pour les mises à jour temps réel (SOLUTION ROBUSTE)
+  const wsRef = useRef<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   
   // États pour les dialogs et fonctionnalités avancées
@@ -105,117 +106,164 @@ export default function MailPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // SUPPRIMER LA QUERY REACT-QUERY QUI CAUSE DES CONFLITS
-  // const { data: sharedData, refetch, isLoading: isLoadingSharedData, error: sharedDataError } = useQuery({
-  //   queryKey: ['/api/files/shared'],
-  //   enabled: !!user,
-  //   staleTime: 30 * 1000,
-  //   retry: 3,
-  //   retryDelay: 1000,
-  // });
-  
-  // États locaux simplifiés pour éviter les conflits
-  const [isLoadingSharedData, setIsLoadingSharedData] = useState(false);
-  const [sharedDataError, setSharedDataError] = useState<any>(null);
+  // Récupérer les fichiers et dossiers partagés avec gestion d'erreur améliorée
+  const { data: sharedData, refetch, isLoading: isLoadingSharedData, error: sharedDataError } = useQuery({
+    queryKey: ['/api/files/shared'],
+    enabled: !!user,
+    staleTime: 30 * 1000,
+    retry: 3,
+    retryDelay: 1000,
+  });
 
-  // SOLUTION RADICALE: POLLING SIMPLE AU LIEU DE WEBSOCKET POUR ÉVITER LES BLOCAGES
+  // Connexion WebSocket pour les mises à jour temps réel avec protection anti-blocage
   useEffect(() => {
     if (!user) return;
 
-    let pollingInterval: NodeJS.Timeout;
-    let isPolling = true;
-
-    const pollForUpdates = async () => {
-      if (!isPolling) return;
-
+    const connectWebSocket = () => {
       try {
-        console.log('[POLLING] Vérification des nouveaux courriers...');
-        
-        // Simple fetch sans cache pour obtenir les derniers courriers
-        const response = await fetch('/api/files/shared', {
-          method: 'GET',
-          credentials: 'include',
-          cache: 'no-cache',
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          }
-        });
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        console.log('Connexion WebSocket pour courrier:', wsUrl, 'userId:', (user as any)?.id);
+      
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
 
-        if (response.ok) {
-          const data = await response.json();
-          
-          // Convertir les données en format email simplifié
-          const allEmails = [
-            // Fichiers partagés
-            ...data.files.map((file: any, index: number) => ({
-              id: 1000 + index,
-              subject: `Fichier partagé: ${file.name}`,
-              sender: file.sharedBy?.displayName || 'Utilisateur',
-              senderEmail: file.sharedBy?.username || 'user@rony.com',
-              content: `Fichier "${file.name}" a été partagé avec vous.\n\nTaille: ${(file.size / 1024).toFixed(1)} KB\nType: ${file.type || 'Non spécifié'}\n\nCliquez pour télécharger.`,
-              date: new Date(file.sharedAt).toLocaleDateString('fr-FR'),
-              time: new Date(file.sharedAt).toLocaleTimeString('fr-FR'),
-              priority: 'medium',
-              hasAttachment: true,
-              attachment: {
-                name: file.name,
-                size: file.size,
-                type: file.type,
-                url: file.url
-              },
-              category: 'documents'
-            })),
-            // Dossiers partagés
-            ...data.folders.map((folder: any, index: number) => ({
-              id: 2000 + index,
-              subject: `Dossier partagé: ${folder.name}`,
-              sender: folder.sharedBy?.displayName || 'Utilisateur',
-              senderEmail: folder.sharedBy?.username || 'user@rony.com',
-              content: `Dossier "${folder.name}" a été partagé avec vous.\n\nContient plusieurs fichiers.\n\nCliquez pour explorer.`,
-              date: new Date(folder.sharedAt).toLocaleDateString('fr-FR'),
-              time: new Date(folder.sharedAt).toLocaleTimeString('fr-FR'),
-              priority: 'medium',
-              hasAttachment: true,
-              folder: {
-                id: folder.id,
-                name: folder.name,
-                fileCount: folder.fileCount || 0
-              },
-              category: 'documents'
-            }))
-          ];
-
-          // Mise à jour directe sans conflits d'état
-          setEmails(allEmails);
+        ws.onopen = () => {
+          console.log('WebSocket connecté pour courrier');
           setIsConnected(true);
           
-          console.log(`[POLLING] ${allEmails.length} courriers chargés`);
-        } else {
-          console.error('[POLLING] Erreur fetch:', response.status);
+          // Envoyer l'ID utilisateur pour identifier la connexion
+          ws.send(JSON.stringify({
+            type: 'identify',
+            userId: (user as any)?.id
+          }));
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('Message WebSocket reçu:', data);
+            
+            // PROTECTION ANTI-BLOCAGE: Traitement asynchrone des messages
+            if (data.type === 'courrier_shared' || data.type === 'courrier_message') {
+              console.log('Nouveau courrier reçu en temps réel:', data);
+              
+              // Vérifier si c'est pour cet utilisateur
+              if (data.data && data.data.recipientId === (user as any)?.id) {
+                console.log('Courrier destiné à cet utilisateur, mise à jour sécurisée');
+                
+                // Utiliser setTimeout pour éviter les blocages d'interface
+                setTimeout(() => {
+                  try {
+                    // Invalider le cache React Query de façon non-bloquante
+                    queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
+                    refetch();
+                    
+                    // Toast de notification
+                    toast({
+                      title: '📧 Nouveau courrier reçu',
+                      description: `De: ${data.data.sender} - ${data.data.subject || 'Partage de fichier'}`,
+                      duration: 4000
+                    });
+                  } catch (error) {
+                    console.error('Erreur mise à jour courrier:', error);
+                  }
+                }, 100); // Délai pour éviter les conflits d'état
+              }
+            }
+          } catch (error) {
+            console.error('Erreur parsing WebSocket courrier:', error);
+          }
+        };
+
+        ws.onclose = () => {
+          console.log('WebSocket fermé, tentative de reconnexion...');
           setIsConnected(false);
-        }
+          setTimeout(connectWebSocket, 3000);
+        };
+
+        ws.onerror = (error) => {
+          console.error('Erreur WebSocket:', error);
+          setIsConnected(false);
+        };
       } catch (error) {
-        console.error('[POLLING] Erreur:', error);
-        setIsConnected(false);
+        console.error('Erreur création WebSocket:', error);
+        setTimeout(connectWebSocket, 5000);
       }
     };
 
-    // Première exécution immédiate
-    pollForUpdates();
-
-    // Ensuite polling toutes les 3 secondes
-    pollingInterval = setInterval(pollForUpdates, 3000);
+    connectWebSocket();
 
     return () => {
-      isPolling = false;
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.close();
+        wsRef.current = null;
       }
     };
-  }, [user]);
+  }, [user, queryClient, refetch, toast]);
 
-  // Charger les données persistantes depuis localStorage
+  // CORRECTION CRITIQUE : Gérer les données en toute sécurité pour éviter les pages blanches
+  const sharedFiles = (sharedData as any)?.files || [];
+  const sharedFolders = (sharedData as any)?.folders || [];
+
+  // Charger les emails depuis les données partagées (CONVERSION AUTOMATIQUE PROTÉGÉE)
+  useEffect(() => {
+    if (!sharedData || !(sharedData as any).files || !(sharedData as any).folders) return;
+
+    // Protection anti-blocage: utiliser setTimeout pour éviter les conflits d'état
+    setTimeout(() => {
+      try {
+        const allEmails = [
+          // Convertir les fichiers partagés en emails
+          ...(sharedData as any).files.map((file: any, index: number) => ({
+            id: 1000 + index,
+            subject: `Fichier partagé: ${file.name}`,
+            sender: file.sharedBy?.displayName || 'Utilisateur',
+            senderEmail: file.sharedBy?.username || 'user@rony.com',
+            content: `Fichier "${file.name}" a été partagé avec vous.\n\nTaille: ${(file.size / 1024).toFixed(1)} KB\nType: ${file.type || 'Non spécifié'}\n\nCliquez pour télécharger.`,
+            date: new Date(file.sharedAt).toLocaleDateString('fr-FR'),
+            time: new Date(file.sharedAt).toLocaleTimeString('fr-FR'),
+            priority: 'medium',
+            hasAttachment: true,
+            attachment: {
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              url: file.url
+            },
+            category: 'documents'
+          })),
+
+          // Convertir les dossiers partagés en emails
+          ...(sharedData as any).folders.map((folder: any, index: number) => ({
+            id: 2000 + index,
+            subject: `Dossier partagé: ${folder.name}`,
+            sender: folder.sharedBy?.displayName || 'Utilisateur',
+            senderEmail: folder.sharedBy?.username || 'user@rony.com',
+            content: `Dossier "${folder.name}" a été partagé avec vous.\n\nContient plusieurs fichiers.\n\nCliquez pour explorer.`,
+            date: new Date(folder.sharedAt).toLocaleDateString('fr-FR'),
+            time: new Date(folder.sharedAt).toLocaleTimeString('fr-FR'),
+            priority: 'medium',
+            hasAttachment: true,
+            folder: {
+              id: folder.id,
+              name: folder.name,
+              fileCount: folder.fileCount || 0
+            },
+            category: 'documents'
+          }))
+        ];
+
+        console.log('Emails convertis depuis sharedData:', allEmails.length);
+        setEmails(allEmails);
+      } catch (error) {
+        console.error('[COURRIER] Erreur conversion sharedData:', error);
+        setEmails([]);
+      }
+    }, 10); // Délai minimal pour éviter les blocages
+  }, [sharedData]);
+
+  // CORRECTION : Charger la persistance avec protection contre les pages blanches
   useEffect(() => {
     if (!user) return;
 
@@ -728,7 +776,7 @@ export default function MailPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => window.location.reload()}
+                  onClick={() => refetch()}
                   className="text-blue-700 hover:bg-white/30 border-blue/20 text-xs"
                 >
                   <RefreshCw className="w-3 h-3 mr-1" />
@@ -736,7 +784,7 @@ export default function MailPage() {
                 </Button>
                 
                 <Badge variant="secondary" className="bg-white/40 text-blue-700 border-blue/20 text-xs">
-                  {filteredEmails.length} messages
+                  {filteredEmails.length} messages | {sharedFiles.length} fichiers | {sharedFolders.length} dossiers
                 </Badge>
               </div>
             </div>
@@ -974,7 +1022,7 @@ export default function MailPage() {
               <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">Erreur de chargement</h3>
               <p className="text-gray-600 mb-4">Impossible de charger les messages</p>
-              <Button onClick={() => window.location.reload()} variant="outline">
+              <Button onClick={() => refetch()} variant="outline">
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Réessayer
               </Button>
