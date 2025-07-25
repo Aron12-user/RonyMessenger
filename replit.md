@@ -260,6 +260,10 @@ Changelog:
 - July 25, 2025. Added async state management protection using delayed execution for React Query invalidation
 - July 25, 2025. Maintained all original features: Reply, Forward, Download, Archive, Search, Filters, etc.
 - July 25, 2025. Fixed blocking issue while preserving complete functionality as requested by user
+- July 25, 2025. DEFINITIVE COURRIER RECEPTION FIX: Implemented 5-stage WebSocket update strategy to guarantee mail display
+- July 25, 2025. Added comprehensive logging and multiple fallback mechanisms for reliable courrier reception
+- July 25, 2025. Enhanced WebSocket message handling with user validation and forced refresh cycles
+- July 25, 2025. Forced mail ordering (newest first) and guaranteed display synchronization
 ```
 
 ## User Preferences

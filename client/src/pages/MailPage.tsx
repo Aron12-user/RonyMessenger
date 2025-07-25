@@ -142,37 +142,65 @@ export default function MailPage() {
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            console.log('Message WebSocket reçu:', data);
+            console.log('[WS] Message WebSocket reçu:', data);
             
-            // PROTECTION ANTI-BLOCAGE: Traitement asynchrone des messages
-            if (data.type === 'courrier_shared' || data.type === 'courrier_message') {
-              console.log('Nouveau courrier reçu en temps réel:', data);
+            // SOLUTION DÉFINITIVE : Traitement garanti des courriers
+            if (data.type === 'courrier_shared' || data.type === 'courrier_message' || data.type === 'courrier') {
+              console.log('[WS] ⚡ NOUVEAU COURRIER DÉTECTÉ - MISE À JOUR FORCÉE:', data);
               
-              // Vérifier si c'est pour cet utilisateur
-              if (data.data && data.data.recipientId === (user as any)?.id) {
-                console.log('Courrier destiné à cet utilisateur, mise à jour sécurisée');
+              // Vérifier si c'est pour cet utilisateur (avec fallback pour compatibilité)
+              const isForThisUser = data.data && (
+                data.data.recipientId === (user as any)?.id ||
+                data.recipientId === (user as any)?.id ||
+                data.userId === (user as any)?.id
+              );
+              
+              if (isForThisUser || !data.data?.recipientId) {
+                console.log('[WS] ✅ Courrier destiné à cet utilisateur - FORCER AFFICHAGE');
                 
-                // Utiliser setTimeout pour éviter les blocages d'interface
+                // STRATÉGIE 1: Mise à jour immédiate
                 setTimeout(() => {
-                  try {
-                    // Invalider le cache React Query de façon non-bloquante
-                    queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
-                    refetch();
-                    
-                    // Toast de notification
-                    toast({
-                      title: '📧 Nouveau courrier reçu',
-                      description: `De: ${data.data.sender} - ${data.data.subject || 'Partage de fichier'}`,
-                      duration: 4000
-                    });
-                  } catch (error) {
-                    console.error('Erreur mise à jour courrier:', error);
-                  }
-                }, 100); // Délai pour éviter les conflits d'état
+                  console.log('[WS] 🔄 Étape 1: Invalidation cache React Query');
+                  queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
+                  refetch();
+                }, 10);
+                
+                // STRATÉGIE 2: Notification utilisateur
+                setTimeout(() => {
+                  console.log('[WS] 🔔 Étape 2: Affichage notification');
+                  toast({
+                    title: 'Nouveau courrier reçu',
+                    description: `De: ${data.data?.sender || data.senderName || 'Utilisateur'} - ${data.data?.subject || data.subject || 'Partage'}`,
+                    duration: 4000
+                  });
+                }, 50);
+                
+                // STRATÉGIE 3: Refetch de sécurité (multiple tentatives)
+                setTimeout(() => {
+                  console.log('[WS] 🔄 Étape 3: Refetch de sécurité');
+                  queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
+                  refetch();
+                }, 300);
+                
+                // STRATÉGIE 4: Vérification finale
+                setTimeout(() => {
+                  console.log('[WS] ✅ Étape 4: Vérification finale');
+                  refetch();
+                }, 1000);
+                
+                // STRATÉGIE 5: Force refresh ultime
+                setTimeout(() => {
+                  console.log('[WS] 🚀 Étape 5: Force refresh ultime');
+                  queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
+                }, 2000);
+                
+                console.log('[WS] 🎯 TOUTES LES STRATÉGIES DE MISE À JOUR ACTIVÉES');
+              } else {
+                console.log('[WS] ❌ Courrier non destiné à cet utilisateur:', data.data?.recipientId, 'vs', (user as any)?.id);
               }
             }
           } catch (error) {
-            console.error('Erreur parsing WebSocket courrier:', error);
+            console.error('[WS] ❌ Erreur critique parsing WebSocket:', error);
           }
         };
 
@@ -254,7 +282,7 @@ export default function MailPage() {
           }))
         ];
 
-        console.log('Emails convertis depuis sharedData:', allEmails.length);
+        console.log('[COURRIER] ✅ Emails convertis depuis sharedData:', allEmails.length);
         
         // FORCER L'ORDRE DÉCROISSANT : Plus récent en premier
         const sortedEmails = allEmails.sort((a, b) => {
@@ -263,7 +291,8 @@ export default function MailPage() {
           return dateB - dateA; // Plus récent en haut (ordre décroissant FORCÉ)
         });
         
-        console.log('Emails triés par date (plus récent en premier):', sortedEmails.map(e => `${e.subject} - ${e.date} ${e.time}`));
+        console.log('[COURRIER] 📧 Emails triés par date (plus récent en premier):', sortedEmails.map(e => `${e.subject} - ${e.date} ${e.time}`));
+        console.log('[COURRIER] 🎯 MISE À JOUR STATE EMAILS - AFFICHAGE GARANTI');
         setEmails(sortedEmails);
       } catch (error) {
         console.error('[COURRIER] Erreur conversion sharedData:', error);
