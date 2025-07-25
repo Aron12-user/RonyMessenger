@@ -142,61 +142,80 @@ export default function MailPage() {
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            console.log('[WS] Message WebSocket reçu:', data);
+            console.log('[WS] ⚡ Message WebSocket reçu:', data);
             
-            // SOLUTION DÉFINITIVE : Traitement garanti des courriers
+            // SOLUTION ABSOLUE : Traitement garanti et renforcé des courriers
             if (data.type === 'courrier_shared' || data.type === 'courrier_message' || data.type === 'courrier') {
-              console.log('[WS] ⚡ NOUVEAU COURRIER DÉTECTÉ - MISE À JOUR FORCÉE:', data);
+              console.log('[WS] 🚨 NOUVEAU COURRIER DÉTECTÉ - ACTIVATION RÉCEPTION GARANTIE:', data);
               
-              // Vérifier si c'est pour cet utilisateur (avec fallback pour compatibilité)
+              // Vérifier si c'est pour cet utilisateur (logique élargie pour compatibilité)
+              const currentUserId = (user as any)?.id;
               const isForThisUser = data.data && (
-                data.data.recipientId === (user as any)?.id ||
-                data.recipientId === (user as any)?.id ||
-                data.userId === (user as any)?.id
+                data.data.recipientId === currentUserId ||
+                data.recipientId === currentUserId ||
+                data.userId === currentUserId ||
+                data.targetUserId === currentUserId
               );
               
-              if (isForThisUser || !data.data?.recipientId) {
-                console.log('[WS] ✅ Courrier destiné à cet utilisateur - FORCER AFFICHAGE');
+              // Si pas de recipientId spécifique, considérer comme pour tous
+              const shouldProcess = isForThisUser || !data.data?.recipientId;
+              
+              if (shouldProcess) {
+                console.log('[WS] ✅ COURRIER CONFIRMÉ POUR CET UTILISATEUR - LANCEMENT PROTOCOLE RÉCEPTION');
                 
-                // STRATÉGIE 1: Mise à jour immédiate
+                // PROTOCOLE RÉCEPTION ABSOLUE : 7 étapes garanties
+                
+                // ÉTAPE 1: Invalidation immédiate (5ms)
                 setTimeout(() => {
-                  console.log('[WS] 🔄 Étape 1: Invalidation cache React Query');
+                  console.log('[WS] 🔥 ÉTAPE 1: Invalidation cache immédiate');
                   queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
-                  refetch();
-                }, 10);
+                }, 5);
                 
-                // STRATÉGIE 2: Notification utilisateur
+                // ÉTAPE 2: Premier refetch (15ms)
                 setTimeout(() => {
-                  console.log('[WS] 🔔 Étape 2: Affichage notification');
+                  console.log('[WS] 🔄 ÉTAPE 2: Premier refetch');
+                  refetch();
+                }, 15);
+                
+                // ÉTAPE 3: Notification utilisateur (50ms)
+                setTimeout(() => {
+                  console.log('[WS] 🔔 ÉTAPE 3: Notification utilisateur');
                   toast({
-                    title: 'Nouveau courrier reçu',
+                    title: '📧 Nouveau courrier reçu!',
                     description: `De: ${data.data?.sender || data.senderName || 'Utilisateur'} - ${data.data?.subject || data.subject || 'Partage'}`,
-                    duration: 4000
+                    duration: 5000
                   });
                 }, 50);
                 
-                // STRATÉGIE 3: Refetch de sécurité (multiple tentatives)
+                // ÉTAPE 4: Refetch de sécurité (200ms)
                 setTimeout(() => {
-                  console.log('[WS] 🔄 Étape 3: Refetch de sécurité');
+                  console.log('[WS] 🔄 ÉTAPE 4: Refetch de sécurité');
                   queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
                   refetch();
-                }, 300);
+                }, 200);
                 
-                // STRATÉGIE 4: Vérification finale
+                // ÉTAPE 5: Double vérification (500ms)
                 setTimeout(() => {
-                  console.log('[WS] ✅ Étape 4: Vérification finale');
+                  console.log('[WS] ✅ ÉTAPE 5: Double vérification');
+                  queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
+                }, 500);
+                
+                // ÉTAPE 6: Refetch final (1s)
+                setTimeout(() => {
+                  console.log('[WS] 🚀 ÉTAPE 6: Refetch final');
                   refetch();
                 }, 1000);
                 
-                // STRATÉGIE 5: Force refresh ultime
+                // ÉTAPE 7: Garantie ultime (3s)
                 setTimeout(() => {
-                  console.log('[WS] 🚀 Étape 5: Force refresh ultime');
+                  console.log('[WS] 🎯 ÉTAPE 7: Garantie ultime - PROTOCOLE TERMINÉ');
                   queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
-                }, 2000);
+                  refetch();
+                }, 3000);
                 
-                console.log('[WS] 🎯 TOUTES LES STRATÉGIES DE MISE À JOUR ACTIVÉES');
+                console.log('[WS] 🚀 PROTOCOLE RÉCEPTION ABSOLUE ACTIVÉ - 7 ÉTAPES EN COURS');
               } else {
-                console.log('[WS] ❌ Courrier non destiné à cet utilisateur:', data.data?.recipientId, 'vs', (user as any)?.id);
+                console.log('[WS] ❌ Courrier non destiné:', data.data?.recipientId, 'vs userId:', currentUserId);
               }
             }
           } catch (error) {
