@@ -30,7 +30,10 @@ import {
   CheckCircle,
   RefreshCw,
   Monitor,
-  ArrowLeft
+  ArrowLeft,
+  SortAsc,
+  SortDesc,
+  BarChart3
 } from "lucide-react";
 
 // Import des icônes personnalisées
@@ -43,6 +46,10 @@ import powerpointIcon from "@assets/icons8-ms-powerpoint-50_1750542416904.png";
 import csvIcon from "@assets/icons8-fichier-csv-50_1750542435006.png";
 import audioIcon from "@assets/icons8-fichier-audio-50_1750774307203.png";
 import videoIcon from "@assets/icons8-fichier-vidéo-64_1750542479690.png";
+
+// Import des nouveaux composants
+import CloudStorageStats from "@/components/CloudStorageStats";
+import QuickUploadZone from "@/components/QuickUploadZone";
 
 interface Folder {
   id: number;
@@ -109,6 +116,13 @@ export default function CloudStorage() {
   const [syncProgress, setSyncProgress] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncedFiles, setSyncedFiles] = useState<Set<string>>(new Set());
+  
+  // Nouveaux états pour les améliorations
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'size' | 'type'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [filterType, setFilterType] = useState<'all' | 'images' | 'documents' | 'videos' | 'audio'>('all');
+  const [showQuickUpload, setShowQuickUpload] = useState(false);
+  const [storageStats, setStorageStats] = useState({ used: 0, total: 0, files: 0, folders: 0 });
 
   // Charger la liste des fichiers synchronisés au démarrage
   useEffect(() => {
@@ -593,7 +607,7 @@ export default function CloudStorage() {
       }
 
       // Vérifier que l'utilisateur trouvé correspond exactement à l'email recherché
-      const targetUser = users.data.find(u => u.username === email || u.email === email);
+      const targetUser = users.data.find((u: any) => u.username === email || u.email === email);
       if (!targetUser) {
         throw new Error("Adresse Rony introuvable - correspondance exacte requise");
       }
@@ -878,14 +892,72 @@ export default function CloudStorage() {
     }
   };
 
-  // Filtrage des données
-  const filteredFolders = folders.filter((folder: Folder) =>
-    folder.name.toLowerCase().includes(searchTerm.toLowerCase())
+  // Fonction de tri et filtrage améliorée
+  const sortItems = (items: any[], type: 'files' | 'folders') => {
+    return items.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'date':
+          const dateA = new Date(type === 'files' ? a.uploadedAt : a.createdAt);
+          const dateB = new Date(type === 'files' ? b.uploadedAt : b.createdAt);
+          comparison = dateA.getTime() - dateB.getTime();
+          break;
+        case 'size':
+          if (type === 'files') {
+            comparison = (a.size || 0) - (b.size || 0);
+          }
+          break;
+        case 'type':
+          if (type === 'files') {
+            comparison = (a.type || '').localeCompare(b.type || '');
+          }
+          break;
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  };
+
+  // Filtrage des données avec filtres avancés
+  const getFilteredFiles = () => {
+    let filtered = files.filter((file: File) =>
+      file.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    // Filtrage par type
+    if (filterType !== 'all') {
+      filtered = filtered.filter((file: File) => {
+        const type = file.type?.toLowerCase() || '';
+        switch (filterType) {
+          case 'images':
+            return type.startsWith('image/');
+          case 'documents':
+            return type.includes('pdf') || type.includes('document') || type.includes('text');
+          case 'videos':
+            return type.startsWith('video/');
+          case 'audio':
+            return type.startsWith('audio/');
+          default:
+            return true;
+        }
+      });
+    }
+    
+    return sortItems(filtered, 'files');
+  };
+
+  const filteredFolders = sortItems(
+    folders.filter((folder: Folder) =>
+      folder.name.toLowerCase().includes(searchTerm.toLowerCase())
+    ),
+    'folders'
   );
 
-  const filteredFiles = files.filter((file: File) =>
-    file.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredFiles = getFilteredFiles();
 
   return (
     <div className="flex-1 p-4 flex flex-col bg-gray-50 dark:bg-gray-900" style={{ height: '100vh' }}>
@@ -900,7 +972,7 @@ export default function CloudStorage() {
                     console.log('[navigation] Going back from folder:', currentFolderId);
                     console.log('[navigation] Available folders:', allFolders.length);
                     // Find parent folder ID for hierarchical navigation
-                    const currentFolder = allFolders.find(f => f.id === currentFolderId);
+                    const currentFolder = allFolders.find((f: any) => f.id === currentFolderId);
                     console.log('[navigation] Current folder found:', currentFolder);
                     const parentId = currentFolder?.parentId || null;
                     console.log('[navigation] Navigating to parent folder:', parentId);
@@ -915,7 +987,7 @@ export default function CloudStorage() {
               )}
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
                 {currentFolderId ? 
-                  folders.find(f => f.id === currentFolderId)?.name || allFolders.find(f => f.id === currentFolderId)?.name || 'Dossier' : 
+                  folders.find((f: any) => f.id === currentFolderId)?.name || allFolders.find((f: any) => f.id === currentFolderId)?.name || 'Dossier' : 
                   'Cloud'
                 }
               </h2>
@@ -946,6 +1018,14 @@ export default function CloudStorage() {
                 >
                   <Upload className="h-4 w-4" />
                   <span>Upload Files</span>
+                </Button>
+                <Button
+                  onClick={() => setShowQuickUpload(!showQuickUpload)}
+                  variant="outline"
+                  className="flex items-center space-x-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  <span>Zone d'upload</span>
                 </Button>
                 <Button
                   onClick={triggerFolderInput}

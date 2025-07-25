@@ -268,6 +268,15 @@ Changelog:
 - July 25, 2025. Added automatic background refresh every 10 seconds and emergency recovery every 15 seconds
 - July 25, 2025. Enhanced logging with source tracking (API vs Cache) and comprehensive error handling
 - July 25, 2025. Fixed orphaned sharing cleanup to preserve mail display functionality
+- July 25, 2025. COMPREHENSIVE FUNCTIONALITY IMPROVEMENTS: Enhanced Cloud, Courrier, and Planification systems
+- July 25, 2025. Added EmailNotificationBadge component with animated unread count display
+- July 25, 2025. Created QuickUploadZone with drag-and-drop functionality and progress indicators
+- July 25, 2025. Implemented CloudStorageStats widget with storage usage, file counts, and activity tracking
+- July 25, 2025. Added PlanningCalendarWidget with today's events, upcoming events, and statistics
+- July 25, 2025. Enhanced Cloud storage with advanced sorting (name, date, size, type), filtering by file type
+- July 25, 2025. Improved Planification with auto-refresh, event statistics, and enhanced UI components
+- July 25, 2025. Added forced immediate email display for Courrier with shortcut conversion mechanism
+- July 25, 2025. Implemented comprehensive error handling and performance improvements across all modules
 ```
 
 ## User Preferences
