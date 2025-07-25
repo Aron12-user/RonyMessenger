@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon, Clock, MapPin, Users, Save, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -31,6 +32,7 @@ interface Event {
 
 export default function PlanningPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   // Form state - identique à l'image
@@ -48,11 +50,11 @@ export default function PlanningPage() {
     isInPerson: true,
     isPrivate: false,
     reminderMinutes: 15,
-    calendar: 'aronadit323@gmail.com'
+    calendar: user?.username || 'utilisateur@rony.com'
   });
 
   // Récupérer les événements
-  const { data: events = [], isLoading } = useQuery({
+  const { data: events = [], isLoading } = useQuery<Event[]>({
     queryKey: ['/api/events'],
     enabled: true
   });
@@ -85,7 +87,7 @@ export default function PlanningPage() {
         isInPerson: true,
         isPrivate: false,
         reminderMinutes: 15,
-        calendar: 'aronadit323@gmail.com'
+        calendar: user?.username || 'utilisateur@rony.com'
       });
       toast({
         title: 'Événement créé',
@@ -151,11 +153,12 @@ export default function PlanningPage() {
         </Button>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 p-6">
-        {showNewEventForm ? (
-          // Formulaire identique à l'image
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Content - Avec défilement pour éviter le débordement */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-6">
+          {showNewEventForm ? (
+            // Formulaire identique à l'image avec espacement pour éviter débordement
+            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 pb-20">
             {/* Formulaire principal */}
             <div className="lg:col-span-2">
               <Card className="bg-white shadow-sm">
@@ -184,13 +187,13 @@ export default function PlanningPage() {
                       <Save className="w-4 h-4 mr-2" />
                       Enregistrer
                     </Button>
-                    <Select defaultValue="aronadit323@gmail.com">
+                    <Select defaultValue={user?.username || 'utilisateur@rony.com'}>
                       <SelectTrigger className="w-64">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="aronadit323@gmail.com">
-                          Calendrier (aronadit323@gmail.com)
+                        <SelectItem value={user?.username || 'utilisateur@rony.com'}>
+                          Calendrier ({user?.username || 'utilisateur@rony.com'})
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -369,7 +372,7 @@ export default function PlanningPage() {
         ) : (
           // Liste des événements
           <div className="max-w-4xl mx-auto">
-            {events.length === 0 ? (
+            {(events as Event[]).length === 0 ? (
               <Card className="bg-white text-center py-12">
                 <CardContent>
                   <CalendarIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
@@ -390,7 +393,7 @@ export default function PlanningPage() {
               </Card>
             ) : (
               <div className="space-y-4">
-                {events.map((event: Event) => (
+                {(events as Event[]).map((event: Event) => (
                   <Card key={event.id} className="bg-white">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
@@ -417,6 +420,7 @@ export default function PlanningPage() {
             )}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

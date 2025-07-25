@@ -241,6 +241,12 @@ Changelog:
 - June 24, 2025. CRITICAL SECURITY FIX: Fixed Cloud storage user isolation - getFilesByFolder now filters by userId to prevent cross-user file visibility
 - June 24, 2025. ELIMINATED PERSISTENT DOUBLE COURRIER: Removed server-side WebSocket notifications to prevent duplicate messages - frontend MailPage.tsx handles all notifications
 - June 24, 2025. VERIFIED CLOUD PRIVACY: Users can now only see their own uploaded files, no longer see other users' files in Cloud interface
+- July 25, 2025. PLANIFICATION SYSTEM IMPLEMENTED: Complete event planning functionality with form identical to provided image
+- July 25, 2025. Added Events and EventParticipants database schemas with full CRUD operations and user management
+- July 25, 2025. Created comprehensive planning interface with calendar integration, time selection, and event management
+- July 25, 2025. Fixed form overflow issues and user email display - now shows proper Rony account emails instead of hardcoded defaults
+- July 25, 2025. Integrated Planning menu item with Calendar icon in main navigation sidebar
+- July 25, 2025. Implemented complete API endpoints for event creation, modification, deletion, and participant management
 ```
 
 ## User Preferences
