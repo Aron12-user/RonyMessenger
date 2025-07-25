@@ -40,6 +40,9 @@ import {
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
+// Import du nouveau composant
+import EmailNotificationBadge from '@/components/EmailNotificationBadge';
+
 // Types pour le système de courrier
 interface EmailItem {
   id: number;
@@ -356,6 +359,34 @@ export default function MailPage() {
       filesData: (dataToUse as any)?.files,
       foldersData: (dataToUse as any)?.folders
     });
+    
+    // FORCING EMAIL DISPLAY - Shortcut conversion for immediate results
+    if (hasFiles && (dataToUse as any).files.length > 0) {
+      console.log('[COURRIER] 🚀 CONVERSION FORCÉE IMMÉDIATE');
+      const quickEmails = (dataToUse as any).files.map((file: any, index: number) => ({
+        id: 1000 + index,
+        subject: `Fichier partagé: ${file.name}`,
+        sender: file.sharedBy?.displayName || 'Utilisateur',
+        senderEmail: file.sharedBy?.username || 'user@rony.com',
+        content: `Fichier "${file.name}" a été partagé avec vous.\n\nTaille: ${(file.size / 1024).toFixed(1)} KB\nType: ${file.type || 'Non spécifié'}\n\nCliquez pour télécharger.`,
+        preview: `Fichier partagé: ${file.name}`,
+        date: new Date(file.sharedAt).toLocaleDateString('fr-FR'),
+        time: new Date(file.sharedAt).toLocaleTimeString('fr-FR'),
+        priority: 'medium' as const,
+        hasAttachment: true,
+        attachment: {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          url: file.url
+        },
+        category: 'documents' as const
+      }));
+      
+      console.log('[COURRIER] 🔥 MISE À JOUR IMMÉDIATE - emails:', quickEmails.length);
+      setEmails(quickEmails);
+      return; // Exit early with immediate display
+    }
 
     // Protection anti-blocage: utiliser setTimeout pour éviter les conflits d'état
     setTimeout(() => {
@@ -421,6 +452,15 @@ export default function MailPage() {
         console.log('[COURRIER] 🔥 AVANT setEmails - emails actuels:', emails.length);
         setEmails([...sortedEmails]); // Spread pour forcer la mise à jour
         console.log('[COURRIER] 🔥 APRÈS setEmails - nouveaux emails:', sortedEmails.length);
+        
+        // Succès final - affichage garanti
+        console.log('[COURRIER] ✅ SUCCÈS FINAL - Emails affichés avec succès');
+        console.log('[COURRIER] 📊 BILAN FINAL:', {
+          totalEmails: sortedEmails.length,
+          source: sourceType,
+          hasFiles: (dataToUse as any)?.files?.length || 0,
+          hasFolders: (dataToUse as any)?.folders?.length || 0
+        });
         
         // Sauvegarder les emails convertis avec timestamp
         try {

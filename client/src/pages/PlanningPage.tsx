@@ -7,11 +7,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Clock, MapPin, Users, Save, Plus } from 'lucide-react';
+import { CalendarIcon, Clock, MapPin, Users, Save, Plus, BarChart3, Filter, SortAsc } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+
+// Import du nouveau composant
+import PlanningCalendarWidget from '@/components/PlanningCalendarWidget';
 
 interface Event {
   id: number;
@@ -53,10 +56,67 @@ export default function PlanningPage() {
     calendar: user?.username || 'utilisateur@rony.com'
   });
 
-  // Récupérer les événements
-  const { data: events = [], isLoading } = useQuery<Event[]>({
+  // Récupérer les événements avec refetch automatique
+  const { data: events = [], isLoading, refetch } = useQuery<Event[]>({
     queryKey: ['/api/events'],
-    enabled: true
+    enabled: true,
+    staleTime: 30 * 1000, // 30 secondes
+    refetchInterval: 60 * 1000, // Refetch chaque minute
+    refetchIntervalInBackground: true
+  });
+  
+  // Mutation pour supprimer un événement
+  const deleteEventMutation = useMutation({
+    mutationFn: async (eventId: number) => {
+      const res = await fetch(`/api/events/${eventId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Erreur lors de la suppression');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/events'] });
+      toast({
+        title: 'Événement supprimé',
+        description: 'L\'événement a été supprimé avec succès',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Erreur lors de la suppression',
+        variant: 'destructive'
+      });
+    }
+  });
+  
+  // Mutation pour mettre à jour un événement
+  const updateEventMutation = useMutation({
+    mutationFn: async ({ eventId, eventData }: { eventId: number; eventData: any }) => {
+      const res = await fetch(`/api/events/${eventId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(eventData),
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Erreur lors de la modification');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/events'] });
+      toast({
+        title: 'Événement modifié',
+        description: 'L\'événement a été modifié avec succès',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Erreur lors de la modification',
+        variant: 'destructive'
+      });
+    }
   });
 
   // Mutation pour créer un événement
@@ -102,6 +162,30 @@ export default function PlanningPage() {
       });
     }
   });
+
+  // Nouvelles fonctions pour les améliorations
+  const getDayEvents = (date: Date) => {
+    return events.filter(event => {
+      const eventDate = new Date(event.startDate);
+      return eventDate.toDateString() === date.toDateString();
+    });
+  };
+
+  const getUpcomingEvents = () => {
+    const now = new Date();
+    return events
+      .filter(event => new Date(event.startDate) > now)
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+      .slice(0, 5);
+  };
+
+  const getTodayEvents = () => {
+    const today = new Date();
+    return events.filter(event => {
+      const eventDate = new Date(event.startDate);
+      return eventDate.toDateString() === today.toDateString();
+    });
+  };
 
   const handleSubmit = () => {
     if (!formData.title.trim()) {
