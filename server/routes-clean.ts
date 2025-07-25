@@ -1004,7 +1004,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Route pour récupérer les fichiers partagés avec l'utilisateur connecté - VERSION COMPLÈTEMENT CORRIGÉE
+  // SYSTÈME COURRIER COMPLET - API simplifiée pour tous les messages
   app.get("/api/files/shared", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
@@ -1012,51 +1012,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Non authentifié" });
       }
 
-      console.log(`[SHARED-API] Getting shared files for user ${userId}`);
+      console.log(`[COURRIER] Récupération messages pour utilisateur ${userId}`);
       
-      // CORRECTION COMPLÈTE - Récupérer TOUS les partages (fichiers ET dossiers) pour cet utilisateur
-      const allSharedFiles = Array.from((storage as any).fileSharing.values())
+      // Partages de fichiers
+      const fileShares = Array.from((storage as any).fileSharing.values())
         .filter((share: any) => share.sharedWithId === userId)
-        .map((share: any) => {
+        .map((share: any, index: number) => {
           const file = (storage as any).files.get(share.fileId);
-          if (file) {
-            const sharer = Array.from((storage as any).users.values()).find((u: any) => u.id === share.ownerId);
-            return {
-              ...file,
-              sharedAt: share.createdAt,
-              permission: share.permission,
-              sharedBy: share.ownerId,
-              sharerName: sharer?.displayName || sharer?.username || 'Utilisateur inconnu'
-            };
-          }
-          return null;
+          const sharer = Array.from((storage as any).users.values())
+            .find((u: any) => u.id === share.ownerId);
+          
+          if (!file) return null;
+          
+          return {
+            id: 1000 + index,
+            subject: `Fichier: ${file.name}`,
+            sender: (sharer as any)?.displayName || 'Utilisateur',
+            senderEmail: (sharer as any)?.username || 'user@rony.com',
+            content: `Fichier "${file.name}" partagé.\nTaille: ${(file.size / 1024).toFixed(1)} KB`,
+            date: new Date().toLocaleDateString('fr-FR'),
+            time: new Date().toLocaleTimeString('fr-FR'),
+            priority: 'medium',
+            hasAttachment: true,
+            attachment: { name: file.name, size: file.size, url: `/api/files/${file.id}/download` },
+            category: 'files'
+          };
         })
         .filter(Boolean);
 
-      const allSharedFolders = Array.from((storage as any).folderSharing.values())
+      // Partages de dossiers
+      const folderShares = Array.from((storage as any).folderSharing.values())
         .filter((share: any) => share.sharedWithId === userId)
-        .map((share: any) => {
+        .map((share: any, index: number) => {
           const folder = (storage as any).folders.get(share.folderId);
-          if (folder) {
-            const sharer = Array.from((storage as any).users.values()).find((u: any) => u.id === share.ownerId);
-            return {
-              ...folder,
-              sharedAt: share.createdAt,
-              permission: share.permission,
-              sharedBy: share.ownerId,
-              sharerName: sharer?.displayName || sharer?.username || 'Utilisateur inconnu'
-            };
-          }
-          return null;
+          const sharer = Array.from((storage as any).users.values())
+            .find((u: any) => u.id === share.ownerId);
+          
+          if (!folder) return null;
+          
+          return {
+            id: 2000 + index,
+            subject: `Dossier: ${folder.name}`,
+            sender: (sharer as any)?.displayName || 'Utilisateur',
+            senderEmail: (sharer as any)?.username || 'user@rony.com',
+            content: `Dossier "${folder.name}" partagé.`,
+            date: new Date().toLocaleDateString('fr-FR'),
+            time: new Date().toLocaleTimeString('fr-FR'),
+            priority: 'medium',
+            hasAttachment: true,
+            folder: { id: folder.id, name: folder.name, fileCount: 0 },
+            category: 'folders'
+          };
         })
         .filter(Boolean);
 
-      console.log(`[SHARED-API] Found ${allSharedFiles.length} shared files and ${allSharedFolders.length} shared folders`);
+      const allMessages = [...fileShares, ...folderShares];
+      console.log(`[COURRIER] ${allMessages.length} messages trouvés`);
 
-      res.json({ files: allSharedFiles, folders: allSharedFolders });
+      res.json({ files: fileShares, folders: folderShares });
     } catch (error: any) {
-      console.error('[SHARED-API] Error:', error);
-      res.status(500).json({ error: error.message || "Erreur serveur" });
+      console.error('[COURRIER] Erreur:', error);
+      res.status(500).json({ error: "Erreur serveur" });
     }
   });
 
