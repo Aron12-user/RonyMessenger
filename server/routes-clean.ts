@@ -942,14 +942,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         };
         
-        // Diffuser via SSE pour réception instantanée (PLUS FIABLE que WebSocket)  
-        if ((global as any).sseClients) {
-          const recipientConnection = (global as any).sseClients.get(courierData.data.recipientId);
-          if (recipientConnection) {
-            const sseMessage = `data: ${JSON.stringify(courierData)}\n\n`;
-            recipientConnection.write(sseMessage);
-            console.log(`[SSE] Notification fichier envoyée à l'utilisateur ${courierData.data.recipientId}`);
-          }
+        // Diffuser via WebSocket pour réception instantanée avec gestion robuste
+        if ((global as any).wss?.clients) {
+          (global as any).wss.clients.forEach((client: any) => {
+            if (client.readyState === 1) { // WebSocket.OPEN
+              client.send(JSON.stringify(courierData));
+            }
+          });
+          console.log(`[WebSocket] Notification fichier diffusée à ${(global as any).wss.clients.size} clients`);
         }
         
         console.log(`[files] SSE notification sent for file sharing`);
@@ -1035,14 +1035,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         };
         
-        // Diffuser via SSE pour réception instantanée (PLUS FIABLE que WebSocket)  
-        if ((global as any).sseClients) {
-          const recipientConnection = (global as any).sseClients.get(courierData.data.recipientId);
-          if (recipientConnection) {
-            const sseMessage = `data: ${JSON.stringify(courierData)}\n\n`;
-            recipientConnection.write(sseMessage);
-            console.log(`[SSE] Notification dossier envoyée à l'utilisateur ${courierData.data.recipientId}`);
-          }
+        // Diffuser via WebSocket pour réception instantanée avec gestion robuste
+        if ((global as any).wss?.clients) {
+          (global as any).wss.clients.forEach((client: any) => {
+            if (client.readyState === 1) { // WebSocket.OPEN
+              client.send(JSON.stringify(courierData));
+            }
+          });
+          console.log(`[WebSocket] Notification dossier diffusée à ${(global as any).wss.clients.size} clients`);
         }
         
         console.log(`[folders] SSE notification sent for folder sharing`);
@@ -1062,45 +1062,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // COURRIER SYSTEM - SSE Endpoint pour notifications temps réel (PLUS EFFICACE QUE WEBSOCKET)
-  app.get("/api/courrier/events", requireAuth, async (req, res) => {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ error: "Non authentifié" });
-    }
-
-    // Configuration SSE - PLUS FIABLE que WebSocket
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Cache-Control'
-    });
-
-    // Heartbeat pour maintenir la connexion
-    const heartbeat = setInterval(() => {
-      res.write(': heartbeat\n\n');
-    }, 30000);
-
-    // Stocker la connexion SSE
-    if (!(global as any).sseClients) {
-      (global as any).sseClients = new Map();
-    }
-    (global as any).sseClients.set(userId, res);
-
-    console.log(`[SSE] Client ${userId} connecté, total: ${(global as any).sseClients.size}`);
-
-    // Message de bienvenue
-    res.write(`data: ${JSON.stringify({ type: 'connected', message: 'SSE connecté' })}\n\n`);
-
-    // Nettoyage à la fermeture
-    req.on('close', () => {
-      clearInterval(heartbeat);
-      (global as any).sseClients.delete(userId);
-      console.log(`[SSE] Client ${userId} déconnecté, reste: ${(global as any).sseClients.size}`);
-    });
-  });
+  // COURRIER SYSTEM - RETOUR À WEBSOCKET AVEC GESTION ROBUSTE DES CONNEXIONS
 
   // API COURRIER CORRIGÉE - utilise les méthodes de stockage existantes
   app.get("/api/files/shared", requireAuth, async (req, res) => {
@@ -1703,18 +1665,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category: 'documents'
       };
 
-      // Envoyer via SSE en temps réel (PLUS FIABLE)
-      if ((global as any).sseClients) {
-        const recipientConnection = (global as any).sseClients.get(recipient.id);
-        if (recipientConnection) {
-          const messageData = {
-            type: 'courrier_message',
-            data: replyMessage
-          };
-          const sseMessage = `data: ${JSON.stringify(messageData)}\n\n`;
-          recipientConnection.write(sseMessage);
-          console.log(`[SSE] Reply sent to user ${recipient.id}`);
-        }
+      // Envoyer via WebSocket en temps réel
+      if ((global as any).wss && (global as any).wss.clients) {
+        const messageData = JSON.stringify({
+          type: 'courrier_message',
+          data: replyMessage
+        });
+        
+        (global as any).wss.clients.forEach((client: any) => {
+          if (client.readyState === 1) {
+            client.send(messageData);
+          }
+        });
+        console.log(`[REPLY] WebSocket message sent to ${(global as any).wss.clients.size} clients`);
       }
 
       res.json({ success: true, message: "Réponse envoyée avec succès" });
@@ -1773,18 +1736,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category: 'documents'
       };
 
-      // Envoyer via SSE en temps réel (PLUS FIABLE)
-      if ((global as any).sseClients) {
-        const recipientConnection = (global as any).sseClients.get(recipient.id);
-        if (recipientConnection) {
-          const messageData = {
-            type: 'courrier_message',
-            data: forwardMessage
-          };
-          const sseMessage = `data: ${JSON.stringify(messageData)}\n\n`;
-          recipientConnection.write(sseMessage);
-          console.log(`[SSE] Forward sent to user ${recipient.id}`);
-        }
+      // Envoyer via WebSocket en temps réel
+      if ((global as any).wss && (global as any).wss.clients) {
+        const messageData = JSON.stringify({
+          type: 'courrier_message',
+          data: forwardMessage
+        });
+        
+        (global as any).wss.clients.forEach((client: any) => {
+          if (client.readyState === 1) {
+            client.send(messageData);
+          }
+        });
+        console.log(`[FORWARD] WebSocket message sent to ${(global as any).wss.clients.size} clients`);
       }
 
       res.json({ success: true, message: "Message transféré avec succès" });
@@ -1843,18 +1807,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category: 'documents'
       };
 
-      // Envoyer via SSE en temps réel (PLUS FIABLE)
-      if ((global as any).sseClients) {
-        const recipientConnection = (global as any).sseClients.get(recipient.id);
-        if (recipientConnection) {
-          const messageData = {
-            type: 'courrier_message',
-            data: newMessage
-          };
-          const sseMessage = `data: ${JSON.stringify(messageData)}\n\n`;
-          recipientConnection.write(sseMessage);
-          console.log(`[SSE] Compose sent to user ${recipient.id}`);
-        }
+      // Envoyer via WebSocket en temps réel
+      if ((global as any).wss && (global as any).wss.clients) {
+        const messageData = JSON.stringify({
+          type: 'courrier_message',
+          data: newMessage
+        });
+        
+        (global as any).wss.clients.forEach((client: any) => {
+          if (client.readyState === 1) {
+            client.send(messageData);
+          }
+        });
+        console.log(`[COMPOSE] WebSocket message sent to ${(global as any).wss.clients.size} clients`);
       }
 
       res.json({ success: true, message: "Message envoyé avec succès" });
