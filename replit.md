@@ -247,6 +247,12 @@ Changelog:
 - July 25, 2025. Fixed form overflow issues and user email display - now shows proper Rony account emails instead of hardcoded defaults
 - July 25, 2025. Integrated Planning menu item with Calendar icon in main navigation sidebar
 - July 25, 2025. Implemented complete API endpoints for event creation, modification, deletion, and participant management
+- July 25, 2025. CRITICAL COURRIER SYSTEM FIXES: Resolved interface blocking and non-instantaneous reception issues
+- July 25, 2025. Restored WebSocket notifications for file/folder sharing with proper real-time delivery
+- July 25, 2025. Enhanced MailPage.tsx with instant message updates and connection status indicators
+- July 25, 2025. Added comprehensive error handling and loading states to prevent blank page crashes
+- July 25, 2025. Fixed Reply, Forward, and Compose APIs with proper WebSocket broadcasting for instant reception
+- July 25, 2025. Implemented safe data handling and React hooks to eliminate interface blocking issues
 ```
 
 ## User Preferences
