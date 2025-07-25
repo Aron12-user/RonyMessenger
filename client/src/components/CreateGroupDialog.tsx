@@ -144,19 +144,19 @@ export default function CreateGroupDialog({ isOpen, onClose, contacts }: CreateG
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center space-x-2">
             <Users className="h-5 w-5" />
             <span>Créer un groupe de conversation</span>
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-2">
           {/* Informations du groupe */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
-              <Label htmlFor="groupName">Nom du groupe *</Label>
+              <Label htmlFor="groupName" className="text-sm font-medium">Nom du groupe *</Label>
               <Input
                 id="groupName"
                 value={groupName}
@@ -167,7 +167,7 @@ export default function CreateGroupDialog({ isOpen, onClose, contacts }: CreateG
             </div>
             
             <div>
-              <Label htmlFor="description">Description (optionnel)</Label>
+              <Label htmlFor="description" className="text-sm font-medium">Description (optionnel)</Label>
               <Textarea
                 id="description"
                 value={description}
@@ -184,15 +184,15 @@ export default function CreateGroupDialog({ isOpen, onClose, contacts }: CreateG
                 checked={isPrivate}
                 onCheckedChange={setIsPrivate}
               />
-              <Label htmlFor="private">Groupe privé</Label>
+              <Label htmlFor="private" className="text-sm">Groupe privé</Label>
             </div>
           </div>
 
           {/* Sélection des contacts */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>Sélectionner les membres</Label>
-              <span className="text-sm text-gray-500">
+              <Label className="text-sm font-medium">Sélectionner les membres</Label>
+              <span className="text-xs text-gray-500">
                 {selectedContacts.size} sur {filteredContacts.length} sélectionné(s)
               </span>
             </div>
@@ -204,7 +204,7 @@ export default function CreateGroupDialog({ isOpen, onClose, contacts }: CreateG
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Rechercher des contacts..."
-                className="pl-10"
+                className="pl-10 h-9"
               />
             </div>
 
@@ -215,9 +215,9 @@ export default function CreateGroupDialog({ isOpen, onClose, contacts }: CreateG
                 variant="outline"
                 size="sm"
                 onClick={handleSelectAll}
-                className="flex items-center space-x-1"
+                className="flex items-center space-x-1 h-8 text-xs"
               >
-                <Check className="h-4 w-4" />
+                <Check className="h-3 w-3" />
                 <span>
                   {selectedContacts.size === filteredContacts.length ? 'Tout désélectionner' : 'Tout sélectionner'}
                 </span>
@@ -225,8 +225,8 @@ export default function CreateGroupDialog({ isOpen, onClose, contacts }: CreateG
             </div>
 
             {/* Liste des contacts */}
-            <ScrollArea className="h-60 border rounded-md">
-              <div className="p-4 space-y-2">
+            <ScrollArea className="h-48 border rounded-md">
+              <div className="p-3 space-y-1">
                 {filteredContacts.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <UserPlus className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -236,7 +236,7 @@ export default function CreateGroupDialog({ isOpen, onClose, contacts }: CreateG
                   filteredContacts.map((contact) => (
                     <div
                       key={contact.id}
-                      className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                      className="flex items-center space-x-2 p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
                       onClick={() => handleContactToggle(contact.id)}
                     >
                       <Checkbox
@@ -245,10 +245,10 @@ export default function CreateGroupDialog({ isOpen, onClose, contacts }: CreateG
                       />
                       
                       <div className="relative">
-                        <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                        <div className="h-7 w-7 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
                           {(contact.displayName || contact.username).charAt(0).toUpperCase()}
                         </div>
-                        <div className={`absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-white ${getStatusColor(contact.status)}`}></div>
+                        <div className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white ${getStatusColor(contact.status)}`}></div>
                       </div>
                       
                       <div className="flex-1 min-w-0">
@@ -271,20 +271,21 @@ export default function CreateGroupDialog({ isOpen, onClose, contacts }: CreateG
           </div>
         </div>
 
-        <DialogFooter>
-          <div className="flex justify-between w-full">
-            <div className="text-sm text-gray-500">
+        <DialogFooter className="flex-shrink-0 pt-4 border-t">
+          <div className="flex justify-between w-full items-center">
+            <div className="text-xs text-gray-500">
               {selectedContacts.size > 0 && (
                 <span>{selectedContacts.size} contact(s) sélectionné(s)</span>
               )}
             </div>
             <div className="space-x-2">
-              <Button variant="outline" onClick={onClose}>
+              <Button variant="outline" onClick={onClose} size="sm">
                 Annuler
               </Button>
               <Button 
                 onClick={handleSubmit}
                 disabled={createGroupMutation.isPending || !groupName.trim() || selectedContacts.size === 0}
+                size="sm"
               >
                 {createGroupMutation.isPending ? 'Création...' : 'Créer le groupe'}
               </Button>
