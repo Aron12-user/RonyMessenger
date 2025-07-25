@@ -434,7 +434,9 @@ export class CompleteMemStorage implements IStorageComplete {
   async getSharedFiles(userId: number): Promise<File[]> {
     console.log(`[STORAGE] Getting files shared WITH user ${userId}`);
     console.log(`[STORAGE] Total fileSharing entries:`, this.fileSharing.size);
+    console.log(`[STORAGE] Total files:`, this.files.size);
     console.log(`[STORAGE] All fileSharing data:`, Array.from(this.fileSharing.values()));
+    console.log(`[STORAGE] All files data:`, Array.from(this.files.values()));
     
     // Trouver tous les partages où l'utilisateur est destinataire
     const userSharings = Array.from(this.fileSharing.values()).filter(sharing => {
@@ -447,8 +449,10 @@ export class CompleteMemStorage implements IStorageComplete {
     const sharedFiles = [];
     for (const sharing of userSharings) {
       const file = this.files.get(sharing.fileId);
+      console.log(`[STORAGE] Looking for file ID ${sharing.fileId}:`, file ? 'FOUND' : 'NOT FOUND');
       if (file) {
         const sharedByUser = this.users.get(sharing.ownerId);
+        console.log(`[STORAGE] Looking for owner ID ${sharing.ownerId}:`, sharedByUser ? 'FOUND' : 'NOT FOUND');
         sharedFiles.push({
           ...file,
           sharedBy: sharedByUser ? {
@@ -459,6 +463,8 @@ export class CompleteMemStorage implements IStorageComplete {
           permission: sharing.permission,
           sharedAt: sharing.createdAt
         });
+      } else {
+        console.log(`[STORAGE] ERROR: File ${sharing.fileId} not found in files map!`);
       }
     }
     
