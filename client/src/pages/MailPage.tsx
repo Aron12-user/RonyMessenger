@@ -75,6 +75,7 @@ export default function MailPage() {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [pinnedEmails, setPinnedEmails] = useState<Set<number>>(new Set());
   const [readEmails, setReadEmails] = useState<Set<number>>(new Set());
+  const [forceRefreshTrigger, setForceRefreshTrigger] = useState(0); // SOLUTION DÉFINITIVE: Trigger pour forcer les mises à jour
   
   // WebSocket pour les mises à jour temps réel (SOLUTION ROBUSTE)
   const wsRef = useRef<WebSocket | null>(null);
@@ -108,11 +109,13 @@ export default function MailPage() {
 
   // Récupérer les fichiers et dossiers partagés avec gestion d'erreur améliorée
   const { data: sharedData, refetch, isLoading: isLoadingSharedData, error: sharedDataError } = useQuery({
-    queryKey: ['/api/files/shared'],
+    queryKey: ['/api/files/shared', forceRefreshTrigger], // AJOUT du trigger pour invalider automatiquement
     enabled: !!user,
-    staleTime: 30 * 1000,
-    retry: 3,
-    retryDelay: 1000,
+    staleTime: 0, // RÉDUCTION à 0 pour forcer les mises à jour
+    retry: 5, // AUGMENTATION des tentatives
+    retryDelay: 500, // RÉDUCTION du délai entre tentatives
+    refetchInterval: 10 * 1000, // AJOUT: Refetch automatique toutes les 10 secondes
+    refetchIntervalInBackground: true, // AJOUT: Refetch même en arrière-plan
   });
 
   // Connexion WebSocket pour les mises à jour temps réel avec protection anti-blocage
@@ -210,10 +213,19 @@ export default function MailPage() {
                 setTimeout(() => {
                   console.log('[WS] 🎯 ÉTAPE 7: Garantie ultime - PROTOCOLE TERMINÉ');
                   queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
+                  setForceRefreshTrigger(prev => prev + 1); // FORCE le trigger de mise à jour
                   refetch();
                 }, 3000);
                 
-                console.log('[WS] 🚀 PROTOCOLE RÉCEPTION ABSOLUE ACTIVÉ - 7 ÉTAPES EN COURS');
+                // ÉTAPE BONUS: Persistance locale et vérification périodique
+                setTimeout(() => {
+                  console.log('[WS] 🔄 ÉTAPE BONUS: Sauvegarde locale et vérification');
+                  // Sauvegarder dans localStorage pour persistance
+                  localStorage.setItem('lastCourrierUpdate', Date.now().toString());
+                  setForceRefreshTrigger(prev => prev + 1);
+                }, 5000);
+                
+                console.log('[WS] 🚀 PROTOCOLE RÉCEPTION ABSOLUE ACTIVÉ - 8 ÉTAPES EN COURS');
               } else {
                 console.log('[WS] ❌ Courrier non destiné:', data.data?.recipientId, 'vs userId:', currentUserId);
               }
@@ -253,16 +265,57 @@ export default function MailPage() {
   const sharedFiles = (sharedData as any)?.files || [];
   const sharedFolders = (sharedData as any)?.folders || [];
 
+  // SOLUTION DÉFINITIVE: Système de cache local et synchronisation forcée
+  useEffect(() => {
+    const performLocalCacheUpdate = () => {
+      try {
+        // Sauvegarder les données en cache local
+        if (sharedData) {
+          localStorage.setItem('courrierCache', JSON.stringify({
+            data: sharedData,
+            timestamp: Date.now(),
+            userId: (user as any)?.id
+          }));
+          console.log('[CACHE] ✅ Données sauvegardées en cache local');
+        }
+      } catch (error) {
+        console.error('[CACHE] ❌ Erreur sauvegarde cache:', error);
+      }
+    };
+
+    // Effectuer la sauvegarde
+    performLocalCacheUpdate();
+  }, [sharedData, user]);
+
   // Charger les emails depuis les données partagées (CONVERSION AUTOMATIQUE PROTÉGÉE)
   useEffect(() => {
-    if (!sharedData || !(sharedData as any).files || !(sharedData as any).folders) return;
+    // ÉTAPE 1: Essayer les données React Query
+    let dataToUse = sharedData;
+    
+    // ÉTAPE 2: Fallback vers le cache local si pas de données
+    if (!dataToUse || !(dataToUse as any).files || !(dataToUse as any).folders) {
+      try {
+        const cachedData = localStorage.getItem('courrierCache');
+        if (cachedData) {
+          const parsed = JSON.parse(cachedData);
+          if (parsed.userId === (user as any)?.id && parsed.data) {
+            dataToUse = parsed.data;
+            console.log('[CACHE] 📦 Utilisation des données en cache local');
+          }
+        }
+      } catch (error) {
+        console.error('[CACHE] ❌ Erreur lecture cache:', error);
+      }
+    }
+
+    if (!dataToUse || !(dataToUse as any).files || !(dataToUse as any).folders) return;
 
     // Protection anti-blocage: utiliser setTimeout pour éviter les conflits d'état
     setTimeout(() => {
       try {
         const allEmails = [
           // Convertir les fichiers partagés en emails
-          ...(sharedData as any).files.map((file: any, index: number) => ({
+          ...(dataToUse as any).files.map((file: any, index: number) => ({
             id: 1000 + index,
             subject: `Fichier partagé: ${file.name}`,
             sender: file.sharedBy?.displayName || 'Utilisateur',
@@ -282,7 +335,7 @@ export default function MailPage() {
           })),
 
           // Convertir les dossiers partagés en emails
-          ...(sharedData as any).folders.map((folder: any, index: number) => ({
+          ...(dataToUse as any).folders.map((folder: any, index: number) => ({
             id: 2000 + index,
             subject: `Dossier partagé: ${folder.name}`,
             sender: folder.sharedBy?.displayName || 'Utilisateur',
@@ -312,13 +365,53 @@ export default function MailPage() {
         
         console.log('[COURRIER] 📧 Emails triés par date (plus récent en premier):', sortedEmails.map(e => `${e.subject} - ${e.date} ${e.time}`));
         console.log('[COURRIER] 🎯 MISE À JOUR STATE EMAILS - AFFICHAGE GARANTI');
+        console.log('[COURRIER] 📊 Statistiques: Total=' + sortedEmails.length + ', Source=' + (sharedData ? 'API' : 'Cache'));
         setEmails(sortedEmails);
+        
+        // Sauvegarder également les emails convertis
+        localStorage.setItem('courrierEmails', JSON.stringify({
+          emails: sortedEmails,
+          timestamp: Date.now(),
+          userId: (user as any)?.id
+        }));
       } catch (error) {
         console.error('[COURRIER] Erreur conversion sharedData:', error);
         setEmails([]);
       }
     }, 10); // Délai minimal pour éviter les blocages
-  }, [sharedData]);
+  }, [sharedData, forceRefreshTrigger, user]); // AJOUT du forceRefreshTrigger pour relancer la conversion
+  
+  // SOLUTION ULTIME: Vérification périodique et récupération de secours
+  useEffect(() => {
+    if (!user) return;
+    
+    const emergencyRecovery = setInterval(() => {
+      console.log('[RECOVERY] 🔄 Vérification périodique des courriers');
+      
+      // Si pas d'emails et que l'utilisateur est connecté, forcer un refetch
+      if (emails.length === 0 && !isLoadingSharedData) {
+        console.log('[RECOVERY] ⚠️ Aucun email détecté - RÉCUPÉRATION D\'URGENCE');
+        setForceRefreshTrigger(prev => prev + 1);
+        refetch();
+      }
+      
+      // Vérifier si nous avons des données en cache
+      try {
+        const cachedEmails = localStorage.getItem('courrierEmails');
+        if (cachedEmails && emails.length === 0) {
+          const parsed = JSON.parse(cachedEmails);
+          if (parsed.userId === (user as any)?.id && parsed.emails.length > 0) {
+            console.log('[RECOVERY] 🚑 Récupération depuis cache email local');
+            setEmails(parsed.emails);
+          }
+        }
+      } catch (error) {
+        console.error('[RECOVERY] ❌ Erreur récupération cache:', error);
+      }
+    }, 15000); // Vérification toutes les 15 secondes
+    
+    return () => clearInterval(emergencyRecovery);
+  }, [user, emails.length, isLoadingSharedData, refetch]);
 
   // CORRECTION : Charger la persistance avec protection contre les pages blanches
   useEffect(() => {
