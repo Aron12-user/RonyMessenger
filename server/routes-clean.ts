@@ -1004,7 +1004,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Route pour récupérer les fichiers partagés avec l'utilisateur connecté
+  // Route pour récupérer les fichiers partagés avec l'utilisateur connecté - VERSION COMPLÈTEMENT CORRIGÉE
   app.get("/api/files/shared", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
@@ -1014,15 +1014,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[SHARED-API] Getting shared files for user ${userId}`);
       
-      // Utiliser la méthode storage existante
-      const sharedFiles = await storage.getSharedFiles(userId);
-      console.log(`[SHARED-API] Direct storage method returned:`, sharedFiles);
-      
-      // Récupérer les dossiers partagés avec la nouvelle méthode
-      const sharedFolders = await storage.getSharedFolders(userId);
-      console.log(`[SHARED-API] Storage method returned ${sharedFolders.length} shared folders`);
+      // CORRECTION COMPLÈTE - Récupérer TOUS les partages (fichiers ET dossiers) pour cet utilisateur
+      const allSharedFiles = Array.from((storage as any).fileSharing.values())
+        .filter((share: any) => share.sharedWithId === userId)
+        .map((share: any) => {
+          const file = (storage as any).files.get(share.fileId);
+          if (file) {
+            const sharer = Array.from((storage as any).users.values()).find((u: any) => u.id === share.ownerId);
+            return {
+              ...file,
+              sharedAt: share.createdAt,
+              permission: share.permission,
+              sharedBy: share.ownerId,
+              sharerName: sharer?.displayName || sharer?.username || 'Utilisateur inconnu'
+            };
+          }
+          return null;
+        })
+        .filter(Boolean);
 
-      res.json({ files: sharedFiles, folders: sharedFolders });
+      const allSharedFolders = Array.from((storage as any).folderSharing.values())
+        .filter((share: any) => share.sharedWithId === userId)
+        .map((share: any) => {
+          const folder = (storage as any).folders.get(share.folderId);
+          if (folder) {
+            const sharer = Array.from((storage as any).users.values()).find((u: any) => u.id === share.ownerId);
+            return {
+              ...folder,
+              sharedAt: share.createdAt,
+              permission: share.permission,
+              sharedBy: share.ownerId,
+              sharerName: sharer?.displayName || sharer?.username || 'Utilisateur inconnu'
+            };
+          }
+          return null;
+        })
+        .filter(Boolean);
+
+      console.log(`[SHARED-API] Found ${allSharedFiles.length} shared files and ${allSharedFolders.length} shared folders`);
+
+      res.json({ files: allSharedFiles, folders: allSharedFolders });
     } catch (error: any) {
       console.error('[SHARED-API] Error:', error);
       res.status(500).json({ error: error.message || "Erreur serveur" });
@@ -1353,7 +1384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Legacy video conferencing routes removed - using native WebRTC solution
 
-  // API pour répondre à un courrier
+  // API pour répondre à un courrier - VERSION COMPLÈTEMENT CORRIGÉE
   app.post("/api/courrier/reply", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
@@ -1365,55 +1396,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[REPLY] Processing reply from user ${userId} to ${recipientEmail}`);
       
-      // Trouver l'utilisateur destinataire par email/username
-      console.log(`[REPLY] Looking for recipient: ${recipientEmail}`);
-      console.log(`[REPLY] Storage users size:`, (storage as any).users.size);
-      
+      // Trouver l'utilisateur destinataire par email/username avec logique améliorée
+      const cleanRecipientEmail = recipientEmail.replace('@rony.com', '');
       const recipient = Array.from((storage as any).users.values()).find((u: any) => {
-        const matches = u.email === recipientEmail || 
-                       u.username === recipientEmail ||
-                       u.username === recipientEmail + '@rony.com' ||
-                       u.email === recipientEmail + '@rony.com';
-        console.log(`[REPLY] Checking user ${u.username} (${u.email}) - matches: ${matches}`);
-        return matches;
+        return u.email === recipientEmail || 
+               u.username === recipientEmail ||
+               u.email === cleanRecipientEmail ||
+               u.username === cleanRecipientEmail ||
+               u.username === recipientEmail + '@rony.com' ||
+               u.email === recipientEmail + '@rony.com';
       });
       
       if (!recipient) {
         console.log(`[REPLY] Recipient not found for: ${recipientEmail}`);
-        console.log(`[REPLY] Available users:`, Array.from((storage as any).users.values()).map((u: any) => ({ 
-          id: u.id, email: u.email, username: u.username 
-        })));
-        return res.status(200).json({ success: false, error: "Utilisateur destinataire introuvable. Vérifiez l'adresse email." });
+        return res.status(400).json({ success: false, error: "Utilisateur destinataire introuvable. Vérifiez l'adresse email." });
       }
 
       console.log(`[REPLY] Found recipient:`, { id: recipient.id, email: recipient.email, username: recipient.username });
 
-      // Créer le message de réponse
+      // Créer le message de réponse avec ID unique
       const replyMessage = {
+        id: Date.now() + Math.random(),
         type: 'reply',
         recipientId: recipient.id,
-        sender: senderName,
-        senderEmail: senderEmail,
+        sender: senderName || (user as any)?.displayName || (user as any)?.username,
+        senderEmail: senderEmail || (user as any)?.username,
         subject: `Re: ${originalSubject}`,
-        message: message,
+        content: message,
         originalContent: originalContent,
         originalSender: originalSender,
+        date: new Date().toLocaleDateString('fr-FR'),
+        time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
         timestamp: new Date().toISOString(),
-        priority: 'medium'
+        priority: 'medium',
+        hasAttachment: false,
+        category: 'documents'
       };
 
-      // Envoyer via WebSocket
-      if (global.wss && global.wss.clients) {
+      // Envoyer via WebSocket en temps réel
+      if ((global as any).wss && (global as any).wss.clients) {
         const messageData = JSON.stringify({
           type: 'courrier_message',
           data: replyMessage
         });
         
-        global.wss.clients.forEach((client: any) => {
+        (global as any).wss.clients.forEach((client: any) => {
           if (client.readyState === 1) {
             client.send(messageData);
           }
         });
+        console.log(`[REPLY] WebSocket message sent to ${(global as any).wss.clients.size} clients`);
       }
 
       res.json({ success: true, message: "Réponse envoyée avec succès" });
@@ -1423,10 +1455,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // API pour transférer un courrier
+  // API pour transférer un courrier - VERSION COMPLÈTEMENT CORRIGÉE
   app.post("/api/courrier/forward", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
+      const user = req.user;
       if (!userId) {
         return res.status(401).json({ error: "Non authentifié" });
       }
@@ -1435,54 +1468,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[FORWARD] Processing forward from user ${userId} to ${recipientEmail}`);
       
-      // Trouver l'utilisateur destinataire par email/username
-      console.log(`[FORWARD] Looking for recipient: ${recipientEmail}`);
-      console.log(`[FORWARD] Storage users size:`, (storage as any).users.size);
-      
+      // Logique améliorée pour trouver le destinataire
+      const cleanRecipientEmail = recipientEmail.replace('@rony.com', '');
       const recipient = Array.from((storage as any).users.values()).find((u: any) => {
-        const matches = u.email === recipientEmail || 
-                       u.username === recipientEmail ||
-                       u.username === recipientEmail + '@rony.com' ||
-                       u.email === recipientEmail + '@rony.com';
-        console.log(`[FORWARD] Checking user ${u.username} (${u.email}) - matches: ${matches}`);
-        return matches;
+        return u.email === recipientEmail || 
+               u.username === recipientEmail ||
+               u.email === cleanRecipientEmail ||
+               u.username === cleanRecipientEmail ||
+               u.username === recipientEmail + '@rony.com' ||
+               u.email === recipientEmail + '@rony.com';
       });
       
       if (!recipient) {
         console.log(`[FORWARD] Recipient not found for: ${recipientEmail}`);
-        console.log(`[FORWARD] Available users:`, Array.from((storage as any).users.values()).map((u: any) => ({ 
-          id: u.id, email: u.email, username: u.username 
-        })));
-        return res.status(200).json({ success: false, error: "Utilisateur destinataire introuvable. Vérifiez l'adresse email." });
+        return res.status(400).json({ success: false, error: "Utilisateur destinataire introuvable. Vérifiez l'adresse email." });
       }
 
       console.log(`[FORWARD] Found recipient:`, { id: recipient.id, email: recipient.email, username: recipient.username });
 
-      // Créer le message transféré
+      // Créer le message transféré avec structure complète
       const forwardMessage = {
+        id: Date.now() + Math.random(),
         type: 'forward',
         recipientId: recipient.id,
-        sender: senderName,
-        senderEmail: senderEmail,
+        sender: senderName || (user as any)?.displayName || (user as any)?.username,
+        senderEmail: senderEmail || (user as any)?.username,
         subject: `Fwd: ${originalEmail.subject}`,
-        message: message,
+        content: `${message}\n\n--- Message transféré ---\nDe: ${originalEmail.sender}\nSujet: ${originalEmail.subject}\n\n${originalEmail.content}`,
         originalEmail: originalEmail,
+        date: new Date().toLocaleDateString('fr-FR'),
+        time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
         timestamp: new Date().toISOString(),
-        priority: 'medium'
+        priority: 'medium',
+        hasAttachment: originalEmail.hasAttachment || false,
+        category: 'documents'
       };
 
-      // Envoyer via WebSocket
-      if (global.wss && global.wss.clients) {
+      // Envoyer via WebSocket en temps réel
+      if ((global as any).wss && (global as any).wss.clients) {
         const messageData = JSON.stringify({
           type: 'courrier_message',
           data: forwardMessage
         });
         
-        global.wss.clients.forEach((client: any) => {
+        (global as any).wss.clients.forEach((client: any) => {
           if (client.readyState === 1) {
             client.send(messageData);
           }
         });
+        console.log(`[FORWARD] WebSocket message sent to ${(global as any).wss.clients.size} clients`);
       }
 
       res.json({ success: true, message: "Message transféré avec succès" });
@@ -1492,10 +1526,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // API pour composer un nouveau message courrier
+  // API pour composer un nouveau message courrier - VERSION COMPLÈTEMENT CORRIGÉE
   app.post("/api/courrier/compose", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
+      const user = req.user;
       if (!userId) {
         return res.status(401).json({ error: "Non authentifié" });
       }
@@ -1504,58 +1539,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[COMPOSE] Processing new message from user ${userId} to ${recipientEmail}`);
       
-      // Trouver l'utilisateur destinataire par email/username
-      console.log(`[COMPOSE] Looking for recipient: ${recipientEmail}`);
-      console.log(`[COMPOSE] Storage users size:`, (storage as any).users.size);
-      
+      // Logique améliorée pour trouver le destinataire
+      const cleanRecipientEmail = recipientEmail.replace('@rony.com', '');
       const recipient = Array.from((storage as any).users.values()).find((u: any) => {
-        const matches = u.email === recipientEmail || 
-                       u.username === recipientEmail ||
-                       u.username === recipientEmail + '@rony.com' ||
-                       u.email === recipientEmail + '@rony.com';
-        console.log(`[COMPOSE] Checking user ${u.username} (${u.email}) - matches: ${matches}`);
-        return matches;
+        return u.email === recipientEmail || 
+               u.username === recipientEmail ||
+               u.email === cleanRecipientEmail ||
+               u.username === cleanRecipientEmail ||
+               u.username === recipientEmail + '@rony.com' ||
+               u.email === recipientEmail + '@rony.com';
       });
       
       if (!recipient) {
         console.log(`[COMPOSE] Recipient not found for: ${recipientEmail}`);
-        console.log(`[COMPOSE] Available users:`, Array.from((storage as any).users.values()).map((u: any) => ({ 
-          id: u.id, email: u.email, username: u.username 
-        })));
-        return res.status(200).json({ success: false, error: "Utilisateur destinataire introuvable. Vérifiez l'adresse email." });
+        return res.status(400).json({ success: false, error: "Utilisateur destinataire introuvable. Vérifiez l'adresse email." });
       }
 
       console.log(`[COMPOSE] Found recipient:`, { id: recipient.id, email: recipient.email, username: recipient.username });
 
-      // Créer le nouveau message
+      // Créer le nouveau message avec structure complète
       const newMessage = {
+        id: Date.now() + Math.random(),
         type: 'compose',
         recipientId: recipient.id,
-        sender: senderName,
-        senderEmail: senderEmail,
+        sender: senderName || (user as any)?.displayName || (user as any)?.username,
+        senderEmail: senderEmail || (user as any)?.username,
         subject: subject,
-        message: message,
+        content: message,
+        preview: message.substring(0, 100) + (message.length > 100 ? '...' : ''),
+        date: new Date().toLocaleDateString('fr-FR'),
+        time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
         timestamp: new Date().toISOString(),
-        priority: 'medium'
+        priority: 'medium',
+        hasAttachment: false,
+        category: 'documents'
       };
 
-      // Envoyer via WebSocket
-      if (global.wss && global.wss.clients) {
+      // Envoyer via WebSocket en temps réel
+      if ((global as any).wss && (global as any).wss.clients) {
         const messageData = JSON.stringify({
           type: 'courrier_message',
           data: newMessage
         });
         
-        global.wss.clients.forEach((client: any) => {
+        (global as any).wss.clients.forEach((client: any) => {
           if (client.readyState === 1) {
             client.send(messageData);
           }
         });
+        console.log(`[COMPOSE] WebSocket message sent to ${(global as any).wss.clients.size} clients`);
       }
 
       res.json({ success: true, message: "Message envoyé avec succès" });
     } catch (error: any) {
       console.error('Erreur composition courrier:', error);
+      res.status(500).json({ error: error.message || "Erreur serveur" });
+    }
+  });
+
+  // API pour les statistiques du courrier - CORRECTION COMPLÈTE
+  app.get("/api/courrier/stats", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      // Compter les fichiers et dossiers partagés avec cet utilisateur
+      const sharedFilesCount = Array.from((storage as any).fileSharing.values())
+        .filter((share: any) => share.sharedWithId === userId).length;
+
+      const sharedFoldersCount = Array.from((storage as any).folderSharing.values())
+        .filter((share: any) => share.sharedWithId === userId).length;
+
+      const totalMessages = sharedFilesCount + sharedFoldersCount;
+
+      // Statistiques détaillées
+      const stats = {
+        totalMessages,
+        newMessages: totalMessages, // Tous les messages sont considérés comme nouveaux dans ce système
+        unreadMessages: totalMessages,
+        archivedMessages: 0,
+        sharedFiles: sharedFilesCount,
+        sharedFolders: sharedFoldersCount,
+        lastUpdate: new Date().toISOString()
+      };
+
+      console.log(`[COURRIER-STATS] Stats for user ${userId}:`, stats);
+      res.json(stats);
+    } catch (error: any) {
+      console.error('Erreur récupération statistiques courrier:', error);
       res.status(500).json({ error: error.message || "Erreur serveur" });
     }
   });

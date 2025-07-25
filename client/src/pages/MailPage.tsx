@@ -129,12 +129,27 @@ export default function MailPage() {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.type === 'courrier_shared') {
-            console.log('Nouveau courrier reçu:', data);
-            refetch(); // Actualiser les données
+          console.log('Message WebSocket reçu:', data);
+          
+          // Écouter TOUS les types de messages courrier
+          if (data.type === 'courrier_shared' || data.type === 'courrier_message') {
+            console.log('Nouveau courrier reçu en temps réel:', data);
+            
+            // Forcer la mise à jour immédiate des données
+            queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
+            refetch();
+            
+            // Notification toast pour l'utilisateur
+            if (data.data && data.data.recipientId === user.id) {
+              toast({
+                title: 'Nouveau courrier reçu',
+                description: `De: ${data.data.sender} - ${data.data.subject || 'Partage de fichier'}`,
+                duration: 4000
+              });
+            }
           }
         } catch (error) {
-          console.error('Erreur WebSocket courrier:', error);
+          console.error('Erreur parsing WebSocket courrier:', error);
         }
       };
 
@@ -151,11 +166,11 @@ export default function MailPage() {
     connectWebSocket();
 
     return () => {
-      if (wsRef.current) {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.close();
       }
     };
-  }, [user, refetch]);
+  }, [user, queryClient, refetch]);
 
   const sharedFiles = (sharedData as any)?.files || [];
   const sharedFolders = (sharedData as any)?.folders || [];
@@ -517,9 +532,9 @@ export default function MailPage() {
     return (
       <div className="h-screen flex bg-gray-50">
         <div className="flex-1 flex justify-center p-4">
-          <div className="max-w-2xl w-full bg-white rounded-lg shadow-sm border">
+          <div className="max-w-2xl w-full bg-white rounded-lg shadow-sm border flex flex-col h-full max-h-[calc(100vh-120px)]">
             {/* Header de lecture */}
-            <div className="border-b p-4">
+            <div className="border-b p-4 flex-shrink-0">
               <div className="flex items-center justify-between mb-4">
                 <Button 
                   variant="ghost" 
@@ -577,17 +592,17 @@ export default function MailPage() {
               </div>
             </div>
 
-            {/* Contenu du message */}
-            <div className="p-6">
+            {/* Contenu du message avec défilement vertical corrigé */}
+            <div className="flex-1 overflow-y-auto p-6 min-h-0">
               <div className="prose prose-sm max-w-none">
-                <p className="text-gray-700 leading-relaxed">
+                <div className="text-gray-700 leading-relaxed whitespace-pre-wrap" style={{ wordWrap: 'break-word', maxWidth: '100%' }}>
                   {selectedEmail.content}
-                </p>
+                </div>
               </div>
 
-              {/* Pièces jointes */}
+              {/* Pièces jointes avec scrolling */}
               {(selectedEmail.attachment || selectedEmail.folder) && (
-                <div className="mt-6 border-t pt-4">
+                <div className="mt-6 border-t pt-4 pb-6">
                   <h3 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
                     <Paperclip className="w-4 h-4 mr-2" />
                     Pièces jointes
@@ -708,7 +723,7 @@ export default function MailPage() {
                 </Button>
                 
                 <Badge variant="secondary" className="bg-white/40 text-blue-700 border-blue/20 text-xs">
-                  {filteredEmails.length} messages
+                  {filteredEmails.length} messages | {sharedFiles.length} fichiers | {sharedFolders.length} dossiers
                 </Badge>
               </div>
             </div>
