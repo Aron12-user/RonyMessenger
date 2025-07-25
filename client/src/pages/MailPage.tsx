@@ -295,7 +295,7 @@ export default function MailPage() {
 
   // SOLUTION ABSOLUTUE: Système de persistance et conversion garantie
   useEffect(() => {
-    console.log('[COURRIER] 🚀 DÉBUT CONVERSION - sharedData:', sharedData);
+    console.log('[COURRIER] 🚀 DÉBUT CONVERSION - sharedData:', JSON.stringify(sharedData, null, 2));
     
     // ÉTAPE 1: Utiliser les données React Query si disponibles
     let dataToUse = sharedData;
@@ -352,7 +352,9 @@ export default function MailPage() {
       hasFiles,
       hasFolders,
       filesCount: (dataToUse as any)?.files?.length || 0,
-      foldersCount: (dataToUse as any)?.folders?.length || 0
+      foldersCount: (dataToUse as any)?.folders?.length || 0,
+      filesData: (dataToUse as any)?.files,
+      foldersData: (dataToUse as any)?.folders
     });
 
     // Protection anti-blocage: utiliser setTimeout pour éviter les conflits d'état
@@ -402,6 +404,7 @@ export default function MailPage() {
         console.log('[COURRIER] ✅ Emails convertis:', allEmails.length, 'Source:', sourceType);
         console.log('[COURRIER] 📂 Fichiers:', (dataToUse as any).files?.length || 0);
         console.log('[COURRIER] 📁 Dossiers:', (dataToUse as any).folders?.length || 0);
+        console.log('[COURRIER] 📧 EMAILS GÉNÉRÉS:', JSON.stringify(allEmails, null, 2));
         
         // FORCER L'ORDRE DÉCROISSANT : Plus récent en premier
         const sortedEmails = allEmails.sort((a, b) => {
@@ -415,7 +418,9 @@ export default function MailPage() {
         console.log('[COURRIER] 📊 Statistiques: Total=' + sortedEmails.length + ', Source=' + sourceType);
         
         // MISE À JOUR FORCÉE: Toujours mettre à jour même si identique
+        console.log('[COURRIER] 🔥 AVANT setEmails - emails actuels:', emails.length);
         setEmails([...sortedEmails]); // Spread pour forcer la mise à jour
+        console.log('[COURRIER] 🔥 APRÈS setEmails - nouveaux emails:', sortedEmails.length);
         
         // Sauvegarder les emails convertis avec timestamp
         try {
