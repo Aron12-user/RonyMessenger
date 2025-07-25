@@ -1,4 +1,4 @@
-import { User, InsertUser, Conversation, InsertConversation, Message, InsertMessage, File, InsertFile, Contact, InsertContact, Folder, InsertFolder, FileSharing, InsertFileSharing } from "@shared/schema";
+import { User, InsertUser, Conversation, InsertConversation, Message, InsertMessage, File, InsertFile, Contact, InsertContact, Folder, InsertFolder, FileSharing, InsertFileSharing, Event, InsertEvent, EventParticipant, InsertEventParticipant } from "@shared/schema";
 import { PaginatedResult, PaginationOptions } from "./pg-storage";
 
 // Interface complète et fonctionnelle pour le storage
@@ -60,6 +60,18 @@ export interface IStorageComplete {
   // Folder sharing methods
   getSharedFolders(userId: number): Promise<any[]>;
   
+  // Event methods - Système de planification
+  createEvent(event: InsertEvent): Promise<Event>;
+  getEventsForUser(userId: number): Promise<Event[]>;
+  getEventById(eventId: number): Promise<Event | undefined>;
+  updateEvent(eventId: number, updates: Partial<Event>): Promise<Event>;
+  deleteEvent(eventId: number): Promise<void>;
+  
+  // Event participants methods
+  addEventParticipant(participant: InsertEventParticipant): Promise<EventParticipant>;
+  getEventParticipants(eventId: number): Promise<EventParticipant[]>;
+  updateParticipantResponse(eventId: number, userId: number, response: string): Promise<void>;
+  
   // Pagination methods
   getPaginatedUsers(options: PaginationOptions): Promise<PaginatedResult<User>>;
 }
@@ -73,6 +85,8 @@ export class CompleteMemStorage implements IStorageComplete {
   private fileSharing: Map<number, FileSharing> = new Map();
   private folderSharing: Map<number, any> = new Map(); // Stockage pour les dossiers partagés
   private contacts: Map<string, Contact> = new Map();
+  private events: Map<number, Event> = new Map();
+  private eventParticipants: Map<number, EventParticipant> = new Map();
   private reactions: Map<number, any> = new Map();
 
   // Compteurs pour les IDs
@@ -578,6 +592,93 @@ export class CompleteMemStorage implements IStorageComplete {
     
     console.log(`[STORAGE] Returning ${sharedFolders.length} shared folders`);
     return sharedFolders;
+  }
+
+  // Event methods - Système de planification complet
+  private eventId = 1;
+  private eventParticipantId = 1;
+
+  async createEvent(eventData: InsertEvent): Promise<Event> {
+    const id = this.eventId++;
+    const event: Event = {
+      ...eventData,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.events.set(id, event);
+    return event;
+  }
+
+  async getEventsForUser(userId: number): Promise<Event[]> {
+    // Récupérer les événements créés par l'utilisateur ET ceux où il est participant
+    const createdEvents = Array.from(this.events.values()).filter(event => event.creatorId === userId);
+    
+    const participantEvents = [];
+    for (const event of this.events.values()) {
+      const participants = Array.from(this.eventParticipants.values()).filter(p => p.eventId === event.id && p.userId === userId);
+      if (participants.length > 0) {
+        participantEvents.push(event);
+      }
+    }
+    
+    // Fusionner et dédupliquer
+    const allEvents = [...createdEvents];
+    for (const event of participantEvents) {
+      if (!allEvents.find(e => e.id === event.id)) {
+        allEvents.push(event);
+      }
+    }
+    
+    return allEvents.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+  }
+
+  async getEventById(eventId: number): Promise<Event | undefined> {
+    return this.events.get(eventId);
+  }
+
+  async updateEvent(eventId: number, updates: Partial<Event>): Promise<Event> {
+    const event = this.events.get(eventId);
+    if (!event) throw new Error('Event not found');
+    
+    const updatedEvent = { ...event, ...updates, updatedAt: new Date() };
+    this.events.set(eventId, updatedEvent);
+    return updatedEvent;
+  }
+
+  async deleteEvent(eventId: number): Promise<void> {
+    this.events.delete(eventId);
+    // Supprimer aussi tous les participants
+    for (const [id, participant] of this.eventParticipants.entries()) {
+      if (participant.eventId === eventId) {
+        this.eventParticipants.delete(id);
+      }
+    }
+  }
+
+  async addEventParticipant(participantData: InsertEventParticipant): Promise<EventParticipant> {
+    const id = this.eventParticipantId++;
+    const participant: EventParticipant = {
+      ...participantData,
+      id,
+      invitedAt: new Date()
+    };
+    this.eventParticipants.set(id, participant);
+    return participant;
+  }
+
+  async getEventParticipants(eventId: number): Promise<EventParticipant[]> {
+    return Array.from(this.eventParticipants.values()).filter(p => p.eventId === eventId);
+  }
+
+  async updateParticipantResponse(eventId: number, userId: number, response: string): Promise<void> {
+    for (const [id, participant] of this.eventParticipants.entries()) {
+      if (participant.eventId === eventId && participant.userId === userId) {
+        const updatedParticipant = { ...participant, response, respondedAt: new Date() };
+        this.eventParticipants.set(id, updatedParticipant);
+        break;
+      }
+    }
   }
 }
 

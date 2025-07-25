@@ -16,7 +16,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
-  Mail
+  Mail,
+  Calendar
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -57,6 +58,7 @@ export default function ModernSidebar({
     { id: "meetings", label: "Réunions", icon: Monitor },
     { id: "files", label: "Cloud", icon: FolderOpen },
     { id: "mail", label: "Courrier", icon: Mail },
+    { id: "planning", label: "Planification", icon: Calendar },
     { id: "contacts", label: "Contacts", icon: Users },
   ];
 
