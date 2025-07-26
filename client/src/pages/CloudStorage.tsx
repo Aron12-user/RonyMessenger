@@ -834,9 +834,7 @@ export default function CloudStorage() {
             {filteredFolders.map((folder: any) => (
             <div
               key={folder.id}
-              className="group cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all relative"
-              onMouseEnter={() => setHoveredItem(`folder-${folder.id}`)}
-              onMouseLeave={() => setHoveredItem(null)}
+              className="group cursor-pointer p-3 rounded-lg hover:bg-blue-50 border border-transparent hover:border-blue-200 transition-all duration-200 relative"
               onClick={(e) => {
                 // Empêcher la navigation si on clique sur le menu
                 if ((e.target as HTMLElement).closest('.context-menu')) return;
@@ -855,42 +853,68 @@ export default function CloudStorage() {
                 <div className="mb-2 relative">
                   {getFolderIcon(folder.iconType)}
                   
-                  {/* Menu contextuel pour dossiers */}
-                  {hoveredItem === `folder-${folder.id}` && (
+                  {/* Menu contextuel pour dossiers - TOUJOURS VISIBLE AU HOVER */}
+                  <div className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="context-menu absolute -top-1 -right-1 h-6 w-6 p-0 bg-white shadow-md border"
-                          onClick={(e) => e.stopPropagation()}
+                          className="context-menu h-7 w-7 p-0 bg-white hover:bg-gray-100 shadow-lg border border-gray-300 rounded-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                          }}
                         >
-                          <MoreVertical className="h-3 w-3" />
+                          <MoreVertical className="h-4 w-4 text-gray-700" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => {
-                          setRenameItem(folder);
-                          setNewItemName(folder.name);
-                        }}>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRenameItem(folder);
+                            setNewItemName(folder.name);
+                          }}
+                          className="cursor-pointer"
+                        >
                           <Edit3 className="mr-2 h-4 w-4" />
                           Renommer
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleShare(folder, 'folder')}>
+                        <DropdownMenuItem 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShare(folder, 'folder');
+                          }}
+                          className="cursor-pointer"
+                        >
                           <Share2 className="mr-2 h-4 w-4" />
                           Partager
                         </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`/api/folders/${folder.id}/download`, '_blank');
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Télécharger ZIP
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
-                          onClick={() => handleDelete(folder, 'folder')}
-                          className="text-red-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(folder, 'folder');
+                          }}
+                          className="text-red-600 cursor-pointer focus:text-red-600"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Supprimer
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  )}
+                  </div>
                 </div>
                 <p className="text-xs text-gray-900 truncate w-full font-medium">
                   {renameItem?.id === folder.id ? (
@@ -915,55 +939,85 @@ export default function CloudStorage() {
           {filteredFiles.map((file: any) => (
             <div
               key={file.id}
-              className="group cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all relative"
-              onMouseEnter={() => setHoveredItem(`file-${file.id}`)}
-              onMouseLeave={() => setHoveredItem(null)}
+              className="group cursor-pointer p-3 rounded-lg hover:bg-blue-50 border border-transparent hover:border-blue-200 transition-all duration-200 relative"
               onDoubleClick={() => handlePreview(file)}
             >
               <div className="flex flex-col items-center text-center">
                 <div className="mb-2 relative">
                   {getFileIcon(file.type, file.name)}
                   
-                  {/* Menu contextuel pour fichiers */}
-                  {hoveredItem === `file-${file.id}` && (
+                  {/* Menu contextuel pour fichiers - TOUJOURS VISIBLE AU HOVER */}
+                  <div className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="context-menu absolute -top-1 -right-1 h-6 w-6 p-0 bg-white shadow-md border"
-                          onClick={(e) => e.stopPropagation()}
+                          className="context-menu h-7 w-7 p-0 bg-white hover:bg-gray-100 shadow-lg border border-gray-300 rounded-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                          }}
                         >
-                          <MoreVertical className="h-3 w-3" />
+                          <MoreVertical className="h-4 w-4 text-gray-700" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => {
-                          setRenameItem(file);
-                          setNewItemName(file.name);
-                        }}>
-                          <Edit3 className="mr-2 h-4 w-4" />
-                          Renommer
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handlePreview(file)}>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePreview(file);
+                          }}
+                          className="cursor-pointer"
+                        >
                           <Eye className="mr-2 h-4 w-4" />
                           Prévisualiser
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleShare(file, 'file')}>
+                        <DropdownMenuItem 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRenameItem(file);
+                            setNewItemName(file.name);
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <Edit3 className="mr-2 h-4 w-4" />
+                          Renommer
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShare(file, 'file');
+                          }}
+                          className="cursor-pointer"
+                        >
                           <Share2 className="mr-2 h-4 w-4" />
                           Partager
                         </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`/api/files/${file.id}/download`, '_blank');
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Télécharger
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
-                          onClick={() => handleDelete(file, 'file')}
-                          className="text-red-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(file, 'file');
+                          }}
+                          className="text-red-600 cursor-pointer focus:text-red-600"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Supprimer
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  )}
+                  </div>
                 </div>
                 <p className="text-xs text-gray-900 truncate w-full font-medium">
                   {renameItem?.id === file.id ? (
