@@ -1057,14 +1057,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         };
         
-        // Diffuser via WebSocket pour réception instantanée avec gestion robuste
+        // Diffuser via WebSocket pour réception instantanée avec ciblage utilisateur
         if ((global as any).wss?.clients) {
+          let notificationsSent = 0;
           (global as any).wss.clients.forEach((client: any) => {
-            if (client.readyState === 1) { // WebSocket.OPEN
+            if (client.readyState === 1 && client.userId === sharedWithId) { // WebSocket.OPEN et bon utilisateur
               client.send(JSON.stringify(courierData));
+              notificationsSent++;
+              console.log(`[WebSocket] ✅ Notification fichier envoyée à l'utilisateur ${sharedWithId}`);
             }
           });
-          console.log(`[WebSocket] Notification fichier diffusée à ${(global as any).wss.clients.size} clients`);
+          console.log(`[WebSocket] Notification fichier diffusée à ${notificationsSent} clients sur ${(global as any).wss.clients.size} connectés`);
         }
         
         console.log(`[files] SSE notification sent for file sharing`);
@@ -1150,14 +1153,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         };
         
-        // Diffuser via WebSocket pour réception instantanée avec gestion robuste
+        // Diffuser via WebSocket pour réception instantanée avec ciblage utilisateur
         if ((global as any).wss?.clients) {
+          let notificationsSent = 0;
           (global as any).wss.clients.forEach((client: any) => {
-            if (client.readyState === 1) { // WebSocket.OPEN
+            if (client.readyState === 1 && client.userId === sharedWithId) { // WebSocket.OPEN et bon utilisateur
               client.send(JSON.stringify(courierData));
+              notificationsSent++;
+              console.log(`[WebSocket] ✅ Notification dossier envoyée à l'utilisateur ${sharedWithId}`);
             }
           });
-          console.log(`[WebSocket] Notification dossier diffusée à ${(global as any).wss.clients.size} clients`);
+          console.log(`[WebSocket] Notification dossier diffusée à ${notificationsSent} clients sur ${(global as any).wss.clients.size} connectés`);
         }
         
         console.log(`[folders] SSE notification sent for folder sharing`);
