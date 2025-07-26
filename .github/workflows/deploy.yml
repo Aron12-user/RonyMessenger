@@ -1,0 +1,76 @@
+# Workflow GitHub Actions pour déploiement automatique sur Google Cloud Run
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GAR_LOCATION: europe-west1
+  SERVICE: rony-app
+  REGION: europe-west1
+
+jobs:
+  deploy:
+    # Add 'id-token' with the intended permissions for workload identity federation
+    permissions:
+      contents: read
+      id-token: write
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Google Auth
+        id: auth
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v2'
+
+      - name: 'Configure Docker to use gcloud as a credential helper'
+        run: |
+          gcloud --quiet auth configure-docker
+
+      - name: 'Build and push container'
+        run: |
+          docker build -t gcr.io/$PROJECT_ID/$SERVICE:$GITHUB_SHA .
+          docker push gcr.io/$PROJECT_ID/$SERVICE:$GITHUB_SHA
+
+      - name: 'Deploy to Cloud Run'
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          image: gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE }}:${{ github.sha }}
+          env_vars: |
+            NODE_ENV=production
+            PORT=5000
+          secrets: |
+            SESSION_SECRET=session-secret:latest
+            DATABASE_URL=database-url:latest
+
+      - name: 'Show output'
+        run: echo ${{ steps.deploy.outputs.url }}
+
+      - name: 'Create deployment status'
+        if: github.event_name == 'push'
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/deployments \
+            -d '{
+              "ref": "${{ github.sha }}",
+              "environment": "production",
+              "description": "Deployed to ${{ steps.deploy.outputs.url }}",
+              "auto_merge": false,
+              "required_contexts": []
+            }'

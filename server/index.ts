@@ -6,13 +6,16 @@ import { setupVite, serveStatic, log } from "./vite";
 import session from 'express-session';
 import MemoryStore from 'memorystore';
 import { WebSocketServer } from 'ws';
+import { productionConfig, validateConfig } from './config/production.js';
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Configuration de session avec stockage en mémoire
+// Configuration de session adaptée à l'environnement
 const MemStore = MemoryStore(session);
+const isProduction = process.env.NODE_ENV === 'production';
+
 app.use(session({
   store: new MemStore({
     checkPeriod: 86400000 // prune expired entries every 24h
@@ -20,12 +23,12 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'rony_session_secret_key_2025',
   resave: false,
   saveUninitialized: false,
-  name: 'rony.session',
+  name: isProduction ? productionConfig.session.name : 'rony.session',
   cookie: { 
-    secure: false, // Désactivé pour le développement
-    httpOnly: true,
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
-    sameSite: 'lax'
+    secure: isProduction ? productionConfig.session.secure : false,
+    httpOnly: productionConfig.session.httpOnly,
+    maxAge: isProduction ? productionConfig.session.maxAge : 7 * 24 * 60 * 60 * 1000,
+    sameSite: isProduction ? (productionConfig.session.sameSite as 'none' | 'lax' | 'strict') : 'lax'
   }
 }));
 
@@ -64,6 +67,11 @@ app.use('/uploads', express.static('uploads'));
 
 (async () => {
   try {
+    // Validation de la configuration en production
+    if (process.env.NODE_ENV === 'production') {
+      validateConfig();
+    }
+    
     log("Application démarrée avec stockage en mémoire", "system");
   } catch (error) {
     console.error("Erreur lors du démarrage:", error);
@@ -78,7 +86,7 @@ app.use('/uploads', express.static('uploads'));
   const wss = new WebSocketServer({ 
     server,
     path: '/ws',
-    verifyClient: (info) => {
+    verifyClient: (info: any) => {
       console.log('[WS] Client connection attempt from:', info.origin);
       return true;
     }

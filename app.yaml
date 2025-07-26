@@ -1,0 +1,43 @@
+# Configuration Google Cloud Run (alternative à cloudbuild.yaml)
+# Utilisé pour les déploiements directs via gcloud
+service: rony-app
+runtime: nodejs20
+
+# Configuration des ressources
+instance_class: F2
+automatic_scaling:
+  min_instances: 0
+  max_instances: 10
+  target_cpu_utilization: 0.6
+  target_throughput_utilization: 0.8
+
+# Variables d'environnement
+env_variables:
+  NODE_ENV: production
+  PORT: 5000
+
+# Configuration réseau
+network:
+  session_affinity: false
+
+# Configuration des timeouts
+readiness_check:
+  path: "/api/health"
+  check_interval_sec: 5
+  timeout_sec: 4
+  failure_threshold: 2
+  success_threshold: 2
+
+liveness_check:
+  path: "/api/health"
+  check_interval_sec: 30
+  timeout_sec: 4
+  failure_threshold: 2
+  success_threshold: 2
+
+# Handlers pour les routes
+handlers:
+  - url: /.*
+    script: auto
+    secure: always
+    redirect_http_response_code: 301
