@@ -10,40 +10,32 @@ export default function useWebSocket() {
   const maxReconnectAttempts = 5;
   const reconnectAttempts = useRef(0);
 
-  const reconnect = useCallback(() => {
-    if (reconnectAttempts.current >= maxReconnectAttempts) {
-      console.error('Max reconnection attempts reached');
-      return;
-    }
-    
-    reconnectAttempts.current += 1;
-    reconnectTimeoutRef.current = setTimeout(() => {
-      console.log('Attempting to reconnect...');
-      initializeWebSocket();
-    }, 2000 * Math.pow(2, reconnectAttempts.current));
-  }, []);
-  const messageHandlersRef = useRef<Record<string, MessageHandler>>({});
-
-  // Initialize WebSocket connection
-  useEffect(() => {
+  const initializeWebSocket = useCallback(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const port = window.location.port || (protocol === "wss:" ? "443" : "80");
     const wsUrl = `${protocol}//${window.location.hostname}:${port}/ws`;
     
-    console.log("Trying to connect to WebSocket at:", wsUrl);
+    console.log("Attempting WebSocket connection to:", wsUrl);
     
     try {
+      if (socketRef.current) {
+        socketRef.current.close();
+      }
+      
       const socket = new WebSocket(wsUrl);
       socketRef.current = socket;
+      setStatus('connecting');
     
       socket.onopen = () => {
         setStatus('open');
+        reconnectAttempts.current = 0; // Reset attempts on successful connection
         console.log("WebSocket connection established");
       };
       
       socket.onclose = () => {
         setStatus('closed');
-        console.log("WebSocket connection closed");
+        console.log("WebSocket connection closed, attempting reconnect...");
+        reconnect();
       };
       
       socket.onerror = (error) => {
@@ -62,17 +54,44 @@ export default function useWebSocket() {
           console.error("Error parsing WebSocket message:", err);
         }
       };
-      
-      // Clean up function
-      return () => {
-        socket.close();
-      };
     } catch (error) {
       console.error("Failed to create WebSocket:", error);
       setStatus('error');
-      return () => {};
+      reconnect();
     }
   }, []);
+
+  const reconnect = useCallback(() => {
+    if (reconnectAttempts.current >= maxReconnectAttempts) {
+      console.error('Max reconnection attempts reached');
+      setStatus('error');
+      return;
+    }
+    
+    reconnectAttempts.current += 1;
+    const delay = 2000 * Math.pow(2, reconnectAttempts.current);
+    console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts.current}/${maxReconnectAttempts})`);
+    
+    reconnectTimeoutRef.current = setTimeout(() => {
+      initializeWebSocket();
+    }, delay);
+  }, [initializeWebSocket]);
+  const messageHandlersRef = useRef<Record<string, MessageHandler>>({});
+
+  // Initialize WebSocket connection
+  useEffect(() => {
+    initializeWebSocket();
+    
+    // Clean up function
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (socketRef.current) {
+        socketRef.current.close();
+      }
+    };
+  }, [initializeWebSocket]);
 
   // Register message handler
   const addMessageHandler = useCallback((type: string, handler: MessageHandler) => {

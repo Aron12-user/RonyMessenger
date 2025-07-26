@@ -335,17 +335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileUrl: fileUrl || null,
         fileName: fileName || null,
         fileType: fileType || null,
-        fileSize: fileSize || null,
-        timestamp: new Date(),
-        isRead: false,
-        isDeleted: false,
-        isPinned: false,
-        isEdited: false,
-        editedAt: null,
-        replyToId: null,
-        reactions: [],
-        mentions: [],
-        metadata: null
+        fileSize: fileSize || null
       });
 
       await storage.updateConversationLastMessage(
@@ -402,15 +392,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileName: fileName || null,
         fileType: fileType || null,
         fileSize: fileSize || null,
-        mentions: mentions || [],
-        timestamp: new Date(),
-        isRead: false,
-        isDeleted: false,
-        isPinned: false,
-        isEdited: false,
-        editedAt: null,
-        reactions: [],
-        metadata: null
+        mentions: mentions || []
       });
 
       await storage.updateConversationLastMessage(
@@ -1784,8 +1766,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: Date.now() + Math.random(),
         type: 'reply',
         recipientId: recipient.id,
-        sender: senderName || (user as any)?.displayName || (user as any)?.username,
-        senderEmail: senderEmail || (user as any)?.username,
+        sender: senderName || req.user?.displayName || req.user?.username || 'Utilisateur',
+        senderEmail: senderEmail || req.user?.username || req.user?.email || '',
         subject: `Re: ${originalSubject}`,
         content: message,
         originalContent: originalContent,
@@ -1856,8 +1838,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: Date.now() + Math.random(),
         type: 'forward',
         recipientId: recipient.id,
-        sender: senderName || (user as any)?.displayName || (user as any)?.username,
-        senderEmail: senderEmail || (user as any)?.username,
+        sender: senderName || req.user?.displayName || req.user?.username || 'Utilisateur',
+        senderEmail: senderEmail || req.user?.username || req.user?.email || '',
         subject: `Fwd: ${originalEmail.subject}`,
         content: `${message}\n\n--- Message transféré ---\nDe: ${originalEmail.sender}\nSujet: ${originalEmail.subject}\n\n${originalEmail.content}`,
         originalEmail: originalEmail,
@@ -1927,8 +1909,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: Date.now() + Math.random(),
         type: 'compose',
         recipientId: recipient.id,
-        sender: senderName || (user as any)?.displayName || (user as any)?.username,
-        senderEmail: senderEmail || (user as any)?.username,
+        sender: senderName || req.user?.displayName || req.user?.username || 'Utilisateur',
+        senderEmail: senderEmail || req.user?.username || req.user?.email || '',
         subject: subject,
         content: message,
         preview: message.substring(0, 100) + (message.length > 100 ? '...' : ''),
