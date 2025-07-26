@@ -80,38 +80,43 @@ export default function CloudStoragePro() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // Requêtes pour récupérer les données
-  const { data: folders = [], isLoading: foldersLoading } = useQuery({
+  const { data: foldersData = [], isLoading: foldersLoading } = useQuery({
     queryKey: ['/api/folders', currentFolderId],
     queryFn: () => apiRequest(`/api/folders?parent=${currentFolderId || ''}`),
   });
+  
+  const folders = Array.isArray(foldersData) ? foldersData : [];
 
-  const { data: files = [], isLoading: filesLoading } = useQuery({
+  const { data: filesData = [], isLoading: filesLoading } = useQuery({
     queryKey: ['/api/files', currentFolderId],
     queryFn: () => apiRequest(`/api/files?folder=${currentFolderId || ''}`),
   });
+  
+  const files = Array.isArray(filesData) ? filesData : [];
 
-  const { data: folderPath = [], isLoading: pathLoading } = useQuery({
+  const { data: folderPathData = [], isLoading: pathLoading } = useQuery({
     queryKey: ['/api/folders/path', currentFolderId],
     queryFn: () => currentFolderId ? apiRequest(`/api/folders/${currentFolderId}/path`) : Promise.resolve([]),
     enabled: !!currentFolderId,
   });
+  
+  const folderPath = Array.isArray(folderPathData) ? folderPathData : [];
 
   // Statistiques de stockage
-  const { data: storageStats } = useQuery({
+  const { data: storageStatsData } = useQuery({
     queryKey: ['/api/storage/stats'],
     queryFn: () => apiRequest('/api/storage/stats'),
   });
+  
+  const storageStats = storageStatsData as any;
 
   // Mutations
   const createFolderMutation = useMutation({
     mutationFn: (data: { name: string; iconType: string }) => 
-      apiRequest('/api/folders', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: data.name,
-          parentId: currentFolderId,
-          iconType: data.iconType,
-        }),
+      apiRequest('/api/folders', 'POST', {
+        name: data.name,
+        parentId: currentFolderId,
+        iconType: data.iconType,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
@@ -148,9 +153,7 @@ export default function CloudStoragePro() {
 
   const deleteItemMutation = useMutation({
     mutationFn: ({ id, isFolder }: { id: number; isFolder: boolean }) => 
-      apiRequest(`/api/${isFolder ? 'folders' : 'files'}/${id}`, {
-        method: 'DELETE',
-      }),
+      apiRequest(`/api/${isFolder ? 'folders' : 'files'}/${id}`, 'DELETE'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
       queryClient.invalidateQueries({ queryKey: ['/api/files'] });
@@ -167,10 +170,7 @@ export default function CloudStoragePro() {
   const renameItemMutation = useMutation({
     mutationFn: () => {
       if (!itemToRename) throw new Error("Aucun élément à renommer");
-      return apiRequest(`/api/${itemToRename.isFolder ? 'folders' : 'files'}/${itemToRename.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ name: newName }),
-      });
+      return apiRequest(`/api/${itemToRename.isFolder ? 'folders' : 'files'}/${itemToRename.id}`, 'PATCH', { name: newName });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
@@ -427,8 +427,8 @@ export default function CloudStoragePro() {
       const newSelectedFiles: Record<number, boolean> = {};
       const newSelectedFolders: Record<number, boolean> = {};
       
-      paginatedFiles.forEach(file => newSelectedFiles[file.id] = true);
-      paginatedFolders.forEach(folder => newSelectedFolders[folder.id] = true);
+      paginatedFiles.forEach((file: any) => newSelectedFiles[file.id] = true);
+      paginatedFolders.forEach((folder: any) => newSelectedFolders[folder.id] = true);
       
       setSelectedFiles(newSelectedFiles);
       setSelectedFolders(newSelectedFolders);

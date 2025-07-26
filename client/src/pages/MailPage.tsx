@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils";
 
 // Import du nouveau composant
 import EmailNotificationBadge from '@/components/EmailNotificationBadge';
+import useWebSocket from '@/hooks/useWebSocket';
 
 // Types pour le système de courrier
 interface EmailItem {
@@ -80,9 +81,8 @@ export default function MailPage() {
   const [readEmails, setReadEmails] = useState<Set<number>>(new Set());
   const [forceRefreshTrigger, setForceRefreshTrigger] = useState(0); // SOLUTION DÉFINITIVE: Trigger pour forcer les mises à jour
   
-  // WebSocket pour les mises à jour temps réel (SOLUTION ROBUSTE)
-  const wsRef = useRef<WebSocket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+  // Import et utilisation du WebSocket amélioré
+  const webSocket = useWebSocket();
   
   // États pour les dialogs et fonctionnalités avancées
   const [showReplyDialog, setShowReplyDialog] = useState(false);
@@ -121,154 +121,46 @@ export default function MailPage() {
     refetchIntervalInBackground: true, // AJOUT: Refetch même en arrière-plan
   });
 
-  // Connexion WebSocket pour les mises à jour temps réel avec protection anti-blocage
+  // Configuration WebSocket pour réception instantanée
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
 
-    const connectWebSocket = () => {
-      try {
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
-        console.log('Connexion WebSocket pour courrier:', wsUrl, 'userId:', (user as any)?.id);
+    // Identifier l'utilisateur auprès du WebSocket
+    webSocket.setUserId(user.id);
+    console.log("[MailPage] User identified to WebSocket:", user.id);
+
+    // Handler pour les notifications de courrier
+    const handleCourrierNotification = (data: any) => {
+      console.log("[MailPage] Received courrier notification:", data);
       
-        const ws = new WebSocket(wsUrl);
-        wsRef.current = ws;
-
-        ws.onopen = () => {
-          console.log('WebSocket connecté pour courrier');
-          setIsConnected(true);
-          
-          // Envoyer l'ID utilisateur pour identifier la connexion
-          ws.send(JSON.stringify({
-            type: 'identify',
-            userId: (user as any)?.id
-          }));
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            console.log('[WS] ⚡ Message WebSocket reçu:', data);
-            
-            // SOLUTION ABSOLUE : Traitement garanti et renforcé des courriers
-            if (data.type === 'courrier_shared' || data.type === 'courrier_message' || data.type === 'courrier') {
-              console.log('[WS] 🚨 NOUVEAU COURRIER DÉTECTÉ - ACTIVATION RÉCEPTION GARANTIE:', data);
-              
-              // Vérifier si c'est pour cet utilisateur (logique élargie pour compatibilité)
-              const currentUserId = (user as any)?.id;
-              const isForThisUser = data.data && (
-                data.data.recipientId === currentUserId ||
-                data.recipientId === currentUserId ||
-                data.userId === currentUserId ||
-                data.targetUserId === currentUserId
-              );
-              
-              // Si pas de recipientId spécifique, considérer comme pour tous
-              const shouldProcess = isForThisUser || !data.data?.recipientId;
-              
-              if (shouldProcess) {
-                console.log('[WS] ✅ COURRIER CONFIRMÉ POUR CET UTILISATEUR - LANCEMENT PROTOCOLE RÉCEPTION');
-                
-                // PROTOCOLE RÉCEPTION ABSOLUE : 7 étapes garanties
-                
-                // ÉTAPE 1: Invalidation immédiate (5ms)
-                setTimeout(() => {
-                  console.log('[WS] 🔥 ÉTAPE 1: Invalidation cache immédiate');
-                  queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
-                }, 5);
-                
-                // ÉTAPE 2: Premier refetch (15ms)
-                setTimeout(() => {
-                  console.log('[WS] 🔄 ÉTAPE 2: Premier refetch');
-                  refetch();
-                }, 15);
-                
-                // ÉTAPE 3: Notification utilisateur (50ms)
-                setTimeout(() => {
-                  console.log('[WS] 🔔 ÉTAPE 3: Notification utilisateur');
-                  toast({
-                    title: '📧 Nouveau courrier reçu!',
-                    description: `De: ${data.data?.sender || data.senderName || 'Utilisateur'} - ${data.data?.subject || data.subject || 'Partage'}`,
-                    duration: 5000
-                  });
-                }, 50);
-                
-                // ÉTAPE 4: Refetch de sécurité (200ms)
-                setTimeout(() => {
-                  console.log('[WS] 🔄 ÉTAPE 4: Refetch de sécurité');
-                  queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
-                  refetch();
-                }, 200);
-                
-                // ÉTAPE 5: Double vérification (500ms)
-                setTimeout(() => {
-                  console.log('[WS] ✅ ÉTAPE 5: Double vérification');
-                  queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
-                }, 500);
-                
-                // ÉTAPE 6: Refetch final (1s)
-                setTimeout(() => {
-                  console.log('[WS] 🚀 ÉTAPE 6: Refetch final');
-                  refetch();
-                }, 1000);
-                
-                // ÉTAPE 7: Garantie ultime (3s)
-                setTimeout(() => {
-                  console.log('[WS] 🎯 ÉTAPE 7: Garantie ultime - PROTOCOLE TERMINÉ');
-                  queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
-                  setForceRefreshTrigger(prev => prev + 1); // FORCE le trigger de mise à jour
-                  refetch();
-                }, 3000);
-                
-                // ÉTAPE BONUS: Persistance locale et vérification périodique
-                setTimeout(() => {
-                  console.log('[WS] 🔄 ÉTAPE BONUS: Sauvegarde locale et vérification finale');
-                  // Sauvegarder timestamp de dernière mise à jour
-                  localStorage.setItem('lastCourrierUpdate', Date.now().toString());
-                  // Force refresh ultime
-                  setForceRefreshTrigger(prev => prev + 1);
-                  // Vérifier si les emails sont bien présents
-                  setTimeout(() => {
-                    const currentEmails = JSON.parse(localStorage.getItem('courrierEmails') || '{"emails":[]}');
-                    console.log('[WS] 🔍 Vérification finale: ' + currentEmails.emails.length + ' emails en cache');
-                  }, 1000);
-                }, 5000);
-                
-                console.log('[WS] 🚀 PROTOCOLE RÉCEPTION ABSOLUE ACTIVÉ - 8 ÉTAPES EN COURS');
-              } else {
-                console.log('[WS] ❌ Courrier non destiné:', data.data?.recipientId, 'vs userId:', currentUserId);
-              }
-            }
-          } catch (error) {
-            console.error('[WS] ❌ Erreur critique parsing WebSocket:', error);
-          }
-        };
-
-        ws.onclose = () => {
-          console.log('WebSocket fermé, tentative de reconnexion...');
-          setIsConnected(false);
-          setTimeout(connectWebSocket, 3000);
-        };
-
-        ws.onerror = (error) => {
-          console.error('Erreur WebSocket:', error);
-          setIsConnected(false);
-        };
-      } catch (error) {
-        console.error('Erreur création WebSocket:', error);
-        setTimeout(connectWebSocket, 5000);
-      }
+      // Force une mise à jour immédiate des données
+      setForceRefreshTrigger(prev => prev + 1);
+      queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
+      
+      // Afficher une notification toast
+      toast({
+        title: "Nouveau courrier reçu",
+        description: `${data.sender}: ${data.subject}`,
+        duration: 5000,
+      });
     };
 
-    connectWebSocket();
+    // Enregistrer les handlers WebSocket pour plusieurs types de courrier
+    const removeCourrierHandler = webSocket.addMessageHandler('courrier_shared', handleCourrierNotification);
+    const removeMessageHandler = webSocket.addMessageHandler('courrier_message', handleCourrierNotification);
 
     return () => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
+      removeCourrierHandler();
+      removeMessageHandler();
     };
-  }, [user, queryClient, refetch, toast]);
+  }, [user?.id, webSocket, queryClient]);
+
+  // Status WebSocket pour affichage
+  const [isConnected, setIsConnected] = useState(false);
+  
+  useEffect(() => {
+    setIsConnected(webSocket.status === 'open');
+  }, [webSocket.status]);
 
   // CORRECTION CRITIQUE : Gérer les données en toute sécurité pour éviter les pages blanches
   const sharedFiles = (sharedData as any)?.files || [];
