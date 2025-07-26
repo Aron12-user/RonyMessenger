@@ -23,16 +23,16 @@ Rony is a comprehensive communication platform that combines messaging, video co
 - **File Uploads**: Multer 2.0.1 for secure file uploads with local storage
 
 ### Video Conferencing
-- **Primary**: Simple Jitsi Meet integration (meet.jit.si)
+- **Primary**: Custom Jitsi Meet integration (jitsiaronaduckdns.org)
 - **Features**: Instant meeting creation, room codes, external link integration
-- **Architecture**: Lightweight interface connecting to public Jitsi servers
-- **Scalability**: Leverages Jitsi's infrastructure for unlimited users
+- **Architecture**: Lightweight interface connecting to self-hosted Jitsi server
+- **Scalability**: Leverages dedicated Jitsi infrastructure for enhanced control
 
 ## Key Components
 
 ### Communication Features
 - **Messaging System**: Real-time chat with file attachments and encryption support
-- **Video Conferencing**: Simple Jitsi Meet integration for instant meetings
+- **Video Conferencing**: Custom Jitsi Meet integration for instant meetings
 - **File Sharing**: Secure file upload, download, and sharing with expiration controls
 - **Collaboration Tools**: Document sharing and team coordination features
 
@@ -63,8 +63,8 @@ Rony is a comprehensive communication platform that combines messaging, video co
 
 ### Video Conferencing
 1. Meeting rooms created with unique codes
-2. Simple Jitsi Meet integration via external links
-3. Instant meeting creation without complex server setup
+2. Custom Jitsi Meet server integration via external links
+3. Instant meeting creation with dedicated server infrastructure
 4. Room management through lightweight API endpoints
 
 ### File Management
@@ -128,7 +128,7 @@ Rony is a comprehensive communication platform that combines messaging, video co
 
 ### Core Technologies
 - **Database**: PostgreSQL (Neon serverless or local)
-- **Video**: Simple Jitsi Meet integration (meet.jit.si)
+- **Video**: Custom Jitsi Meet integration (jitsiaronaduckdns.org)
 - **File Storage**: Local filesystem with future cloud integration
 
 ### Third-party Services
@@ -316,6 +316,11 @@ Changelog:
 - July 25, 2025. Improved Planification with auto-refresh, event statistics, and enhanced UI components
 - July 25, 2025. Added forced immediate email display for Courrier with shortcut conversion mechanism
 - July 25, 2025. Implemented comprehensive error handling and performance improvements across all modules
+- July 26, 2025. JITSI SERVER MIGRATION: Replaced public Jitsi Meet (meet.jit.si) with custom self-hosted server (jitsiaronaduckdns.org)
+- July 26, 2025. Updated all video conferencing URLs in frontend (Meetings.tsx) and backend (routes-clean.ts)
+- July 26, 2025. Enhanced video conferencing with dedicated server infrastructure for better control and reliability
+- July 26, 2025. Preserved complete meeting functionality and interface while migrating to custom Jitsi server
+- July 26, 2025. Updated documentation to reflect custom Jitsi Meet integration with enhanced scalability
 ```
 
 ## User Preferences

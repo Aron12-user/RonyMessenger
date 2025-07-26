@@ -213,14 +213,14 @@ export default function Meetings() {
   // Créer une réunion instantanée
   const createInstantMeeting = () => {
     const roomCode = generateRoomCode();
-    const meetingUrl = `https://meet.jit.si/${roomCode}`;
+    const meetingUrl = `https://jitsiaronaduckdns.org/${roomCode}`;
     window.open(meetingUrl, '_blank');
   };
 
   // Rejoindre une réunion avec code
   const joinMeetingWithCode = () => {
     if (!joinCode.trim()) return;
-    const meetingUrl = `https://meet.jit.si/${joinCode}`;
+    const meetingUrl = `https://jitsiaronaduckdns.org/${joinCode}`;
     window.open(meetingUrl, '_blank');
     setShowJoinDialog(false);
     setJoinCode("");
@@ -233,13 +233,13 @@ export default function Meetings() {
 
   // Rejoindre une réunion
   const joinMeeting = (roomCode: string) => {
-    const meetingUrl = `https://meet.jit.si/${roomCode}`;
+    const meetingUrl = `https://jitsiaronaduckdns.org/${roomCode}`;
     window.open(meetingUrl, '_blank');
   };
 
   // Copier le lien de la réunion
   const copyMeetingLink = (roomCode: string) => {
-    const meetingUrl = `https://meet.jit.si/${roomCode}`;
+    const meetingUrl = `https://jitsiaronaduckdns.org/${roomCode}`;
     navigator.clipboard.writeText(meetingUrl);
     toast({
       title: "Lien copié",
