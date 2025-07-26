@@ -1186,32 +1186,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // COURRIER SYSTEM - RETOUR À WEBSOCKET AVEC GESTION ROBUSTE DES CONNEXIONS
 
-  // API COURRIER CORRIGÉE - utilise les méthodes de stockage existantes
-  app.get("/api/files/shared", requireAuth, async (req, res) => {
+  // ✅ API COURRIER DÉFINITIVE - Solution robuste et unifiée
+  app.get("/api/mail", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
         return res.status(401).json({ error: "Non authentifié" });
       }
 
-      console.log(`[COURRIER-FIX] Récupération courrier pour utilisateur ${userId}`);
+      console.log(`[COURRIER-DÉFINITIF] Récupération courrier pour utilisateur ${userId}`);
       
       // Utiliser les méthodes de stockage existantes qui fonctionnent
       const sharedFiles = await storage.getSharedFiles(userId);
       const sharedFolders = await storage.getSharedFolders(userId);
       
-      console.log(`[COURRIER-FIX] Storage retourné: ${sharedFiles.length} fichiers, ${sharedFolders.length} dossiers`);
+      console.log(`[COURRIER-DÉFINITIF] Storage retourné: ${sharedFiles.length} fichiers, ${sharedFolders.length} dossiers`);
 
-      // Convertir en format courrier
+      // Convertir en format EmailItem avec IDs uniques
       const fileEmails = sharedFiles.map((file: any, index: number) => ({
-        id: 1000 + index,
+        id: 1000 + file.id, // ID unique basé sur l'ID du fichier
         subject: `Fichier partagé: ${file.name}`,
         sender: file.sharedBy?.displayName || 'Utilisateur',
         senderEmail: file.sharedBy?.username || 'user@rony.com',
         content: `Fichier "${file.name}" a été partagé avec vous.\n\nTaille: ${(file.size / 1024).toFixed(1)} KB\nType: ${file.type || 'Non spécifié'}\n\nCliquez pour télécharger.`,
+        preview: `Fichier partagé: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`,
         date: new Date(file.sharedAt).toLocaleDateString('fr-FR'),
         time: new Date(file.sharedAt).toLocaleTimeString('fr-FR'),
-        priority: 'medium',
+        priority: 'medium' as const,
         hasAttachment: true,
         attachment: {
           name: file.name,
@@ -1219,35 +1220,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: file.type,
           url: `/api/files/${file.id}/download`
         },
-        category: 'files'
+        category: 'files' as const
       }));
 
       const folderEmails = sharedFolders.map((folder: any, index: number) => ({
-        id: 2000 + index,
+        id: 2000 + folder.id, // ID unique basé sur l'ID du dossier
         subject: `Dossier partagé: ${folder.name}`,
         sender: folder.sharedBy?.displayName || 'Utilisateur',
         senderEmail: folder.sharedBy?.username || 'user@rony.com',
         content: `Dossier "${folder.name}" a été partagé avec vous.\n\nVous pouvez l'explorer et télécharger son contenu.`,
+        preview: `Dossier partagé: ${folder.name}`,
         date: new Date(folder.sharedAt).toLocaleDateString('fr-FR'),
         time: new Date(folder.sharedAt).toLocaleTimeString('fr-FR'),
-        priority: 'medium',
+        priority: 'medium' as const,
         hasAttachment: true,
         folder: {
           id: folder.id,
           name: folder.name,
           fileCount: 0
         },
-        category: 'folders'
+        category: 'folders' as const
       }));
 
-      console.log(`[COURRIER-FIX] Emails générés: ${fileEmails.length} fichiers, ${folderEmails.length} dossiers`);
+      // Combiner et trier par date (plus récent en premier)
+      const allEmails = [...fileEmails, ...folderEmails].sort((a, b) => 
+        new Date(`${b.date} ${b.time}`).getTime() - new Date(`${a.date} ${a.time}`).getTime()
+      );
 
+      console.log(`[COURRIER-DÉFINITIF] Emails générés: ${fileEmails.length} fichiers, ${folderEmails.length} dossiers, total: ${allEmails.length}`);
+
+      res.json(allEmails);
+    } catch (error: any) {
+      console.error('[COURRIER-DÉFINITIF] Erreur:', error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Garder aussi l'API /api/files/shared pour compatibilité
+  app.get("/api/files/shared", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const sharedFiles = await storage.getSharedFiles(userId);
+      const sharedFolders = await storage.getSharedFolders(userId);
+      
       res.json({ 
-        files: fileEmails, 
-        folders: folderEmails 
+        files: sharedFiles, 
+        folders: sharedFolders 
       });
     } catch (error: any) {
-      console.error('[COURRIER-FIX] Erreur:', error);
+      console.error('[SHARED-API] Erreur:', error);
       res.status(500).json({ error: "Erreur serveur" });
     }
   });

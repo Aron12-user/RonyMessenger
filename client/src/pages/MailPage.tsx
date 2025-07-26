@@ -110,15 +110,15 @@ export default function MailPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Récupérer les fichiers et dossiers partagés avec gestion d'erreur améliorée
-  const { data: sharedData, refetch, isLoading: isLoadingSharedData, error: sharedDataError } = useQuery({
-    queryKey: ['/api/files/shared', forceRefreshTrigger], // AJOUT du trigger pour invalider automatiquement
+  // ✅ SOLUTION DÉFINITIVE: Récupérer les courriers avec l'API unifiée /api/mail
+  const { data: emailsData, refetch, isLoading: isLoadingEmails, error: emailsError } = useQuery({
+    queryKey: ['/api/mail', forceRefreshTrigger], // API unifiée pour courriers
     enabled: !!user,
-    staleTime: 0, // RÉDUCTION à 0 pour forcer les mises à jour
-    retry: 5, // AUGMENTATION des tentatives
-    retryDelay: 500, // RÉDUCTION du délai entre tentatives
-    refetchInterval: 10 * 1000, // AJOUT: Refetch automatique toutes les 10 secondes
-    refetchIntervalInBackground: true, // AJOUT: Refetch même en arrière-plan
+    staleTime: 0, // Forcer les mises à jour
+    retry: 3, // Tentatives raisonnables
+    retryDelay: 1000, // Délai approprié
+    refetchInterval: 5 * 1000, // Refetch toutes les 5 secondes
+    refetchIntervalInBackground: true, // Refetch en arrière-plan
   });
 
   // Configuration WebSocket pour réception instantanée
@@ -129,13 +129,17 @@ export default function MailPage() {
     webSocket.setUserId(user.id);
     console.log("[MailPage] User identified to WebSocket:", user.id);
 
-    // Handler pour les notifications de courrier
+    // ✅ Handler pour les notifications de courrier - SOLUTION DÉFINITIVE
     const handleCourrierNotification = (data: any) => {
-      console.log("[MailPage] Received courrier notification:", data);
+      console.log("[MailPage] Notification courrier reçue:", data);
       
-      // Force une mise à jour immédiate des données
+      // Force une mise à jour immédiate avec triple invalidation
       setForceRefreshTrigger(prev => prev + 1);
+      queryClient.invalidateQueries({ queryKey: ['/api/mail'] });
       queryClient.invalidateQueries({ queryKey: ['/api/files/shared'] });
+      
+      // Refetch immédiat
+      setTimeout(() => refetch(), 100);
       
       // Afficher une notification toast
       toast({
@@ -162,9 +166,8 @@ export default function MailPage() {
     setIsConnected(webSocket.status === 'open');
   }, [webSocket.status]);
 
-  // CORRECTION CRITIQUE : Gérer les données en toute sécurité pour éviter les pages blanches
-  const sharedFiles = (sharedData as any)?.files || [];
-  const sharedFolders = (sharedData as any)?.folders || [];
+  // ✅ SOLUTION ROBUSTE: Utiliser directement les données d'emails de l'API unifiée
+  const apiEmails = Array.isArray(emailsData) ? emailsData : [];
 
   // SOLUTION DÉFINITIVE: Système de cache local et synchronisation forcée
   useEffect(() => {
