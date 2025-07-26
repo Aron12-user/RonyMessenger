@@ -79,8 +79,11 @@ export default function MailPageFixed() {
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
   const [expandedEmail, setExpandedEmail] = useState<number | null>(null);
   const [pinnedEmails, setPinnedEmails] = useState<Set<number>>(new Set());
+  const [favoriteEmails, setFavoriteEmails] = useState<Set<number>>(new Set());
   const [readEmails, setReadEmails] = useState<Set<number>>(new Set());
   const [forceRefreshTrigger, setForceRefreshTrigger] = useState(0);
+  const [selectMode, setSelectMode] = useState(false);
+  const [bulkActionOpen, setBulkActionOpen] = useState(false);
   
   // États pour les dialogs et fonctionnalités avancées
   const [showReplyDialog, setShowReplyDialog] = useState(false);
@@ -187,10 +190,14 @@ export default function MailPageFixed() {
       const savedRead = localStorage.getItem(`readEmails_${(user as any).id}`);
       const savedDeleted = localStorage.getItem(`deletedEmails_${(user as any).id}`);
       const savedArchived = localStorage.getItem(`archivedEmails_${(user as any).id}`);
+      const savedPinned = localStorage.getItem(`pinnedEmails_${(user as any).id}`);
+      const savedFavorite = localStorage.getItem(`favoriteEmails_${(user as any).id}`);
       
       if (savedRead) setReadEmails(new Set(JSON.parse(savedRead)));
       if (savedDeleted) setDeletedEmails(new Set(JSON.parse(savedDeleted)));
       if (savedArchived) setArchivedEmails(new Set(JSON.parse(savedArchived)));
+      if (savedPinned) setPinnedEmails(new Set(JSON.parse(savedPinned)));
+      if (savedFavorite) setFavoriteEmails(new Set(JSON.parse(savedFavorite)));
       
       console.log('[COURRIER-DÉFINITIF] États persistants chargés');
     } catch (error) {
@@ -277,6 +284,81 @@ export default function MailPageFixed() {
     }
   };
 
+  // Fonctions pour gérer les actions sur les emails
+  const toggleEmailSelection = (emailId: number) => {
+    const newSelected = new Set(selectedEmails);
+    if (newSelected.has(emailId)) {
+      newSelected.delete(emailId);
+    } else {
+      newSelected.add(emailId);
+    }
+    setSelectedEmails(newSelected);
+  };
+
+  const selectAllEmails = () => {
+    if (selectedEmails.size === filteredEmails.length) {
+      setSelectedEmails(new Set());
+    } else {
+      setSelectedEmails(new Set(filteredEmails.map(e => e.id)));
+    }
+  };
+
+  const toggleFavorite = (emailId: number) => {
+    const newFavorites = new Set(favoriteEmails);
+    if (newFavorites.has(emailId)) {
+      newFavorites.delete(emailId);
+    } else {
+      newFavorites.add(emailId);
+    }
+    setFavoriteEmails(newFavorites);
+    try {
+      localStorage.setItem(`favoriteEmails_${(user as any)?.id}`, JSON.stringify(Array.from(newFavorites)));
+    } catch (error) {
+      console.error('Erreur sauvegarde favoris:', error);
+    }
+  };
+
+  const togglePin = (emailId: number) => {
+    const newPinned = new Set(pinnedEmails);
+    if (newPinned.has(emailId)) {
+      newPinned.delete(emailId);
+    } else {
+      newPinned.add(emailId);
+    }
+    setPinnedEmails(newPinned);
+    try {
+      localStorage.setItem(`pinnedEmails_${(user as any)?.id}`, JSON.stringify(Array.from(newPinned)));
+    } catch (error) {
+      console.error('Erreur sauvegarde épinglés:', error);
+    }
+  };
+
+  const archiveBulkEmails = () => {
+    const newArchived = new Set(archivedEmails);
+    selectedEmails.forEach(id => newArchived.add(id));
+    setArchivedEmails(newArchived);
+    setSelectedEmails(new Set());
+    try {
+      localStorage.setItem(`archivedEmails_${(user as any)?.id}`, JSON.stringify(Array.from(newArchived)));
+    } catch (error) {
+      console.error('Erreur archivage bulk:', error);
+    }
+    toast({ title: `${selectedEmails.size} courriers archivés` });
+  };
+
+  const deleteBulkEmails = () => {
+    const newDeleted = new Set(deletedEmails);
+    selectedEmails.forEach(id => newDeleted.add(id));
+    setDeletedEmails(newDeleted);
+    setSelectedEmails(new Set());
+    try {
+      localStorage.setItem(`deletedEmails_${(user as any)?.id}`, JSON.stringify(Array.from(newDeleted)));
+    } catch (error) {
+      console.error('Erreur suppression bulk:', error);
+    }
+    toast({ title: `${selectedEmails.size} courriers supprimés` });
+  };
+
   // Filtrer et trier les emails
   const filteredEmails = emails.filter(email => {
     if (deletedEmails.has(email.id)) return false;
@@ -316,6 +398,11 @@ export default function MailPageFixed() {
     }
     
     return sortOrder === 'asc' ? comparison : -comparison;
+  }).sort((a, b) => {
+    // Toujours mettre les épinglés en premier
+    if (pinnedEmails.has(a.id) && !pinnedEmails.has(b.id)) return -1;
+    if (!pinnedEmails.has(a.id) && pinnedEmails.has(b.id)) return 1;
+    return 0;
   });
 
   // Indicateur d'état de connexion
@@ -346,6 +433,41 @@ export default function MailPageFixed() {
           </div>
           
           <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setSelectMode(!selectMode)}
+              variant={selectMode ? "default" : "outline"}
+              size="sm"
+            >
+              <Check className="h-4 w-4 mr-2" />
+              Sélectionner
+            </Button>
+
+            {selectMode && selectedEmails.size > 0 && (
+              <DropdownMenu open={bulkActionOpen} onOpenChange={setBulkActionOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    Actions ({selectedEmails.size})
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={archiveBulkEmails}>
+                    <Archive className="h-4 w-4 mr-2" />
+                    Archiver tout
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={deleteBulkEmails}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Supprimer tout
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={selectAllEmails}>
+                    <Check className="h-4 w-4 mr-2" />
+                    {selectedEmails.size === filteredEmails.length ? 'Tout désélectionner' : 'Tout sélectionner'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            
             <Button
               onClick={() => setViewMode(viewMode === 'compact' ? 'detailed' : 'compact')}
               variant="outline"
@@ -434,7 +556,10 @@ export default function MailPageFixed() {
         <div className="flex items-center gap-6 text-sm text-gray-600 dark:text-gray-400">
           <span>Total: {filteredEmails.length}</span>
           <span>Non lus: {filteredEmails.filter(e => !readEmails.has(e.id)).length}</span>
+          <span>Favoris: {favoriteEmails.size}</span>
+          <span>Épinglés: {pinnedEmails.size}</span>
           <span>Archivés: {archivedEmails.size}</span>
+          {selectMode && <span className="text-blue-600">Sélectionnés: {selectedEmails.size}</span>}
           {isLoadingEmails && <span className="text-blue-600">Chargement...</span>}
         </div>
       </div>
@@ -463,24 +588,53 @@ export default function MailPageFixed() {
               <div className="bg-white dark:bg-gray-800 rounded-lg border overflow-hidden">
                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                   {filteredEmails.map((email) => (
-                    <div key={email.id}>
+                    <div key={email.id} className="group">
                       {/* Ligne compacte */}
                       <div
                         className={cn(
-                          "flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors",
+                          "flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors relative",
                           !readEmails.has(email.id) && "bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600",
-                          expandedEmail === email.id && "bg-blue-50 dark:bg-blue-900/20"
+                          expandedEmail === email.id && "bg-blue-50 dark:bg-blue-900/20",
+                          selectedEmails.has(email.id) && "ring-2 ring-blue-500 bg-blue-100 dark:bg-blue-800",
+                          pinnedEmails.has(email.id) && "border-t-2 border-t-yellow-400"
                         )}
-                        onClick={() => {
-                          markAsRead(email.id);
-                          setExpandedEmail(expandedEmail === email.id ? null : email.id);
+                        onClick={(e) => {
+                          if (selectMode) {
+                            e.preventDefault();
+                            toggleEmailSelection(email.id);
+                          } else {
+                            markAsRead(email.id);
+                            setExpandedEmail(expandedEmail === email.id ? null : email.id);
+                          }
                         }}
                       >
-                        {/* Avatar */}
+                        {/* Checkbox de sélection ou Avatar */}
                         <div className="flex-shrink-0">
-                          <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                            {email.sender.charAt(0).toUpperCase()}
-                          </div>
+                          {selectMode ? (
+                            <div className="w-8 h-8 flex items-center justify-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedEmails.has(email.id)}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  toggleEmailSelection(email.id);
+                                }}
+                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                              />
+                            </div>
+                          ) : (
+                            <div className="relative">
+                              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                                {email.sender.charAt(0).toUpperCase()}
+                              </div>
+                              {favoriteEmails.has(email.id) && (
+                                <Heart className="absolute -top-1 -right-1 w-3 h-3 text-red-500 fill-current" />
+                              )}
+                              {pinnedEmails.has(email.id) && (
+                                <div className="absolute -top-1 -left-1 w-3 h-3 bg-yellow-400 rounded-full"></div>
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         {/* Expéditeur */}
@@ -508,36 +662,150 @@ export default function MailPageFixed() {
                           </div>
                         </div>
 
-                        {/* Indicateurs et date */}
+                        {/* Indicateurs et actions */}
                         <div className="flex items-center gap-2 flex-shrink-0">
                           {email.hasAttachment && (
                             <Paperclip className="h-4 w-4 text-gray-400" />
                           )}
+                          {favoriteEmails.has(email.id) && (
+                            <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                          )}
                           <span className="text-xs text-gray-500 w-16 text-right">
                             {email.time.substring(0, 5)}
                           </span>
-                          <ChevronDown className={cn(
-                            "h-4 w-4 text-gray-400 transition-transform",
-                            expandedEmail === email.id && "rotate-180"
-                          )} />
+                          
+                          {/* Menu trois points */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFavorite(email.id);
+                                }}
+                              >
+                                <Heart className={cn(
+                                  "h-4 w-4 mr-2",
+                                  favoriteEmails.has(email.id) ? "text-red-500 fill-current" : "text-gray-400"
+                                )} />
+                                {favoriteEmails.has(email.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  togglePin(email.id);
+                                }}
+                              >
+                                <div className={cn(
+                                  "w-4 h-4 mr-2 rounded-full",
+                                  pinnedEmails.has(email.id) ? "bg-yellow-400" : "bg-gray-400"
+                                )}></div>
+                                {pinnedEmails.has(email.id) ? 'Désépingler' : 'Épingler'}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedEmail(email);
+                                  setShowReplyDialog(true);
+                                }}
+                              >
+                                <Reply className="h-4 w-4 mr-2" />
+                                Répondre
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedEmail(email);
+                                  setShowForwardDialog(true);
+                                }}
+                              >
+                                <Forward className="h-4 w-4 mr-2" />
+                                Transférer
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const newArchived = new Set(archivedEmails);
+                                  newArchived.add(email.id);
+                                  setArchivedEmails(newArchived);
+                                  localStorage.setItem(`archivedEmails_${(user as any)?.id}`, JSON.stringify(Array.from(newArchived)));
+                                  toast({ title: 'Courrier archivé' });
+                                }}
+                              >
+                                <Archive className="h-4 w-4 mr-2" />
+                                Archiver
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const newDeleted = new Set(deletedEmails);
+                                  newDeleted.add(email.id);
+                                  setDeletedEmails(newDeleted);
+                                  localStorage.setItem(`deletedEmails_${(user as any)?.id}`, JSON.stringify(Array.from(newDeleted)));
+                                  toast({ title: 'Courrier supprimé' });
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Supprimer
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          
+                          {!selectMode && (
+                            <ChevronDown className={cn(
+                              "h-4 w-4 text-gray-400 transition-transform",
+                              expandedEmail === email.id && "rotate-180"
+                            )} />
+                          )}
                         </div>
                       </div>
 
                       {/* Vue détaillée expandable */}
-                      {expandedEmail === email.id && (
-                        <div className="bg-gray-50 dark:bg-gray-800 border-t p-4">
-                          <div className="space-y-4">
-                            {/* En-tête détaillé */}
+                      {expandedEmail === email.id && !selectMode && (
+                        <div className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-800 dark:to-blue-900/20 border-t p-6">
+                          <div className="space-y-6">
+                            {/* En-tête détaillé avec style amélioré */}
                             <div className="flex items-start justify-between">
-                              <div>
-                                <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
-                                  {email.subject}
-                                </h4>
-                                <div className="text-sm text-gray-600 dark:text-gray-400">
-                                  <span className="font-medium">{email.sender}</span> &lt;{email.senderEmail}&gt;
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  {email.date} à {email.time}
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-3">
+                                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-lg font-medium">
+                                    {email.sender.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <h4 className="font-bold text-lg text-gray-900 dark:text-white mb-1">
+                                      {email.subject}
+                                    </h4>
+                                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                                      <span className="font-medium text-blue-600">{email.sender}</span> &lt;{email.senderEmail}&gt;
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                                      <Clock className="w-3 h-3" />
+                                      {email.date} à {email.time}
+                                      {pinnedEmails.has(email.id) && (
+                                        <Badge variant="outline" className="text-xs">
+                                          <div className="w-2 h-2 bg-yellow-400 rounded-full mr-1"></div>
+                                          Épinglé
+                                        </Badge>
+                                      )}
+                                      {favoriteEmails.has(email.id) && (
+                                        <Badge variant="outline" className="text-xs">
+                                          <Heart className="w-2 h-2 text-red-500 fill-current mr-1" />
+                                          Favori
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                               
@@ -588,20 +856,24 @@ export default function MailPageFixed() {
                               </div>
                             </div>
 
-                            {/* Contenu du message */}
-                            <div className="prose prose-sm max-w-none">
-                              <div className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 p-3 rounded border">
+                            {/* Contenu du message avec style amélioré */}
+                            <div className="bg-white dark:bg-gray-700 rounded-lg p-4 shadow-sm border">
+                              <div className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
                                 {email.content}
                               </div>
                             </div>
 
-                            {/* Pièces jointes */}
+                            {/* Pièces jointes avec design amélioré */}
                             {email.attachment && (
-                              <div className="border rounded-lg p-3 bg-white dark:bg-gray-700">
-                                <div className="flex items-center justify-between">
+                              <div className="bg-white dark:bg-gray-700 rounded-lg p-4 shadow-sm border">
+                                <h5 className="font-medium text-sm text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                                  <Paperclip className="h-4 w-4" />
+                                  Pièce jointe
+                                </h5>
+                                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-600 rounded-lg">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center">
-                                      <Paperclip className="h-5 w-5 text-red-600" />
+                                    <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-orange-500 rounded-lg flex items-center justify-center">
+                                      <Paperclip className="h-6 w-6 text-white" />
                                     </div>
                                     <div>
                                       <div className="font-medium text-sm text-gray-900 dark:text-white">
@@ -613,11 +885,11 @@ export default function MailPageFixed() {
                                     </div>
                                   </div>
                                   <Button
-                                    size="sm"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       downloadFile(email.attachment.url, email.attachment.name);
                                     }}
+                                    className="bg-blue-600 hover:bg-blue-700"
                                   >
                                     <Download className="h-4 w-4 mr-2" />
                                     Télécharger
@@ -626,13 +898,17 @@ export default function MailPageFixed() {
                               </div>
                             )}
 
-                            {/* Dossiers partagés */}
+                            {/* Dossiers partagés avec design amélioré */}
                             {email.folder && (
-                              <div className="border rounded-lg p-3 bg-white dark:bg-gray-700">
-                                <div className="flex items-center justify-between">
+                              <div className="bg-white dark:bg-gray-700 rounded-lg p-4 shadow-sm border">
+                                <h5 className="font-medium text-sm text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                                  <Folder className="h-4 w-4" />
+                                  Dossier partagé
+                                </h5>
+                                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-600 rounded-lg">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-                                      <Folder className="h-5 w-5 text-blue-600" />
+                                    <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
+                                      <Folder className="h-6 w-6 text-white" />
                                     </div>
                                     <div>
                                       <div className="font-medium text-sm text-gray-900 dark:text-white">
@@ -644,11 +920,11 @@ export default function MailPageFixed() {
                                     </div>
                                   </div>
                                   <Button
-                                    size="sm"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      // Ouvrir l'explorateur de dossier
+                                      // Navigation vers le dossier dans Cloud
                                     }}
+                                    className="bg-indigo-600 hover:bg-indigo-700"
                                   >
                                     <Eye className="h-4 w-4 mr-2" />
                                     Explorer
@@ -656,6 +932,22 @@ export default function MailPageFixed() {
                                 </div>
                               </div>
                             )}
+
+                            {/* Séparateur de fermeture */}
+                            <div className="flex justify-center pt-4">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedEmail(null);
+                                }}
+                                className="text-gray-500 hover:text-gray-700"
+                              >
+                                <ArrowLeft className="h-4 w-4 mr-2" />
+                                Fermer
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -718,6 +1010,99 @@ export default function MailPageFixed() {
                 disabled={!replyMessage.trim() || replyMutation.isPending}
               >
                 {replyMutation.isPending ? 'Envoi...' : 'Envoyer'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog pour transférer */}
+      <Dialog open={showForwardDialog} onOpenChange={setShowForwardDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Transférer le courrier</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              placeholder="Email du destinataire"
+              value={forwardRecipient}
+              onChange={(e) => setForwardRecipient(e.target.value)}
+            />
+            <Textarea
+              placeholder="Message d'accompagnement..."
+              value={forwardMessage}
+              onChange={(e) => setForwardMessage(e.target.value)}
+              rows={4}
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowForwardDialog(false)}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={() => {
+                  if (selectedEmail && forwardRecipient.trim()) {
+                    forwardMutation.mutate({
+                      recipientEmail: forwardRecipient,
+                      message: forwardMessage,
+                      originalEmail: selectedEmail
+                    });
+                  }
+                }}
+                disabled={!forwardRecipient.trim() || forwardMutation.isPending}
+              >
+                {forwardMutation.isPending ? 'Envoi...' : 'Transférer'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog pour composer */}
+      <Dialog open={showCompose} onOpenChange={setShowCompose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nouveau message</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              placeholder="Destinataire"
+              value={composeRecipient}
+              onChange={(e) => setComposeRecipient(e.target.value)}
+            />
+            <Input
+              placeholder="Sujet"
+              value={composeSubject}
+              onChange={(e) => setComposeSubject(e.target.value)}
+            />
+            <Textarea
+              placeholder="Message"
+              value={composeMessage}
+              onChange={(e) => setComposeMessage(e.target.value)}
+              rows={6}
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowCompose(false)}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={() => {
+                  if (composeRecipient.trim() && composeSubject.trim() && composeMessage.trim()) {
+                    composeMutation.mutate({
+                      recipientEmail: composeRecipient,
+                      subject: composeSubject,
+                      message: composeMessage
+                    });
+                  }
+                }}
+                disabled={!composeRecipient.trim() || !composeSubject.trim() || !composeMessage.trim() || composeMutation.isPending}
+              >
+                {composeMutation.isPending ? 'Envoi...' : 'Envoyer'}
               </Button>
             </div>
           </div>
