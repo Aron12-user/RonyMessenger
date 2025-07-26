@@ -1329,41 +1329,39 @@ export default function MailPage() {
                   setShowEmailReader(true);
                 }}
               >
-                <div className="p-1">
-                  <div className="flex items-start space-x-1">
-                    {/* Checkbox de sélection */}
-                    <div className="flex items-center space-x-2 pt-0.5">
-                      <input
-                        type="checkbox"
-                        checked={selectedEmails.has(email.id)}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          toggleEmailSelection(email.id);
-                        }}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      
-                      {/* Bouton épingler */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          togglePin(email.id);
-                        }}
-                        className={cn(
-                          "p-1 rounded transition-colors opacity-0 group-hover:opacity-100",
-                          pinnedEmails.has(email.id) 
-                            ? "text-yellow-500 opacity-100" 
-                            : "text-gray-400 hover:text-yellow-500"
-                        )}
-                      >
-                        <Star className={cn("w-4 h-4", pinnedEmails.has(email.id) && "fill-current")} />
-                      </button>
-                    </div>
+                <div className="px-2 py-1">
+                  <div className="flex items-center space-x-2">
+                    {/* Checkbox de sélection - plus petit */}
+                    <input
+                      type="checkbox"
+                      checked={selectedEmails.has(email.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        toggleEmailSelection(email.id);
+                      }}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-3 w-3"
+                    />
+                    
+                    {/* Bouton épingler - plus petit */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePin(email.id);
+                      }}
+                      className={cn(
+                        "p-0.5 rounded transition-colors opacity-0 group-hover:opacity-100",
+                        pinnedEmails.has(email.id) 
+                          ? "text-yellow-500 opacity-100" 
+                          : "text-gray-400 hover:text-yellow-500"
+                      )}
+                    >
+                      <Star className={cn("w-3 h-3", pinnedEmails.has(email.id) && "fill-current")} />
+                    </button>
 
-                    {/* Avatar amélioré */}
+                    {/* Avatar plus petit */}
                     <div className="relative">
                       <div className={cn(
-                        "w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm",
+                        "w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm",
                         email.category === 'folders' 
                           ? "bg-gradient-to-br from-blue-500 to-blue-600" 
                           : email.category === 'files'
@@ -1377,32 +1375,32 @@ export default function MailPage() {
                         </span>
                       </div>
                       
-                      {/* Indicateur de priorité */}
-                      {email.priority === 'high' && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
-                          <AlertCircle className="w-2 h-2 text-white" />
-                        </div>
-                      )}
-                      
-                      {/* Indicateur non lu */}
+                      {/* Indicateur non lu - plus petit */}
                       {!readEmails.has(email.id) && (
-                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 rounded-full"></div>
                       )}
                     </div>
 
-                    {/* Contenu principal */}
+                    {/* Contenu principal - plus compact */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center space-x-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2 flex-1 min-w-0">
                           <span className={cn(
-                            "text-gray-900 truncate max-w-xs text-xs",
-                            !readEmails.has(email.id) ? "font-bold" : "font-medium"
+                            "text-gray-900 truncate text-sm",
+                            !readEmails.has(email.id) ? "font-semibold" : "font-medium"
                           )}>
                             {email.sender}
                           </span>
                           
+                          <span className={cn(
+                            "text-gray-700 truncate flex-1 text-sm",
+                            !readEmails.has(email.id) ? "font-medium" : "font-normal"
+                          )}>
+                            {email.subject}
+                          </span>
+                          
                           {email.hasAttachment && (
-                            <Paperclip className="w-4 h-4 text-gray-400" />
+                            <Paperclip className="w-3 h-3 text-gray-400 flex-shrink-0" />
                           )}
                           
                           {/* Badge de catégorie */}
@@ -1427,133 +1425,37 @@ export default function MailPage() {
                         </div>
                         
                         <div className="flex items-center space-x-1 text-xs text-gray-500">
-                          <Clock className="w-2 h-2" />
                           <span>{email.time}</span>
-                          <span>{email.date}</span>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Actions rapides - toujours visibles pour un design plus mince */}
+                    <div className="flex items-center space-x-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedEmail(email);
+                          setShowReplyDialog(true);
+                        }}
+                      >
+                        <Reply className="w-3 h-3" />
+                      </Button>
                       
-                      <h3 className={cn(
-                        "text-xs mb-1 truncate",
-                        !readEmails.has(email.id) ? "font-bold text-gray-900" : "font-medium text-gray-800"
-                      )}>
-                        {email.subject}
-                      </h3>
-                      
-                      {showPreview && (
-                        <p className="text-xs text-gray-600 line-clamp-1 leading-relaxed">
-                          {email.content}
-                        </p>
-                      )}
-
-                      {/* Badges et statuts */}
-                      <div className="flex items-center justify-between mt-3">
-                        <div className="flex items-center space-x-2">
-                          {!readEmails.has(email.id) && (
-                            <Badge variant="default" className="text-xs bg-blue-600 text-white">
-                              Nouveau
-                            </Badge>
-                          )}
-                          
-                          {pinnedEmails.has(email.id) && (
-                            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
-                              <Star className="w-3 h-3 mr-1 fill-current" />
-                              Épinglé
-                            </Badge>
-                          )}
-                        </div>
-
-                        {/* Actions rapides */}
-                        <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedEmail(email);
-                              setShowReplyDialog(true);
-                            }}
-                          >
-                            <Reply className="w-4 h-4" />
-                          </Button>
-                          
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedEmail(email);
-                              setShowForwardDialog(true);
-                            }}
-                          >
-                            <Forward className="w-4 h-4" />
-                          </Button>
-                          
-                          {email.folder && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedFolder(email.folder);
-                                exploreFolderMutation.mutate(email.folder.id);
-                              }}
-                            >
-                              <FolderOpen className="w-4 h-4" />
-                            </Button>
-                          )}
-
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <MoreHorizontal className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={(e) => {
-                                e.stopPropagation();
-                                markAsRead(email.id);
-                              }}>
-                                <Check className="w-4 h-4 mr-2" />
-                                Marquer comme lu
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={(e) => {
-                                e.stopPropagation();
-                                togglePin(email.id);
-                              }}>
-                                <Star className="w-4 h-4 mr-2" />
-                                {pinnedEmails.has(email.id) ? 'Désépingler' : 'Épingler'}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={(e) => {
-                                e.stopPropagation();
-                                archiveEmailsMutation.mutate([email.id]);
-                              }}>
-                                <Archive className="w-4 h-4 mr-2" />
-                                Archiver
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteEmailsMutation.mutate([email.id]);
-                                }}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Supprimer
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          archiveEmailsMutation.mutate([email.id]);
+                        }}
+                      >
+                        <Archive className="w-3 h-3" />
+                      </Button>
                     </div>
                   </div>
                 </div>
