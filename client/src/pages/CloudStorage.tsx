@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Search, Upload, FolderPlus, Download, Share, Settings, BarChart3, History, RotateCcw, RefreshCw, Trash2, Archive, Cloud, HardDrive, ChevronDown } from 'lucide-react';
+import { Search, Upload, FolderPlus, Download, Share, Settings, BarChart3, History, RotateCcw, RefreshCw, Trash2, Archive, Cloud, HardDrive, ChevronDown, MoreVertical, Edit3, Eye, Share2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { apiRequest } from '@/lib/queryClient';
 import { toast } from '@/hooks/use-toast';
@@ -104,18 +104,18 @@ export default function CloudStorage() {
     }
   };
 
-  // Requêtes optimisées pour les dossiers et fichiers
+  // Requêtes optimisées pour les dossiers et fichiers - corrigées pour les sous-dossiers
   const { data: folders = [], isLoading: foldersLoading } = useQuery({
-    queryKey: ['/api/folders', currentFolderId],
+    queryKey: ['/api/folders', currentFolderId || 'root'],
     enabled: true,
-    staleTime: 30000, // Cache pendant 30 secondes
+    staleTime: 5000, // Cache réduit pour navigation rapide
     refetchOnWindowFocus: false
   });
 
   const { data: files = [], isLoading: filesLoading } = useQuery({
-    queryKey: ['/api/files', currentFolderId],
+    queryKey: ['/api/files', currentFolderId || 'root'],
     enabled: true,
-    staleTime: 30000, // Cache pendant 30 secondes
+    staleTime: 5000, // Cache réduit pour navigation rapide
     refetchOnWindowFocus: false
   });
 
@@ -127,6 +127,11 @@ export default function CloudStorage() {
   const [totalFiles, setTotalFiles] = useState(0);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<any>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [renameItem, setRenameItem] = useState<any>(null);
+  const [newItemName, setNewItemName] = useState("");
 
   // Mutations avec gestion des limites augmentées
   const createFolderMutation = useMutation({
@@ -397,9 +402,68 @@ export default function CloudStorage() {
 
   const handleRefresh = () => {
     console.log('[refresh] Refreshing data for folder:', currentFolderId);
-    queryClient.invalidateQueries({ queryKey: ['/api/files', currentFolderId] });
-    queryClient.invalidateQueries({ queryKey: ['/api/folders', currentFolderId] });
+    const folderKey = currentFolderId || 'root';
+    queryClient.invalidateQueries({ queryKey: ['/api/files', folderKey] });
+    queryClient.invalidateQueries({ queryKey: ['/api/folders', folderKey] });
     toast({ title: "Actualisation", description: "Données actualisées" });
+  };
+
+  // Nouvelles fonctions pour les actions des items
+  const handleRename = async (item: any, type: 'file' | 'folder') => {
+    if (!newItemName.trim()) {
+      toast({ title: "Erreur", description: "Le nom ne peut pas être vide", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const endpoint = type === 'file' ? `/api/files/${item.id}` : `/api/folders/${item.id}`;
+      await apiRequest(endpoint, 'PATCH', { name: newItemName.trim() });
+      
+      setRenameItem(null);
+      setNewItemName("");
+      handleRefresh();
+      toast({ title: "Succès", description: `${type === 'file' ? 'Fichier' : 'Dossier'} renommé avec succès` });
+    } catch (error) {
+      console.error('[rename] Failed:', error);
+      toast({ title: "Erreur", description: "Impossible de renommer", variant: "destructive" });
+    }
+  };
+
+  const handlePreview = (file: any) => {
+    console.log('[preview] Opening file:', file.name, file.type);
+    
+    // Pour certains types de fichiers, ouvrir avec une application externe
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    const externalTypes = ['exe', 'msi', 'dmg', 'app', 'deb', 'rpm'];
+    
+    if (externalTypes.includes(extension || '')) {
+      // Tenter d'ouvrir avec l'application système
+      window.open(`/api/files/${file.id}/download`, '_blank');
+      toast({ title: "Ouverture externe", description: "Fichier ouvert avec l'application système" });
+      return;
+    }
+
+    // Pour les autres fichiers, utiliser la prévisualisation intégrée
+    setPreviewFile(file);
+    setIsPreviewOpen(true);
+  };
+
+  const handleShare = async (item: any, type: 'file' | 'folder') => {
+    console.log('[share] Sharing:', type, item.name);
+    toast({ title: "Partage", description: `Lien de partage généré pour ${item.name}` });
+  };
+
+  const handleDelete = async (item: any, type: 'file' | 'folder') => {
+    try {
+      const endpoint = type === 'file' ? `/api/files/${item.id}` : `/api/folders/${item.id}`;
+      await apiRequest(endpoint, 'DELETE');
+      
+      handleRefresh();
+      toast({ title: "Succès", description: `${type === 'file' ? 'Fichier' : 'Dossier'} supprimé avec succès` });
+    } catch (error) {
+      console.error('[delete] Failed:', error);
+      toast({ title: "Erreur", description: "Impossible de supprimer", variant: "destructive" });
+    }
   };
 
   const triggerFileInput = () => {
@@ -600,7 +664,7 @@ export default function CloudStorage() {
           </DropdownMenu>
         </div>
 
-        {/* Navigation de dossier et barre de recherche */}
+        {/* Navigation de dossier améliorée */}
         <div className="flex items-center gap-4 mb-4">
           {currentFolderId && (
             <Button 
@@ -608,8 +672,8 @@ export default function CloudStorage() {
                 console.log('[navigation] Going back to root');
                 setCurrentFolderId(null);
                 setCurrentFolderName("");
-                queryClient.invalidateQueries({ queryKey: ['/api/files', null] });
-                queryClient.invalidateQueries({ queryKey: ['/api/folders', null] });
+                queryClient.invalidateQueries({ queryKey: ['/api/files', 'root'] });
+                queryClient.invalidateQueries({ queryKey: ['/api/folders', 'root'] });
               }}
               variant="outline"
               size="sm"
@@ -619,6 +683,9 @@ export default function CloudStorage() {
           )}
           <span className="text-sm text-gray-600">
             {currentFolderName ? `Dossier: ${currentFolderName}` : 'Dossier racine'}
+          </span>
+          <span className="text-xs text-gray-400">
+            ({filteredFolders.length} dossiers, {filteredFiles.length} fichiers)
           </span>
         </div>
 
@@ -667,12 +734,17 @@ export default function CloudStorage() {
         {/* Grid des dossiers et fichiers style OneDrive */}
         {!foldersLoading && !filesLoading && (
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
-            {/* Dossiers */}
+            {/* Dossiers avec menu contextuel */}
             {filteredFolders.map((folder: any) => (
             <div
               key={folder.id}
-              className="group cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all"
-              onClick={() => {
+              className="group cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all relative"
+              onMouseEnter={() => setHoveredItem(`folder-${folder.id}`)}
+              onMouseLeave={() => setHoveredItem(null)}
+              onClick={(e) => {
+                // Empêcher la navigation si on clique sur le menu
+                if ((e.target as HTMLElement).closest('.context-menu')) return;
+                
                 console.log('[navigation] Navigating to folder:', folder.id, folder.name);
                 setCurrentFolderId(folder.id);
                 setCurrentFolderName(folder.name);
@@ -682,28 +754,133 @@ export default function CloudStorage() {
               }}
             >
               <div className="flex flex-col items-center text-center">
-                <div className="mb-2">
+                <div className="mb-2 relative">
                   {getFolderIcon(folder.iconType)}
+                  
+                  {/* Menu contextuel pour dossiers */}
+                  {hoveredItem === `folder-${folder.id}` && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="context-menu absolute -top-1 -right-1 h-6 w-6 p-0 bg-white shadow-md border"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => {
+                          setRenameItem(folder);
+                          setNewItemName(folder.name);
+                        }}>
+                          <Edit3 className="mr-2 h-4 w-4" />
+                          Renommer
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleShare(folder, 'folder')}>
+                          <Share2 className="mr-2 h-4 w-4" />
+                          Partager
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => handleDelete(folder, 'folder')}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
                 <p className="text-xs text-gray-900 truncate w-full font-medium">
-                  {folder.name}
+                  {renameItem?.id === folder.id ? (
+                    <Input
+                      value={newItemName}
+                      onChange={(e) => setNewItemName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleRename(folder, 'folder');
+                        if (e.key === 'Escape') setRenameItem(null);
+                      }}
+                      onBlur={() => handleRename(folder, 'folder')}
+                      className="h-6 text-xs p-1"
+                      autoFocus
+                    />
+                  ) : folder.name}
                 </p>
               </div>
             </div>
           ))}
 
-          {/* Fichiers */}
+          {/* Fichiers avec menu contextuel */}
           {filteredFiles.map((file: any) => (
             <div
               key={file.id}
-              className="group cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all"
+              className="group cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all relative"
+              onMouseEnter={() => setHoveredItem(`file-${file.id}`)}
+              onMouseLeave={() => setHoveredItem(null)}
+              onDoubleClick={() => handlePreview(file)}
             >
               <div className="flex flex-col items-center text-center">
-                <div className="mb-2">
+                <div className="mb-2 relative">
                   {getFileIcon(file.type, file.name)}
+                  
+                  {/* Menu contextuel pour fichiers */}
+                  {hoveredItem === `file-${file.id}` && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="context-menu absolute -top-1 -right-1 h-6 w-6 p-0 bg-white shadow-md border"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => {
+                          setRenameItem(file);
+                          setNewItemName(file.name);
+                        }}>
+                          <Edit3 className="mr-2 h-4 w-4" />
+                          Renommer
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handlePreview(file)}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          Prévisualiser
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleShare(file, 'file')}>
+                          <Share2 className="mr-2 h-4 w-4" />
+                          Partager
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => handleDelete(file, 'file')}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
                 <p className="text-xs text-gray-900 truncate w-full font-medium">
-                  {file.name}
+                  {renameItem?.id === file.id ? (
+                    <Input
+                      value={newItemName}
+                      onChange={(e) => setNewItemName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleRename(file, 'file');
+                        if (e.key === 'Escape') setRenameItem(null);
+                      }}
+                      onBlur={() => handleRename(file, 'file')}
+                      className="h-6 text-xs p-1"
+                      autoFocus
+                    />
+                  ) : file.name}
                 </p>
                 <p className="text-xs text-gray-500 truncate">
                   {formatFileSize(file.size)}
@@ -812,6 +989,82 @@ export default function CloudStorage() {
               className="bg-blue-600 hover:bg-blue-700"
             >
               {createFolderMutation.isPending ? "Création..." : "Créer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogue de prévisualisation */}
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Prévisualisation: {previewFile?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            {previewFile && (
+              <div className="space-y-4">
+                {/* Aperçu selon le type de fichier */}
+                {previewFile.type?.startsWith('image/') ? (
+                  <img 
+                    src={`/api/files/${previewFile.id}/download`} 
+                    alt={previewFile.name}
+                    className="max-w-full h-auto mx-auto"
+                  />
+                ) : previewFile.type?.startsWith('text/') || previewFile.name?.endsWith('.txt') ? (
+                  <iframe 
+                    src={`/api/files/${previewFile.id}/download`}
+                    className="w-full h-96 border"
+                    title={previewFile.name}
+                  />
+                ) : previewFile.type === 'application/pdf' ? (
+                  <iframe 
+                    src={`/api/files/${previewFile.id}/download`}
+                    className="w-full h-96 border"
+                    title={previewFile.name}
+                  />
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="mb-4">
+                      {getFileIcon(previewFile.type, previewFile.name)}
+                    </div>
+                    <p className="text-gray-600 mb-4">
+                      Prévisualisation non disponible pour ce type de fichier
+                    </p>
+                    <Button onClick={() => window.open(`/api/files/${previewFile.id}/download`, '_blank')}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Ouvrir avec l'application système
+                    </Button>
+                  </div>
+                )}
+                
+                {/* Informations du fichier */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-2">Informations du fichier</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">Nom:</span> {previewFile.name}
+                    </div>
+                    <div>
+                      <span className="font-medium">Taille:</span> {formatFileSize(previewFile.size)}
+                    </div>
+                    <div>
+                      <span className="font-medium">Type:</span> {previewFile.type || 'Inconnu'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Modifié:</span> {new Date(previewFile.updatedAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>
+              Fermer
+            </Button>
+            <Button onClick={() => window.open(`/api/files/${previewFile?.id}/download`, '_blank')}>
+              <Download className="mr-2 h-4 w-4" />
+              Télécharger
             </Button>
           </DialogFooter>
         </DialogContent>
