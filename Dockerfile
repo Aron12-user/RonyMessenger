@@ -55,11 +55,11 @@ RUN chown -R nextjs:nodejs /app
 USER nextjs
 
 # Exposer le port
-EXPOSE 5000
+EXPOSE 8080
 
 # Variables d'environnement par défaut
 ENV NODE_ENV=production
-ENV PORT=5000
+ENV PORT=8080
 
 # Commande de démarrage
 CMD ["node", "dist/server/index.js"]

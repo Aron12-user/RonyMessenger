@@ -25,11 +25,11 @@ steps:
       '--region', 'europe-west1',
       '--platform', 'managed',
       '--allow-unauthenticated',
-      '--port', '5000',
+      '--port', '8080',
       '--memory', '1Gi',
       '--cpu', '1',
       '--max-instances', '10',
-      '--set-env-vars', 'NODE_ENV=production,PORT=5000',
+      '--set-env-vars', 'NODE_ENV=production,PORT=8080',
       '--timeout', '300s'
     ]
 

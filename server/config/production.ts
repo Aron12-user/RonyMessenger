@@ -1,7 +1,7 @@
 // Configuration spécifique pour Google Cloud Run
 export const productionConfig = {
   // Configuration du serveur
-  port: parseInt(process.env.PORT || '5000', 10),
+  port: parseInt(process.env.PORT || '8080', 10), // Cloud Run utilise le port 8080 par défaut
   host: '0.0.0.0', // Important pour Cloud Run
   
   // Configuration de la base de données

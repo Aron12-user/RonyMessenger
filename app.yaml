@@ -14,7 +14,7 @@ automatic_scaling:
 # Variables d'environnement
 env_variables:
   NODE_ENV: production
-  PORT: 5000
+  PORT: 8080
 
 # Configuration réseau
 network:

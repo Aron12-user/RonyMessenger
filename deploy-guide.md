@@ -74,7 +74,7 @@
      --source=https://github.com/votre-username/rony \
      --region=europe-west1 \
      --allow-unauthenticated \
-     --set-env-vars="NODE_ENV=production,PORT=5000" \
+     --set-env-vars="NODE_ENV=production,PORT=8080" \
      --set-secrets="SESSION_SECRET=session-secret:latest,DATABASE_URL=database-url:latest"
    ```
 
@@ -93,7 +93,7 @@
    ```bash
    gcloud run services update rony-app \
      --region=europe-west1 \
-     --set-env-vars="NODE_ENV=production,PORT=5000" \
+     --set-env-vars="NODE_ENV=production,PORT=8080" \
      --set-secrets="SESSION_SECRET=session-secret:latest,DATABASE_URL=database-url:latest"
    ```
 
@@ -175,6 +175,6 @@
 
 En cas de problème :
 1. Vérifier les logs Cloud Run
-2. Tester les endpoints `/api/health` et `/api/ready`
+2. Tester les endpoints `/api/health` et `/api/ready` (Cloud Run écoute sur le port 8080)
 3. Vérifier la configuration des secrets
 4. Consulter la documentation Google Cloud Run

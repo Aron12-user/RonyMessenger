@@ -24,7 +24,7 @@ Configurez ces variables dans Google Cloud Run :
 
 ```bash
 NODE_ENV=production
-PORT=5000
+PORT=8080
 SESSION_SECRET=your-secure-session-secret
 DATABASE_URL=postgresql://user:password@host:port/database
 ```
@@ -52,6 +52,7 @@ gcloud run deploy rony-app \
   --source . \
   --region=europe-west1 \
   --allow-unauthenticated \
+  --port=8080 \
   --memory=1Gi \
   --cpu=1 \
   --max-instances=10

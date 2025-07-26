@@ -80,6 +80,7 @@ Rony is a comprehensive communication platform that combines messaging, video co
   - Environment-specific settings for database, sessions, CORS, and uploads
   - Configuration validation for production deployment
   - Health check endpoints for Cloud Run monitoring
+  - **PORT 8080 Configuration**: Configured all deployment files for Cloud Run's default port 8080
 - **Docker Configuration**: Created optimized multi-stage Dockerfile for containerization
   - Node.js 20 Alpine base image for minimal size
   - Non-root user for security
