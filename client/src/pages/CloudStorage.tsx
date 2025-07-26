@@ -36,13 +36,14 @@ import {
   BarChart3
 } from "lucide-react";
 
-// Import des icônes personnalisées
+// Import des icônes personnalisées OneDrive-style
 import folderOrangeIcon from "@assets/icons8-dossier-mac-94_1750386744627.png";
 import folderBlueIcon from "@assets/icons8-dossier-mac-64_1750386753922.png";
 import folderArchiveIcon from "@assets/icons8-dossier-mac-48_1750386762042.png";
 import imageIcon from "@assets/icons8-image-50_1750542458133.png";
 import excelIcon from "@assets/icons8-microsoft-excel-2019-50_1750542395351.png";
 import powerpointIcon from "@assets/icons8-ms-powerpoint-50_1750542416904.png";
+import wordIcon from "@assets/icons8-ms-word-50_1750542408634.png";
 import csvIcon from "@assets/icons8-fichier-csv-50_1750542435006.png";
 import audioIcon from "@assets/icons8-fichier-audio-50_1750774307203.png";
 import videoIcon from "@assets/icons8-fichier-vidéo-64_1750542479690.png";
@@ -850,45 +851,94 @@ export default function CloudStorage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // Fonction pour obtenir l'icône d'un fichier
+  // Fonction pour obtenir l'icône d'un fichier (style OneDrive)
   const getFileIcon = (fileType: string, fileName: string) => {
     const extension = fileName.split('.').pop()?.toLowerCase() || '';
+    const iconClass = "h-6 w-6 object-contain"; // Taille réduite comme OneDrive
     
-    if (fileType.startsWith('image/')) {
-      return <img src={imageIcon} alt="Image" className="h-8 w-8" />;
-    }
-    
+    // Icônes spécifiques par extension comme OneDrive
     switch (extension) {
-      case 'xlsx':
+      // Documents Microsoft Office
+      case 'doc':
+      case 'docx':
+        return <img src={wordIcon} alt="Word" className={iconClass} />;
       case 'xls':
-        return <img src={excelIcon} alt="Excel" className="h-8 w-8" />;
-      case 'pptx':
+      case 'xlsx':
+        return <img src={excelIcon} alt="Excel" className={iconClass} />;
       case 'ppt':
-        return <img src={powerpointIcon} alt="PowerPoint" className="h-8 w-8" />;
+      case 'pptx':
+        return <img src={powerpointIcon} alt="PowerPoint" className={iconClass} />;
+      
+      // Fichiers de données
       case 'csv':
-        return <img src={csvIcon} alt="CSV" className="h-8 w-8" />;
+        return <img src={csvIcon} alt="CSV" className={iconClass} />;
+      
+      // Fichiers multimédias
       case 'mp3':
       case 'wav':
       case 'aac':
-        return <img src={audioIcon} alt="Audio" className="h-8 w-8" />;
+      case 'flac':
+      case 'ogg':
+        return <img src={audioIcon} alt="Audio" className={iconClass} />;
       case 'mp4':
       case 'avi':
       case 'mov':
-        return <img src={videoIcon} alt="Video" className="h-8 w-8" />;
+      case 'mkv':
+      case 'wmv':
+      case 'webm':
+        return <img src={videoIcon} alt="Vidéo" className={iconClass} />;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'bmp':
+      case 'svg':
+      case 'webp':
+        return <img src={imageIcon} alt="Image" className={iconClass} />;
+      
+      // PDF et texte
+      case 'pdf':
+        return <FileText className={`${iconClass} text-red-600`} />;
+      case 'txt':
+      case 'md':
+      case 'rtf':
+        return <FileText className={`${iconClass} text-blue-600`} />;
+      
+      // Archives et compression
+      case 'zip':
+      case 'rar':
+      case '7z':
+      case 'tar':
+      case 'gz':
+        return <Archive className={`${iconClass} text-orange-600`} />;
+      
+      // Défaut pour autres types
       default:
-        return <img src={imageIcon} alt="File" className="h-8 w-8" />;
+        const type = fileType.split('/')[0];
+        switch (type) {
+          case 'image':
+            return <img src={imageIcon} alt="Image" className={iconClass} />;
+          case 'video':
+            return <img src={videoIcon} alt="Vidéo" className={iconClass} />;
+          case 'audio':
+            return <img src={audioIcon} alt="Audio" className={iconClass} />;
+          default:
+            return <FileText className={`${iconClass} text-gray-600`} />;
+        }
     }
   };
 
-  // Fonction pour obtenir l'icône d'un dossier
+  // Fonction pour obtenir l'icône d'un dossier (style OneDrive compact)
   const getFolderIcon = (iconType: string | null) => {
+    const className = "h-8 w-8 object-contain"; // Taille réduite de h-12 w-12 à h-8 w-8
     switch (iconType) {
       case 'blue':
-        return <img src={folderBlueIcon} alt="Folder" className="h-12 w-12" />;
+        return <img src={folderBlueIcon} alt="Dossier bleu" className={className} />;
       case 'archive':
-        return <img src={folderArchiveIcon} alt="Folder" className="h-12 w-12" />;
+        return <img src={folderArchiveIcon} alt="Dossier archive" className={className} />;
+      case 'orange':
       default:
-        return <img src={folderOrangeIcon} alt="Folder" className="h-12 w-12" />;
+        return <img src={folderOrangeIcon} alt="Dossier" className={className} />;
     }
   };
 
@@ -1126,18 +1176,18 @@ export default function CloudStorage() {
                       Dossiers ({filteredFolders.length})
                     </h3>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
                     {filteredFolders.map((folder: Folder) => (
                       <div 
                         key={folder.id} 
-                        className="group relative border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 cursor-pointer bg-white dark:bg-gray-800"
+                        className="group relative border border-gray-200 dark:border-gray-700 rounded-lg p-2 hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 cursor-pointer bg-white dark:bg-gray-800"
                         onClick={() => {
                           console.log('[folder-navigation] Entering folder:', folder.id, folder.name);
                           setCurrentFolderId(folder.id);
                         }}
                       >
                         <div className="flex flex-col items-center text-center space-y-1">
-                          <div className="h-12 w-12 flex items-center justify-center">
+                          <div className="h-10 w-10 flex items-center justify-center">
                             {getFolderIcon(folder.iconType)}
                           </div>
                           <div className="w-full">
@@ -1234,17 +1284,17 @@ export default function CloudStorage() {
                       Fichiers ({filteredFiles.length})
                     </h3>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
                     {filteredFiles.map((file: File) => (
                       <div 
                         key={file.id} 
                         className="group relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 bg-white dark:bg-gray-800"
                       >
-                        <div className="h-16 bg-gray-100 dark:bg-gray-700 flex items-center justify-center p-2">
+                        <div className="h-12 bg-gray-100 dark:bg-gray-700 flex items-center justify-center p-2">
                           {file.type.startsWith('image/') ? (
-                            <img src={file.url} alt={file.name} className="h-12 w-12 object-cover rounded" />
+                            <img src={file.url} alt={file.name} className="h-8 w-8 object-cover rounded" />
                           ) : (
-                            <div className="w-8 h-8">
+                            <div className="w-6 h-6">
                               {getFileIcon(file.type, file.name)}
                             </div>
                           )}
