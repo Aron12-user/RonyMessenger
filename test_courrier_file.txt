@@ -1,14 +1,4 @@
-Fichier Test Courrier - Document Important
-=========================================
-
-Contenu: Test du système de courrier complet
-Expéditeur: Test User 1
-Destinataire: Test User 2
-Date: 2025-07-24
-Type: Document de test pour partage, réponse et transfert
-
-Ce fichier sert à tester toutes les fonctionnalités du courrier :
-1. Partage de fichier
-2. Partage de dossier 
-3. Réponse aux courriers
-4. Transfert de courriers
+Ceci est un fichier de test pour le système de courrier.
+Il contient du contenu de démonstration pour tester le partage de fichiers.
+Date: 26 juillet 2025
+Auteur: Système de test
