@@ -104,15 +104,19 @@ export default function CloudStorage() {
     }
   };
 
-  // Requêtes pour les dossiers et fichiers
-  const { data: folders = [] } = useQuery({
+  // Requêtes optimisées pour les dossiers et fichiers
+  const { data: folders = [], isLoading: foldersLoading } = useQuery({
     queryKey: ['/api/folders', currentFolderId],
-    enabled: true
+    enabled: true,
+    staleTime: 30000, // Cache pendant 30 secondes
+    refetchOnWindowFocus: false
   });
 
-  const { data: files = [] } = useQuery({
+  const { data: files = [], isLoading: filesLoading } = useQuery({
     queryKey: ['/api/files', currentFolderId],
-    enabled: true
+    enabled: true,
+    staleTime: 30000, // Cache pendant 30 secondes
+    refetchOnWindowFocus: false
   });
 
   // États pour les dialogues et modales
@@ -232,11 +236,11 @@ export default function CloudStorage() {
   });
 
   // Filtrage et tri des éléments
-  const filteredFolders = folders.filter((folder: any) =>
+  const filteredFolders = (folders as any[]).filter((folder: any) =>
     folder.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredFiles = files.filter((file: any) => {
+  const filteredFiles = (files as any[]).filter((file: any) => {
     const matchesSearch = file.name.toLowerCase().includes(searchTerm.toLowerCase());
     
     if (filterType === 'all') return matchesSearch;
@@ -532,10 +536,19 @@ export default function CloudStorage() {
 
       {/* Contenu principal */}
       <div className="flex-1 p-6 overflow-auto">
+        {/* Loading state optimisé */}
+        {(foldersLoading || filesLoading) && (
+          <div className="flex items-center justify-center py-12">
+            <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
+            <span className="ml-2 text-gray-600">Chargement rapide...</span>
+          </div>
+        )}
+
         {/* Grid des dossiers et fichiers style OneDrive */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
-          {/* Dossiers */}
-          {filteredFolders.map((folder: any) => (
+        {!foldersLoading && !filesLoading && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
+            {/* Dossiers */}
+            {filteredFolders.map((folder: any) => (
             <div
               key={folder.id}
               className="group cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all"
@@ -574,10 +587,11 @@ export default function CloudStorage() {
               </div>
             </div>
           ))}
-        </div>
+          </div>
+        )}
 
         {/* Message si aucun élément */}
-        {filteredFolders.length === 0 && filteredFiles.length === 0 && (
+        {!foldersLoading && !filesLoading && filteredFolders.length === 0 && filteredFiles.length === 0 && (
           <div className="text-center py-12">
             <p className="text-gray-500">
               {searchTerm ? "Aucun élément trouvé." : "Ce dossier est vide."}
@@ -601,7 +615,7 @@ export default function CloudStorage() {
         multiple
         onChange={handleFolderUpload}
         className="hidden"
-        webkitdirectory=""
+        {...({ webkitdirectory: "" } as any)}
       />
 
       {/* Dialogue de création de dossier */}
