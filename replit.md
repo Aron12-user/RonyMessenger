@@ -23,7 +23,7 @@ Rony is a comprehensive communication platform that combines messaging, video co
 - **File Uploads**: Multer 2.0.1 for secure file uploads with local storage
 
 ### Video Conferencing
-- **Primary**: Custom Jitsi Meet integration (jitsiaronaduckdns.org)
+- **Primary**: Custom Jitsi Meet integration (jitsiarona.duckdns.org)
 - **Features**: Instant meeting creation, room codes, external link integration
 - **Architecture**: Lightweight interface connecting to self-hosted Jitsi server
 - **Scalability**: Leverages dedicated Jitsi infrastructure for enhanced control
@@ -128,7 +128,7 @@ Rony is a comprehensive communication platform that combines messaging, video co
 
 ### Core Technologies
 - **Database**: PostgreSQL (Neon serverless or local)
-- **Video**: Custom Jitsi Meet integration (jitsiaronaduckdns.org)
+- **Video**: Custom Jitsi Meet integration (jitsiarona.duckdns.org)
 - **File Storage**: Local filesystem with future cloud integration
 
 ### Third-party Services
@@ -316,7 +316,7 @@ Changelog:
 - July 25, 2025. Improved Planification with auto-refresh, event statistics, and enhanced UI components
 - July 25, 2025. Added forced immediate email display for Courrier with shortcut conversion mechanism
 - July 25, 2025. Implemented comprehensive error handling and performance improvements across all modules
-- July 26, 2025. JITSI SERVER MIGRATION: Replaced public Jitsi Meet (meet.jit.si) with custom self-hosted server (jitsiaronaduckdns.org)
+- July 26, 2025. JITSI SERVER MIGRATION: Replaced public Jitsi Meet (meet.jit.si) with custom self-hosted server (jitsiarona.duckdns.org)
 - July 26, 2025. Updated all video conferencing URLs in frontend (Meetings.tsx) and backend (routes-clean.ts)
 - July 26, 2025. Enhanced video conferencing with dedicated server infrastructure for better control and reliability
 - July 26, 2025. Preserved complete meeting functionality and interface while migrating to custom Jitsi server

@@ -44,6 +44,7 @@ interface Meeting {
   isActive: boolean;
   createdBy: string;
   status: 'scheduled' | 'active' | 'ended';
+  duration?: number;
 }
 
 interface ActiveRoom {
@@ -80,7 +81,7 @@ export default function Meetings() {
     enabled: !!user,
     refetchInterval: 2000, // Refetch automatique toutes les 2 secondes
     staleTime: 0, // Considérer les données comme obsolètes immédiatement
-    cacheTime: 0, // Ne pas garder de cache
+    gcTime: 0, // Ne pas garder de cache
     refetchOnWindowFocus: true // Refetch quand la fenêtre reprend le focus
   });
 
@@ -213,14 +214,14 @@ export default function Meetings() {
   // Créer une réunion instantanée
   const createInstantMeeting = () => {
     const roomCode = generateRoomCode();
-    const meetingUrl = `https://jitsiaronaduckdns.org/${roomCode}`;
+    const meetingUrl = `https://jitsiarona.duckdns.org/${roomCode}`;
     window.open(meetingUrl, '_blank');
   };
 
   // Rejoindre une réunion avec code
   const joinMeetingWithCode = () => {
     if (!joinCode.trim()) return;
-    const meetingUrl = `https://jitsiaronaduckdns.org/${joinCode}`;
+    const meetingUrl = `https://jitsiarona.duckdns.org/${joinCode}`;
     window.open(meetingUrl, '_blank');
     setShowJoinDialog(false);
     setJoinCode("");
@@ -233,13 +234,13 @@ export default function Meetings() {
 
   // Rejoindre une réunion
   const joinMeeting = (roomCode: string) => {
-    const meetingUrl = `https://jitsiaronaduckdns.org/${roomCode}`;
+    const meetingUrl = `https://jitsiarona.duckdns.org/${roomCode}`;
     window.open(meetingUrl, '_blank');
   };
 
   // Copier le lien de la réunion
   const copyMeetingLink = (roomCode: string) => {
-    const meetingUrl = `https://jitsiaronaduckdns.org/${roomCode}`;
+    const meetingUrl = `https://jitsiarona.duckdns.org/${roomCode}`;
     navigator.clipboard.writeText(meetingUrl);
     toast({
       title: "Lien copié",
