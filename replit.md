@@ -75,6 +75,33 @@ Rony is a comprehensive communication platform that combines messaging, video co
 
 ## Recent Changes
 
+### Google Cloud Run Deployment Preparation (July 26, 2025)
+- **Production Configuration**: Added comprehensive production configuration in `server/config/production.ts`
+  - Environment-specific settings for database, sessions, CORS, and uploads
+  - Configuration validation for production deployment
+  - Health check endpoints for Cloud Run monitoring
+- **Docker Configuration**: Created optimized multi-stage Dockerfile for containerization
+  - Node.js 20 Alpine base image for minimal size
+  - Non-root user for security
+  - Production build optimization
+- **Cloud Build Integration**: Added `cloudbuild.yaml` for automated CI/CD pipeline
+  - Automatic build and deployment from GitHub
+  - Container Registry integration
+  - Environment variable management
+- **GitHub Actions Workflow**: Implemented `.github/workflows/deploy.yml` for automated deployment
+  - Seamless integration with Google Cloud Run
+  - Secret management through GitHub Secrets
+  - Deployment status tracking
+- **Comprehensive Documentation**: Created detailed deployment guides
+  - `README.md` with architecture overview and deployment instructions
+  - `deploy-guide.md` with step-by-step Cloud Run setup
+  - `.env.example` with all required environment variables
+- **Health Monitoring**: Added `/api/health` and `/api/ready` endpoints for Cloud Run health checks
+- **Security Enhancements**: Production-ready security configuration
+  - Secure cookies and session management
+  - CORS configuration for production domains
+  - Environment-based configuration switching
+
 ### Security Updates (July 24, 2025)
 - **Multer Security Fix**: Upgraded from `^1.4.5-lts.2` to `^2.0.1` to address CVE-2025-48997
   - Fixed potential DoS vulnerability with empty field names in file uploads

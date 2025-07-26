@@ -103,6 +103,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Static file serving for uploads
   app.use('/uploads', expressStatic(uploadsDir));
 
+  // Health check endpoint for Google Cloud Run
+  app.get('/api/health', (req: Request, res: Response) => {
+    res.status(200).json({ 
+      status: 'healthy', 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      version: process.env.npm_package_version || '1.0.0',
+      environment: process.env.NODE_ENV || 'development'
+    });
+  });
+
+  // Readiness check for Kubernetes/Cloud Run
+  app.get('/api/ready', (req: Request, res: Response) => {
+    try {
+      res.status(200).json({ 
+        status: 'ready',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(503).json({ 
+        status: 'not ready',
+        error: 'Service unavailable'
+      });
+    }
+  });
+
   // Routes pour les groupes de conversation
   app.post("/api/groups", requireAuth, async (req: Request, res: Response) => {
     try {

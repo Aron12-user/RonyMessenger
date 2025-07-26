@@ -1,0 +1,47 @@
+# Configuration Google Cloud Build pour déploiement automatique depuis GitHub
+steps:
+  # Build de l'image Docker
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t', 'gcr.io/$PROJECT_ID/rony-app:$COMMIT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/rony-app:latest',
+      '.'
+    ]
+
+  # Push de l'image vers Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/rony-app:$COMMIT_SHA']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/rony-app:latest']
+
+  # Déploiement sur Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args: [
+      'run', 'deploy', 'rony-app',
+      '--image', 'gcr.io/$PROJECT_ID/rony-app:$COMMIT_SHA',
+      '--region', 'europe-west1',
+      '--platform', 'managed',
+      '--allow-unauthenticated',
+      '--port', '5000',
+      '--memory', '1Gi',
+      '--cpu', '1',
+      '--max-instances', '10',
+      '--set-env-vars', 'NODE_ENV=production,PORT=5000',
+      '--timeout', '300s'
+    ]
+
+# Images à construire et stocker
+images:
+  - 'gcr.io/$PROJECT_ID/rony-app:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/rony-app:latest'
+
+# Configuration des timeouts
+timeout: '1200s'
+
+# Options du build
+options:
+  machineType: 'E2_STANDARD_2'
+  logging: CLOUD_LOGGING_ONLY

@@ -1,0 +1,70 @@
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Build outputs
+dist
+.next
+
+# Development files
+.git
+.gitignore
+README.md
+Dockerfile
+.dockerignore
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Coverage directory used by tools like istanbul
+coverage
+
+# Temporary files
+tmp
+temp
+
+# Cache directories
+.npm
+.eslintcache
+
+# Replit specific files
+.replit
+replit.nix
+
+# Development cookies
+cookies*.txt
+
+# Database files (will use Cloud SQL)
+*.db
+*.sqlite
+
+# Scripts
+scripts/
+migrations/
+docs/
+
+# Test files
+test/
+tests/
+__tests__/
+
+# Large assets not needed in production
+attached_assets/
