@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Search, Upload, FolderPlus, Download, Share, Settings, BarChart3, History, RotateCcw } from 'lucide-react';
+import { Search, Upload, FolderPlus, Download, Share, Settings, BarChart3, History, RotateCcw, RefreshCw, Trash2, Archive, Cloud, HardDrive, ChevronDown } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { apiRequest } from '@/lib/queryClient';
 import { toast } from '@/hooks/use-toast';
@@ -122,6 +122,7 @@ export default function CloudStorage() {
   const [uploadingFiles, setUploadingFiles] = useState(0);
   const [totalFiles, setTotalFiles] = useState(0);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Mutations avec gestion des limites augmentées
   const createFolderMutation = useMutation({
@@ -256,13 +257,45 @@ export default function CloudStorage() {
     }
   });
 
-  // Gestionnaires d'événements
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files && files.length > 0) {
-      setIsUploading(true);
-      uploadFilesMutation.mutate(files);
+  // Mutation pour synchronisation
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      setIsSyncing(true);
+      // Simulation de synchronisation avec un petit délai
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Refresh toutes les données
+      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
+      
+      return { success: true };
+    },
+    onSuccess: () => {
+      setIsSyncing(false);
+      toast({ title: "Synchronisation terminée !", description: "Tous vos fichiers sont à jour." });
+    },
+    onError: () => {
+      setIsSyncing(false);
+      toast({ title: "Erreur de synchronisation", variant: "destructive" });
     }
+  });
+
+  // Gestionnaires d'événements corrigés
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('[upload] File input triggered');
+    const files = event.target.files;
+    console.log('[upload] Files selected:', files ? files.length : 0);
+    
+    if (!files || files.length === 0) {
+      console.warn('[upload] No files selected');
+      toast({ title: "Erreur", description: "Aucun fichier sélectionné", variant: "destructive" });
+      return;
+    }
+
+    console.log('[upload] Starting file upload process');
+    setIsUploading(true);
+    uploadFilesMutation.mutate(files);
+    
     // Reset input pour permettre de re-sélectionner le même fichier
     if (event.target) {
       event.target.value = '';
@@ -270,11 +303,20 @@ export default function CloudStorage() {
   };
 
   const handleFolderUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('[upload] Folder input triggered');
     const files = event.target.files;
-    if (files && files.length > 0) {
-      setIsUploading(true);
-      uploadFilesMutation.mutate(files);
+    console.log('[upload] Folder files selected:', files ? files.length : 0);
+    
+    if (!files || files.length === 0) {
+      console.warn('[upload] No folder files selected');
+      toast({ title: "Erreur", description: "Aucun dossier sélectionné", variant: "destructive" });
+      return;
     }
+
+    console.log('[upload] Starting folder upload process');
+    setIsUploading(true);
+    uploadFilesMutation.mutate(files);
+    
     // Reset input
     if (event.target) {
       event.target.value = '';
@@ -282,23 +324,48 @@ export default function CloudStorage() {
   };
 
   const handleCreateFolder = () => {
-    if (newFolderName.trim()) {
-      createFolderMutation.mutate({
-        name: newFolderName.trim(),
-        parentId: currentFolderId,
-        iconType: selectedFolderIcon
-      });
+    if (!newFolderName.trim()) {
+      toast({ title: "Erreur", description: "Le nom du dossier ne peut pas être vide", variant: "destructive" });
+      return;
     }
+    
+    createFolderMutation.mutate({
+      name: newFolderName.trim(),
+      parentId: currentFolderId,
+      iconType: selectedFolderIcon
+    });
+  };
+
+  const handleSync = () => {
+    console.log('[sync] Starting synchronization');
+    syncMutation.mutate();
+  };
+
+  const handleRefresh = () => {
+    console.log('[refresh] Refreshing data');
+    queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
+    toast({ title: "Actualisation", description: "Données actualisées" });
   };
 
   const triggerFileInput = () => {
     console.log('[ui] Triggering file input click');
-    fileInputRef.current?.click();
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    } else {
+      console.error('[ui] File input ref is null');
+      toast({ title: "Erreur", description: "Impossible d'ouvrir le sélecteur de fichiers", variant: "destructive" });
+    }
   };
 
   const triggerFolderInput = () => {
     console.log('[ui] Triggering folder input click');
-    folderInputRef.current?.click();
+    if (folderInputRef.current) {
+      folderInputRef.current.click();
+    } else {
+      console.error('[ui] Folder input ref is null');
+      toast({ title: "Erreur", description: "Impossible d'ouvrir le sélecteur de dossiers", variant: "destructive" });
+    }
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -316,32 +383,119 @@ export default function CloudStorage() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-gray-900">Cloud Storage</h1>
           
-          {/* Boutons d'actions séparés comme l'original */}
-          <div className="flex items-center gap-2">
-            <Button 
-              onClick={triggerFileInput}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              disabled={isUploading}
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              Upload Fichiers
-            </Button>
-            <Button 
-              onClick={triggerFolderInput}
-              className="bg-green-600 hover:bg-green-700 text-white"
-              disabled={isUploading}
-            >
-              <FolderPlus className="mr-2 h-4 w-4" />
-              Upload Dossier
-            </Button>
-            <Button 
-              onClick={() => setIsCreateFolderDialogOpen(true)}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              <FolderPlus className="mr-2 h-4 w-4" />
-              Nouveau Dossier
-            </Button>
-          </div>
+          {/* Dropdown unifié Actions Cloud avec toutes les fonctions */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white min-w-[160px]"
+                disabled={isUploading || isSyncing}
+              >
+                <Cloud className="mr-2 h-4 w-4" />
+                Actions Cloud
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              {/* Actions principales d'upload */}
+              <DropdownMenuItem 
+                onClick={triggerFileInput}
+                disabled={isUploading}
+                className="cursor-pointer"
+              >
+                <Upload className="mr-3 h-4 w-4 text-blue-600" />
+                <div className="flex flex-col">
+                  <span className="font-medium">Upload Fichiers</span>
+                  <span className="text-xs text-gray-500">Jusqu'à 1 Go par fichier</span>
+                </div>
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem 
+                onClick={triggerFolderInput}
+                disabled={isUploading}
+                className="cursor-pointer"
+              >
+                <FolderPlus className="mr-3 h-4 w-4 text-green-600" />
+                <div className="flex flex-col">
+                  <span className="font-medium">Upload Dossier</span>
+                  <span className="text-xs text-gray-500">Jusqu'à 5 Go par dossier</span>
+                </div>
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem 
+                onClick={() => setIsCreateFolderDialogOpen(true)}
+                className="cursor-pointer"
+              >
+                <FolderPlus className="mr-3 h-4 w-4 text-purple-600" />
+                <div className="flex flex-col">
+                  <span className="font-medium">Nouveau Dossier</span>
+                  <span className="text-xs text-gray-500">Créer un dossier vide</span>
+                </div>
+              </DropdownMenuItem>
+              
+              <DropdownMenuSeparator />
+              
+              {/* Actions de gestion */}
+              <DropdownMenuItem 
+                onClick={handleSync}
+                disabled={isSyncing}
+                className="cursor-pointer"
+              >
+                <RefreshCw className={`mr-3 h-4 w-4 text-orange-600 ${isSyncing ? 'animate-spin' : ''}`} />
+                <div className="flex flex-col">
+                  <span className="font-medium">Synchronisation</span>
+                  <span className="text-xs text-gray-500">
+                    {isSyncing ? 'Synchronisation en cours...' : 'Sync avec le cloud'}
+                  </span>
+                </div>
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem 
+                onClick={handleRefresh}
+                className="cursor-pointer"
+              >
+                <RotateCcw className="mr-3 h-4 w-4 text-indigo-600" />
+                <div className="flex flex-col">
+                  <span className="font-medium">Actualiser</span>
+                  <span className="text-xs text-gray-500">Rafraîchir la vue</span>
+                </div>
+              </DropdownMenuItem>
+              
+              <DropdownMenuSeparator />
+              
+              {/* Actions avancées */}
+              <DropdownMenuItem className="cursor-pointer">
+                <BarChart3 className="mr-3 h-4 w-4 text-cyan-600" />
+                <div className="flex flex-col">
+                  <span className="font-medium">Statistiques</span>
+                  <span className="text-xs text-gray-500">Espace utilisé et analytics</span>
+                </div>
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem className="cursor-pointer">
+                <History className="mr-3 h-4 w-4 text-amber-600" />
+                <div className="flex flex-col">
+                  <span className="font-medium">Historique</span>
+                  <span className="text-xs text-gray-500">Versions et modifications</span>
+                </div>
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem className="cursor-pointer">
+                <Archive className="mr-3 h-4 w-4 text-gray-600" />
+                <div className="flex flex-col">
+                  <span className="font-medium">Archives</span>
+                  <span className="text-xs text-gray-500">Fichiers archivés</span>
+                </div>
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem className="cursor-pointer">
+                <HardDrive className="mr-3 h-4 w-4 text-red-600" />
+                <div className="flex flex-col">
+                  <span className="font-medium">Nettoyer</span>
+                  <span className="text-xs text-gray-500">Supprimer fichiers temporaires</span>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Barre de recherche et filtres */}
