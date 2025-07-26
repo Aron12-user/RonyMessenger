@@ -104,18 +104,38 @@ export default function CloudStorage() {
     }
   };
 
-  // Requêtes optimisées pour les dossiers et fichiers - corrigées pour les sous-dossiers
+  // Requêtes optimisées pour les dossiers et fichiers avec paramètres corrects
   const { data: folders = [], isLoading: foldersLoading } = useQuery({
-    queryKey: ['/api/folders', currentFolderId || 'root'],
+    queryKey: ['/api/folders', currentFolderId],
+    queryFn: async () => {
+      const url = currentFolderId 
+        ? `/api/folders?parentId=${currentFolderId}`
+        : '/api/folders';
+      const response = await fetch(url, {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to fetch folders');
+      return response.json();
+    },
     enabled: true,
-    staleTime: 5000, // Cache réduit pour navigation rapide
+    staleTime: 1000, // Cache très court pour navigation fluide
     refetchOnWindowFocus: false
   });
 
   const { data: files = [], isLoading: filesLoading } = useQuery({
-    queryKey: ['/api/files', currentFolderId || 'root'],
+    queryKey: ['/api/files', currentFolderId],
+    queryFn: async () => {
+      const url = currentFolderId 
+        ? `/api/files?folderId=${currentFolderId}`
+        : '/api/files';
+      const response = await fetch(url, {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to fetch files');
+      return response.json();
+    },
     enabled: true,
-    staleTime: 5000, // Cache réduit pour navigation rapide
+    staleTime: 1000, // Cache très court pour navigation fluide
     refetchOnWindowFocus: false
   });
 
@@ -136,6 +156,7 @@ export default function CloudStorage() {
   // Mutations avec gestion des limites augmentées
   const createFolderMutation = useMutation({
     mutationFn: async (folderData: { name: string; parentId: number | null; iconType: string }) => {
+      console.log('[folder] Creating folder with data:', folderData);
       const response = await fetch('/api/folders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -150,12 +171,17 @@ export default function CloudStorage() {
       
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
+    onSuccess: (data) => {
+      console.log('[folder] Folder created successfully:', data);
+      // Invalider le cache pour le dossier parent actuel
+      queryClient.invalidateQueries({ queryKey: ['/api/folders', currentFolderId] });
       setIsCreateFolderDialogOpen(false);
       setNewFolderName("");
       setSelectedFolderIcon("orange");
-      toast({ title: "Dossier créé avec succès !" });
+      toast({ 
+        title: "Dossier créé avec succès !", 
+        description: `Le dossier "${data.name}" a été créé dans ${currentFolderName || 'la racine'}` 
+      });
     },
     onError: (error: Error) => {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
@@ -200,12 +226,30 @@ export default function CloudStorage() {
 
       const formData = new FormData();
       
-      Array.from(files).forEach((file) => {
-        formData.append('files', file);
-      });
+      const filePaths: string[] = [];
       
+      // Ajouter tous les fichiers avec leurs chemins relatifs
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        formData.append('files', file);
+        
+        // Vérifier si c'est un upload de dossier (webkitRelativePath)
+        const webkitFile = file as any;
+        if (webkitFile.webkitRelativePath) {
+          filePaths.push(webkitFile.webkitRelativePath);
+        } else {
+          filePaths.push(file.name);
+        }
+      }
+      
+      formData.append('filePaths', JSON.stringify(filePaths));
+      
+      // CRITIQUE: Ajouter le folderId actuel pour l'upload dans le dossier courant
       if (currentFolderId) {
         formData.append('folderId', currentFolderId.toString());
+        console.log('[upload] Uploading to folder ID:', currentFolderId);
+      } else {
+        console.log('[upload] Uploading to root folder');
       }
       
       const response = await fetch('/api/upload', {
@@ -223,13 +267,18 @@ export default function CloudStorage() {
       console.log('[upload] Upload terminé:', result);
       return result;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
+    onSuccess: (data) => {
+      console.log('[upload] Upload successful in folder:', currentFolderId);
+      // Invalider spécifiquement le cache pour le dossier actuel
+      queryClient.invalidateQueries({ queryKey: ['/api/files', currentFolderId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/folders', currentFolderId] });
       setIsUploading(false);
       setUploadProgress(0);
       setUploadingFiles(0);
-      toast({ title: "Upload terminé !", description: `${totalFiles} fichier(s) uploadé(s) avec succès` });
+      toast({ 
+        title: "Upload terminé !", 
+        description: `${data.filesCreated || totalFiles} fichier(s) uploadé(s) avec succès dans ${currentFolderName || 'la racine'}` 
+      });
     },
     onError: (error: Error) => {
       console.error('Upload error:', error);
@@ -402,9 +451,8 @@ export default function CloudStorage() {
 
   const handleRefresh = () => {
     console.log('[refresh] Refreshing data for folder:', currentFolderId);
-    const folderKey = currentFolderId || 'root';
-    queryClient.invalidateQueries({ queryKey: ['/api/files', folderKey] });
-    queryClient.invalidateQueries({ queryKey: ['/api/folders', folderKey] });
+    queryClient.invalidateQueries({ queryKey: ['/api/files', currentFolderId] });
+    queryClient.invalidateQueries({ queryKey: ['/api/folders', currentFolderId] });
     toast({ title: "Actualisation", description: "Données actualisées" });
   };
 
@@ -672,8 +720,8 @@ export default function CloudStorage() {
                 console.log('[navigation] Going back to root');
                 setCurrentFolderId(null);
                 setCurrentFolderName("");
-                queryClient.invalidateQueries({ queryKey: ['/api/files', 'root'] });
-                queryClient.invalidateQueries({ queryKey: ['/api/folders', 'root'] });
+                queryClient.invalidateQueries({ queryKey: ['/api/files', null] });
+                queryClient.invalidateQueries({ queryKey: ['/api/folders', null] });
               }}
               variant="outline"
               size="sm"
@@ -748,9 +796,11 @@ export default function CloudStorage() {
                 console.log('[navigation] Navigating to folder:', folder.id, folder.name);
                 setCurrentFolderId(folder.id);
                 setCurrentFolderName(folder.name);
-                // Forcer le refresh des données du nouveau dossier
-                queryClient.invalidateQueries({ queryKey: ['/api/files', folder.id] });
-                queryClient.invalidateQueries({ queryKey: ['/api/folders', folder.id] });
+                // Invalider immédiatement le cache pour le nouveau dossier
+                setTimeout(() => {
+                  queryClient.invalidateQueries({ queryKey: ['/api/files', folder.id] });
+                  queryClient.invalidateQueries({ queryKey: ['/api/folders', folder.id] });
+                }, 100);
               }}
             >
               <div className="flex flex-col items-center text-center">
