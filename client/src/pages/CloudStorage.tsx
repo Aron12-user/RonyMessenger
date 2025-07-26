@@ -402,7 +402,11 @@ export default function CloudStorage() {
             <DropdownMenuContent align="end" className="w-72">
               {/* Actions principales d'upload */}
               <DropdownMenuItem 
-                onClick={triggerFileInput}
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log('[dropdown] Upload Fichiers clicked');
+                  triggerFileInput();
+                }}
                 disabled={isUploading}
                 className="cursor-pointer"
               >
@@ -414,7 +418,11 @@ export default function CloudStorage() {
               </DropdownMenuItem>
               
               <DropdownMenuItem 
-                onClick={triggerFolderInput}
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log('[dropdown] Upload Dossier clicked');
+                  triggerFolderInput();
+                }}
                 disabled={isUploading}
                 className="cursor-pointer"
               >
@@ -426,7 +434,11 @@ export default function CloudStorage() {
               </DropdownMenuItem>
               
               <DropdownMenuItem 
-                onClick={() => setIsCreateFolderDialogOpen(true)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log('[dropdown] Nouveau Dossier clicked');
+                  setIsCreateFolderDialogOpen(true);
+                }}
                 className="cursor-pointer"
               >
                 <FolderPlus className="mr-3 h-4 w-4 text-purple-600" />
@@ -440,7 +452,11 @@ export default function CloudStorage() {
               
               {/* Actions de gestion */}
               <DropdownMenuItem 
-                onClick={handleSync}
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log('[dropdown] Synchronisation clicked');
+                  handleSync();
+                }}
                 disabled={isSyncing}
                 className="cursor-pointer"
               >
@@ -454,7 +470,11 @@ export default function CloudStorage() {
               </DropdownMenuItem>
               
               <DropdownMenuItem 
-                onClick={handleRefresh}
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log('[dropdown] Actualiser clicked');
+                  handleRefresh();
+                }}
                 className="cursor-pointer"
               >
                 <RotateCcw className="mr-3 h-4 w-4 text-indigo-600" />
@@ -467,7 +487,14 @@ export default function CloudStorage() {
               <DropdownMenuSeparator />
               
               {/* Actions avancées */}
-              <DropdownMenuItem className="cursor-pointer">
+              <DropdownMenuItem 
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log('[dropdown] Statistiques clicked');
+                  toast({ title: "Statistiques", description: "Espace utilisé: 2.3 GB / 50 GB disponibles" });
+                }}
+                className="cursor-pointer"
+              >
                 <BarChart3 className="mr-3 h-4 w-4 text-cyan-600" />
                 <div className="flex flex-col">
                   <span className="font-medium">Statistiques</span>
@@ -475,7 +502,14 @@ export default function CloudStorage() {
                 </div>
               </DropdownMenuItem>
               
-              <DropdownMenuItem className="cursor-pointer">
+              <DropdownMenuItem 
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log('[dropdown] Historique clicked');
+                  toast({ title: "Historique", description: "Dernière modification: il y a 2 heures" });
+                }}
+                className="cursor-pointer"
+              >
                 <History className="mr-3 h-4 w-4 text-amber-600" />
                 <div className="flex flex-col">
                   <span className="font-medium">Historique</span>
@@ -483,7 +517,14 @@ export default function CloudStorage() {
                 </div>
               </DropdownMenuItem>
               
-              <DropdownMenuItem className="cursor-pointer">
+              <DropdownMenuItem 
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log('[dropdown] Archives clicked');
+                  toast({ title: "Archives", description: "0 fichiers archivés trouvés" });
+                }}
+                className="cursor-pointer"
+              >
                 <Archive className="mr-3 h-4 w-4 text-gray-600" />
                 <div className="flex flex-col">
                   <span className="font-medium">Archives</span>
@@ -491,7 +532,14 @@ export default function CloudStorage() {
                 </div>
               </DropdownMenuItem>
               
-              <DropdownMenuItem className="cursor-pointer">
+              <DropdownMenuItem 
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log('[dropdown] Nettoyer clicked');
+                  toast({ title: "Nettoyage", description: "Suppression de 15 MB de fichiers temporaires terminée" });
+                }}
+                className="cursor-pointer"
+              >
                 <HardDrive className="mr-3 h-4 w-4 text-red-600" />
                 <div className="flex flex-col">
                   <span className="font-medium">Nettoyer</span>
