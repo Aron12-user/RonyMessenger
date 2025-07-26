@@ -1,4 +1,4 @@
-import { User, InsertUser, Conversation, InsertConversation, Message, InsertMessage, File, InsertFile, Contact, InsertContact, Folder, InsertFolder, FileSharing, InsertFileSharing, Event, InsertEvent, EventParticipant, InsertEventParticipant } from "@shared/schema";
+import { User, InsertUser, Conversation, InsertConversation, Message, InsertMessage, File, InsertFile, Contact, InsertContact, Folder, InsertFolder, FileSharing, InsertFileSharing, Event, InsertEvent, EventParticipant, InsertEventParticipant, ConversationGroup, InsertConversationGroup, GroupMember, InsertGroupMember } from "@shared/schema";
 import { PaginatedResult, PaginationOptions } from "./pg-storage";
 
 // Interface complète et fonctionnelle pour le storage
@@ -74,6 +74,19 @@ export interface IStorageComplete {
   
   // Pagination methods
   getPaginatedUsers(options: PaginationOptions): Promise<PaginatedResult<User>>;
+  
+  // Group methods - Fonctionnalités de groupe complètes
+  createConversationGroup(group: InsertConversationGroup): Promise<ConversationGroup>;
+  getConversationGroups(userId: number): Promise<ConversationGroup[]>;
+  getGroupById(groupId: number): Promise<ConversationGroup | undefined>;
+  updateConversationGroup(groupId: number, updates: Partial<ConversationGroup>): Promise<ConversationGroup>;
+  deleteConversationGroup(groupId: number): Promise<void>;
+  
+  // Group member methods
+  addGroupMember(member: InsertGroupMember): Promise<GroupMember>;
+  getGroupMembers(groupId: number): Promise<GroupMember[]>;
+  removeGroupMember(groupId: number, userId: number): Promise<void>;
+  updateGroupMemberRole(groupId: number, userId: number, role: string): Promise<void>;
 }
 
 export class CompleteMemStorage implements IStorageComplete {
@@ -88,6 +101,8 @@ export class CompleteMemStorage implements IStorageComplete {
   private events: Map<number, Event> = new Map();
   private eventParticipants: Map<number, EventParticipant> = new Map();
   private reactions: Map<number, any> = new Map();
+  private conversationGroups: Map<number, ConversationGroup> = new Map();
+  private groupMembers: Map<number, GroupMember> = new Map();
 
   // Compteurs pour les IDs
   private userId = 1;
@@ -98,6 +113,10 @@ export class CompleteMemStorage implements IStorageComplete {
   private fileSharingId = 1;
   private contactId = 1;
   private reactionId = 1;
+  private groupId = 1;
+  private groupMemberId = 1;
+  private eventId = 1;
+  private eventParticipantId = 1;
 
   // User methods
   async getUser(id: number): Promise<User | undefined> {
@@ -701,6 +720,100 @@ export class CompleteMemStorage implements IStorageComplete {
       if (participant.eventId === eventId && participant.userId === userId) {
         const updatedParticipant = { ...participant, response, respondedAt: new Date() };
         this.eventParticipants.set(id, updatedParticipant);
+        break;
+      }
+    }
+  }
+
+  // Group methods implementation
+  async createConversationGroup(groupData: InsertConversationGroup): Promise<ConversationGroup> {
+    const id = this.groupId++;
+    const group: ConversationGroup = {
+      ...groupData,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.conversationGroups.set(id, group);
+    return group;
+  }
+
+  async getConversationGroups(userId: number): Promise<ConversationGroup[]> {
+    // Récupérer les groupes où l'utilisateur est membre ou créateur
+    const userGroups: ConversationGroup[] = [];
+    
+    // Groupes créés par l'utilisateur
+    for (const group of this.conversationGroups.values()) {
+      if (group.createdBy === userId) {
+        userGroups.push(group);
+      }
+    }
+    
+    // Groupes où l'utilisateur est membre
+    for (const member of this.groupMembers.values()) {
+      if (member.userId === userId) {
+        const group = this.conversationGroups.get(member.groupId);
+        if (group && !userGroups.some(g => g.id === group.id)) {
+          userGroups.push(group);
+        }
+      }
+    }
+    
+    return userGroups.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  }
+
+  async getGroupById(groupId: number): Promise<ConversationGroup | undefined> {
+    return this.conversationGroups.get(groupId);
+  }
+
+  async updateConversationGroup(groupId: number, updates: Partial<ConversationGroup>): Promise<ConversationGroup> {
+    const group = this.conversationGroups.get(groupId);
+    if (!group) throw new Error('Group not found');
+    
+    const updatedGroup = { ...group, ...updates, updatedAt: new Date() };
+    this.conversationGroups.set(groupId, updatedGroup);
+    return updatedGroup;
+  }
+
+  async deleteConversationGroup(groupId: number): Promise<void> {
+    this.conversationGroups.delete(groupId);
+    // Supprimer tous les membres du groupe
+    for (const [id, member] of this.groupMembers.entries()) {
+      if (member.groupId === groupId) {
+        this.groupMembers.delete(id);
+      }
+    }
+  }
+
+  async addGroupMember(memberData: InsertGroupMember): Promise<GroupMember> {
+    const id = this.groupMemberId++;
+    const member: GroupMember = {
+      ...memberData,
+      id,
+      joinedAt: new Date()
+    };
+    this.groupMembers.set(id, member);
+    return member;
+  }
+
+  async getGroupMembers(groupId: number): Promise<GroupMember[]> {
+    return Array.from(this.groupMembers.values()).filter(m => m.groupId === groupId);
+  }
+
+  async removeGroupMember(groupId: number, userId: number): Promise<void> {
+    for (const [id, member] of this.groupMembers.entries()) {
+      if (member.groupId === groupId && member.userId === userId) {
+        this.groupMembers.delete(id);
+        break;
+      }
+    }
+  }
+
+  async updateGroupMemberRole(groupId: number, userId: number, role: string): Promise<void> {
+    for (const [id, member] of this.groupMembers.entries()) {
+      if (member.groupId === groupId && member.userId === userId) {
+        const updatedMember = { ...member, role };
+        this.groupMembers.set(id, updatedMember);
         break;
       }
     }

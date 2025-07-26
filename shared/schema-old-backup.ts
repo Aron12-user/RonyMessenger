@@ -198,21 +198,7 @@ export const fileSharing = pgTable("file_sharing", {
   }
 });
 
-// Folder Sharing Table
-export const folderSharing = pgTable("folder_sharing", {
-  id: serial("id").primaryKey(),
-  folderId: integer("folder_id").references(() => folders.id).notNull(),
-  ownerId: integer("owner_id").references(() => users.id).notNull(),
-  sharedWithId: integer("shared_with_id").references(() => users.id).notNull(),
-  permission: text("permission").notNull(), // 'read', 'write', etc.
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => {
-  return {
-    folderIdIdx: index("folder_sharing_folder_id_idx").on(table.folderId),
-    sharedWithIdIdx: index("folder_sharing_with_id_idx").on(table.sharedWithId),
-    folderUserIdx: uniqueIndex("folder_user_idx").on(table.folderId, table.sharedWithId),
-  }
-});
+// Meeting tables removed - using native WebRTC solution without database persistence
 
 // Contacts Table
 export const contacts = pgTable("contacts", {
@@ -234,6 +220,77 @@ export const contacts = pgTable("contacts", {
   }
 });
 
+// Schemas
+export const insertUserSchema = createInsertSchema(users).omit({ id: true });
+export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true });
+export const insertMessageSchema = createInsertSchema(messages).omit({ id: true });
+export const insertMessageReactionSchema = createInsertSchema(messageReactions).omit({ id: true });
+export const insertTypingIndicatorSchema = createInsertSchema(typingIndicators).omit({ id: true });
+export const insertFileSchema = createInsertSchema(files).omit({ id: true });
+export const insertFolderSchema = createInsertSchema(folders).omit({ id: true });
+export const insertFileSharingSchema = createInsertSchema(fileSharing).omit({ id: true });
+export const insertContactSchema = createInsertSchema(contacts).omit({ id: true });
+export const insertEventSchema = createInsertSchema(events).omit({ id: true });
+export const insertEventParticipantSchema = createInsertSchema(eventParticipants).omit({ id: true });
+export const insertConversationGroupSchema = createInsertSchema(conversationGroups).omit({ id: true });
+export const insertGroupMemberSchema = createInsertSchema(groupMembers).omit({ id: true });
+
+// Types
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertConversation = z.infer<typeof insertConversationSchema>;
+
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+
+export type MessageReaction = typeof messageReactions.$inferSelect;
+export type InsertMessageReaction = z.infer<typeof insertMessageReactionSchema>;
+
+export type TypingIndicator = typeof typingIndicators.$inferSelect;
+export type InsertTypingIndicator = z.infer<typeof insertTypingIndicatorSchema>;
+
+export type File = typeof files.$inferSelect;
+export type InsertFile = z.infer<typeof insertFileSchema>;
+
+export type Folder = typeof folders.$inferSelect;
+export type InsertFolder = z.infer<typeof insertFolderSchema>;
+
+export type FileSharing = typeof fileSharing.$inferSelect;
+export type InsertFileSharing = z.infer<typeof insertFileSharingSchema>;
+
+export type Contact = typeof contacts.$inferSelect;
+export type InsertContact = z.infer<typeof insertContactSchema>;
+
+export type Event = typeof events.$inferSelect;
+export type InsertEvent = z.infer<typeof insertEventSchema>;
+
+export type EventParticipant = typeof eventParticipants.$inferSelect;
+export type InsertEventParticipant = z.infer<typeof insertEventParticipantSchema>;
+
+export type ConversationGroup = typeof conversationGroups.$inferSelect;
+export type InsertConversationGroup = z.infer<typeof insertConversationGroupSchema>;
+
+export type GroupMember = typeof groupMembers.$inferSelect;
+export type InsertGroupMember = z.infer<typeof insertGroupMemberSchema>;
+
+// Folder Sharing Table
+export const folderSharing = pgTable("folder_sharing", {
+  id: serial("id").primaryKey(),
+  folderId: integer("folder_id").references(() => folders.id).notNull(),
+  ownerId: integer("owner_id").references(() => users.id).notNull(),
+  sharedWithId: integer("shared_with_id").references(() => users.id).notNull(),
+  permission: text("permission").notNull(), // 'read', 'write', etc.
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    folderIdIdx: index("folder_sharing_folder_id_idx").on(table.folderId),
+    sharedWithIdIdx: index("folder_sharing_with_id_idx").on(table.sharedWithId),
+    folderUserIdx: uniqueIndex("folder_user_idx").on(table.folderId, table.sharedWithId),
+  }
+});
+
 // Events/Planning Table - Système de planification complet
 export const events = pgTable("events", {
   id: serial("id").primaryKey(),
@@ -246,16 +303,16 @@ export const events = pgTable("events", {
   endTime: text("end_time"), // "17:30" format
   isAllDay: boolean("is_all_day").default(false),
   isRecurring: boolean("is_recurring").default(false),
-  recurringType: text("recurring_type"), // daily, weekly, monthly, yearly
-  recurringEnd: timestamp("recurring_end"),
-  priority: text("priority").default("medium"), // low, medium, high
-  status: text("status").default("scheduled"), // scheduled, ongoing, completed, cancelled
+  recurrencePattern: text("recurrence_pattern"), // "daily", "weekly", "monthly", "yearly"
+  recurrenceInterval: integer("recurrence_interval").default(1), // every X days/weeks/months
+  recurrenceEndDate: timestamp("recurrence_end_date"),
   location: text("location"),
+  isInPerson: boolean("is_in_person").default(true),
   isPrivate: boolean("is_private").default(false),
-  attendeeEmails: text("attendee_emails"), // JSON array des emails des participants
-  reminderMinutes: integer("reminder_minutes").default(15),
-  color: text("color").default("#3b82f6"), // Couleur de l'événement
-  attendeeResponse: text("attendee_response").default("pending"), // pending, accepted, declined, maybe
+  reminderMinutes: integer("reminder_minutes").default(15), // 15 minutes avant
+  calendar: text("calendar").default("default"), // nom du calendrier
+  status: text("status").default("confirmed"), // confirmed, cancelled, tentative
+  attendeeResponse: text("attendee_response").default("needs_action"), // needs_action, accepted, declined, tentative
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -264,7 +321,7 @@ export const events = pgTable("events", {
     startDateIdx: index("event_start_date_idx").on(table.startDate),
     endDateIdx: index("event_end_date_idx").on(table.endDate),
     statusIdx: index("event_status_idx").on(table.status),
-    priorityIdx: index("event_priority_idx").on(table.priority),
+    calendarIdx: index("event_calendar_idx").on(table.calendar),
     isRecurringIdx: index("event_is_recurring_idx").on(table.isRecurring),
   }
 });
@@ -283,7 +340,6 @@ export const eventParticipants = pgTable("event_participants", {
     eventIdIdx: index("event_participants_event_id_idx").on(table.eventId),
     userIdIdx: index("event_participants_user_id_idx").on(table.userId),
     uniqueEventUser: uniqueIndex("unique_event_user_idx").on(table.eventId, table.userId),
-    responseIdx: index("event_participants_response_idx").on(table.response),
   }
 });
 
@@ -318,59 +374,21 @@ export const groupMembers = pgTable('group_members', {
     uniqueGroupUser: uniqueIndex("unique_group_user_idx").on(table.groupId, table.userId),
   }
 });
+    uniqueParticipant: uniqueIndex("unique_event_participant").on(table.eventId, table.userId),
+    responseIdx: index("event_participants_response_idx").on(table.response),
+  }
+});
 
-// ============================================================================
-// SCHEMAS ZOD - Déclarés après toutes les tables pour éviter les références circulaires
-// ============================================================================
-
-export const insertUserSchema = createInsertSchema(users).omit({ id: true });
-export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true });
-export const insertMessageSchema = createInsertSchema(messages).omit({ id: true });
-export const insertMessageReactionSchema = createInsertSchema(messageReactions).omit({ id: true });
-export const insertTypingIndicatorSchema = createInsertSchema(typingIndicators).omit({ id: true });
-export const insertFileSchema = createInsertSchema(files).omit({ id: true });
-export const insertFolderSchema = createInsertSchema(folders).omit({ id: true });
-export const insertFileSharingSchema = createInsertSchema(fileSharing).omit({ id: true });
+// Schemas pour les nouveaux modèles
 export const insertFolderSharingSchema = createInsertSchema(folderSharing).omit({ id: true });
-export const insertContactSchema = createInsertSchema(contacts).omit({ id: true });
 export const insertEventSchema = createInsertSchema(events).omit({ id: true });
 export const insertEventParticipantSchema = createInsertSchema(eventParticipants).omit({ id: true });
 export const insertConversationGroupSchema = createInsertSchema(conversationGroups).omit({ id: true });
 export const insertGroupMemberSchema = createInsertSchema(groupMembers).omit({ id: true });
 
-// ============================================================================
-// TYPES TYPESCRIPT - Déclarés après tous les schémas
-// ============================================================================
-
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
-
-export type Conversation = typeof conversations.$inferSelect;
-export type InsertConversation = z.infer<typeof insertConversationSchema>;
-
-export type Message = typeof messages.$inferSelect;
-export type InsertMessage = z.infer<typeof insertMessageSchema>;
-
-export type MessageReaction = typeof messageReactions.$inferSelect;
-export type InsertMessageReaction = z.infer<typeof insertMessageReactionSchema>;
-
-export type TypingIndicator = typeof typingIndicators.$inferSelect;
-export type InsertTypingIndicator = z.infer<typeof insertTypingIndicatorSchema>;
-
-export type File = typeof files.$inferSelect;
-export type InsertFile = z.infer<typeof insertFileSchema>;
-
-export type Folder = typeof folders.$inferSelect;
-export type InsertFolder = z.infer<typeof insertFolderSchema>;
-
-export type FileSharing = typeof fileSharing.$inferSelect;
-export type InsertFileSharing = z.infer<typeof insertFileSharingSchema>;
-
+// Types pour les nouveaux modèles
 export type FolderSharing = typeof folderSharing.$inferSelect;
 export type InsertFolderSharing = z.infer<typeof insertFolderSharingSchema>;
-
-export type Contact = typeof contacts.$inferSelect;
-export type InsertContact = z.infer<typeof insertContactSchema>;
 
 export type Event = typeof events.$inferSelect;
 export type InsertEvent = z.infer<typeof insertEventSchema>;
@@ -378,8 +396,8 @@ export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type EventParticipant = typeof eventParticipants.$inferSelect;
 export type InsertEventParticipant = z.infer<typeof insertEventParticipantSchema>;
 
+// Types pour les groupes de conversation
 export type ConversationGroup = typeof conversationGroups.$inferSelect;
 export type InsertConversationGroup = z.infer<typeof insertConversationGroupSchema>;
-
 export type GroupMember = typeof groupMembers.$inferSelect;
 export type InsertGroupMember = z.infer<typeof insertGroupMemberSchema>;
