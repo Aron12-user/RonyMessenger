@@ -467,7 +467,7 @@ export default function CloudStorage() {
     ];
     
     const extension = file.name.split('.').pop()?.toLowerCase();
-    const officeExtensions = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'msi', 'exe'];
+    const officeExtensions = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'msi', 'exe', 'dmg', 'app'];
     
     // Si c'est un fichier Office ou exécutable, ouvrir directement avec l'application système
     if (externalAppTypes.includes(file.type) || officeExtensions.includes(extension)) {
@@ -480,7 +480,7 @@ export default function CloudStorage() {
       return;
     }
     
-    // Sinon utiliser la prévisualisation intégrée
+    // Sinon utiliser la prévisualisation intégrée améliorée
     setPreviewFile(file);
     setIsPreviewOpen(true);
   };
@@ -549,10 +549,54 @@ export default function CloudStorage() {
   };
 
   const handleShare = async (item: any, type: 'file' | 'folder') => {
-    toast({ 
-      title: "Fonction de partage", 
-      description: "Le partage sera implémenté prochainement" 
-    });
+    try {
+      console.log('[share] Sharing item:', type, item.name);
+      
+      // Générer un lien de partage temporaire
+      const shareResponse = await fetch(`/api/${type}s/${item.id}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          expiration: 7, // 7 jours par défaut
+          allowDownload: true 
+        })
+      });
+
+      if (!shareResponse.ok) {
+        throw new Error('Failed to create share link');
+      }
+
+      const shareData = await shareResponse.json();
+      
+      // Copier le lien dans le presse-papiers
+      const shareUrl = `${window.location.origin}/shared/${shareData.shareToken}`;
+      await navigator.clipboard.writeText(shareUrl);
+      
+      toast({
+        title: "Lien de partage créé",
+        description: `Lien copié dans le presse-papiers. Expire dans 7 jours.`
+      });
+      
+    } catch (error) {
+      console.error('[share] Error:', error);
+      
+      // Fallback : copier l'URL de téléchargement direct
+      const downloadUrl = `${window.location.origin}/api/${type}s/${item.id}/download`;
+      try {
+        await navigator.clipboard.writeText(downloadUrl);
+        toast({
+          title: "Lien de téléchargement copié",
+          description: "Lien direct copié dans le presse-papiers"
+        });
+      } catch (clipError) {
+        toast({
+          title: "Lien de partage",
+          description: `Copiez ce lien : ${downloadUrl}`,
+          variant: "default"
+        });
+      }
+    }
   };
 
   const handleRefresh = () => {
@@ -916,21 +960,36 @@ export default function CloudStorage() {
                     </DropdownMenu>
                   </div>
                 </div>
-                <p className="text-xs text-gray-900 truncate w-full font-medium">
-                  {renameItem?.id === folder.id ? (
-                    <Input
-                      value={newItemName}
-                      onChange={(e) => setNewItemName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleRename(folder, 'folder');
-                        if (e.key === 'Escape') setRenameItem(null);
-                      }}
-                      onBlur={() => handleRename(folder, 'folder')}
-                      className="h-6 text-xs p-1"
-                      autoFocus
-                    />
-                  ) : folder.name}
-                </p>
+                {renameItem?.id === folder.id ? (
+                  <Input
+                    value={newItemName}
+                    onChange={(e) => setNewItemName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newItemName.trim()) {
+                        handleRename(folder, 'folder');
+                      }
+                      if (e.key === 'Escape') {
+                        setRenameItem(null);
+                        setNewItemName("");
+                      }
+                    }}
+                    onBlur={() => {
+                      if (newItemName.trim() && newItemName !== folder.name) {
+                        handleRename(folder, 'folder');
+                      } else {
+                        setRenameItem(null);
+                        setNewItemName("");
+                      }
+                    }}
+                    className="h-6 text-xs p-1 text-center border-blue-500 focus:border-blue-600 w-full"
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <p className="text-xs text-gray-900 truncate w-full font-medium px-1">
+                    {folder.name}
+                  </p>
+                )}
               </div>
             </div>
           ))}
@@ -1155,34 +1214,139 @@ export default function CloudStorage() {
           <div className="flex-1 overflow-auto">
             {previewFile && (
               <div className="space-y-4">
-                {/* Aperçu selon le type de fichier */}
+                {/* Aperçu selon le type de fichier - VERSION AMÉLIORÉE */}
                 {previewFile.type?.startsWith('image/') ? (
-                  <img 
-                    src={`/api/files/${previewFile.id}/download`} 
-                    alt={previewFile.name}
-                    className="max-w-full h-auto mx-auto"
-                  />
-                ) : previewFile.type?.startsWith('text/') || previewFile.name?.endsWith('.txt') ? (
-                  <iframe 
-                    src={`/api/files/${previewFile.id}/download`}
-                    className="w-full h-96 border"
-                    title={previewFile.name}
-                  />
+                  <div className="flex flex-col items-center">
+                    <img 
+                      src={`/api/files/${previewFile.id}/download`} 
+                      alt={previewFile.name}
+                      className="max-w-full max-h-96 h-auto mx-auto rounded-lg shadow-lg"
+                      style={{ maxHeight: '400px' }}
+                    />
+                    <div className="mt-4 flex gap-2">
+                      <Button 
+                        size="sm" 
+                        onClick={() => window.open(`/api/files/${previewFile.id}/download`, '_blank')}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Télécharger
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          const img = document.createElement('img');
+                          img.src = `/api/files/${previewFile.id}/download`;
+                          const newWindow = window.open();
+                          newWindow?.document.write(`<html><body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#000">${img.outerHTML}</body></html>`);
+                        }}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Plein écran
+                      </Button>
+                    </div>
+                  </div>
+                ) : previewFile.type?.startsWith('text/') || 
+                     previewFile.name?.endsWith('.txt') || 
+                     previewFile.name?.endsWith('.md') ||
+                     previewFile.name?.endsWith('.json') ||
+                     previewFile.name?.endsWith('.xml') ||
+                     previewFile.name?.endsWith('.css') ||
+                     previewFile.name?.endsWith('.js') ||
+                     previewFile.name?.endsWith('.html') ? (
+                  <div className="space-y-2">
+                    <iframe 
+                      src={`/api/files/${previewFile.id}/download`}
+                      className="w-full h-96 border rounded-lg"
+                      title={previewFile.name}
+                    />
+                    <div className="flex justify-center">
+                      <Button 
+                        size="sm" 
+                        onClick={() => window.open(`/api/files/${previewFile.id}/download`, '_blank')}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Télécharger
+                      </Button>
+                    </div>
+                  </div>
                 ) : previewFile.type === 'application/pdf' ? (
-                  <iframe 
-                    src={`/api/files/${previewFile.id}/download`}
-                    className="w-full h-96 border"
-                    title={previewFile.name}
-                  />
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="mb-4">
+                  <div className="space-y-2">
+                    <iframe 
+                      src={`/api/files/${previewFile.id}/download`}
+                      className="w-full h-96 border rounded-lg"
+                      title={previewFile.name}
+                    />
+                    <div className="flex justify-center gap-2">
+                      <Button 
+                        size="sm" 
+                        onClick={() => window.open(`/api/files/${previewFile.id}/download`, '_blank')}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Télécharger
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => window.open(`/api/files/${previewFile.id}/download`, '_blank')}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Ouvrir dans un nouvel onglet
+                      </Button>
+                    </div>
+                  </div>
+                ) : previewFile.type?.startsWith('audio/') ? (
+                  <div className="text-center space-y-4">
+                    <div className="flex justify-center mb-4">
                       {getFileIcon(previewFile.type, previewFile.name)}
                     </div>
-                    <p className="text-gray-600 mb-4">
+                    <audio 
+                      controls 
+                      className="w-full max-w-md mx-auto"
+                      src={`/api/files/${previewFile.id}/download`}
+                    >
+                      Votre navigateur ne supporte pas l'élément audio.
+                    </audio>
+                    <Button 
+                      size="sm" 
+                      onClick={() => window.open(`/api/files/${previewFile.id}/download`, '_blank')}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Télécharger
+                    </Button>
+                  </div>
+                ) : previewFile.type?.startsWith('video/') ? (
+                  <div className="text-center space-y-4">
+                    <video 
+                      controls 
+                      className="w-full max-w-2xl mx-auto rounded-lg"
+                      src={`/api/files/${previewFile.id}/download`}
+                      style={{ maxHeight: '400px' }}
+                    >
+                      Votre navigateur ne supporte pas l'élément vidéo.
+                    </video>
+                    <Button 
+                      size="sm" 
+                      onClick={() => window.open(`/api/files/${previewFile.id}/download`, '_blank')}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Télécharger
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="mb-4 flex justify-center">
+                      <div className="p-4 bg-gray-100 rounded-full">
+                        {getFileIcon(previewFile.type, previewFile.name)}
+                      </div>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      {previewFile.name}
+                    </h3>
+                    <p className="text-gray-600 mb-6">
                       Prévisualisation non disponible pour ce type de fichier
                     </p>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <Button onClick={() => {
                         window.open(`/api/files/${previewFile.id}/download`, '_blank');
                         setIsPreviewOpen(false);
