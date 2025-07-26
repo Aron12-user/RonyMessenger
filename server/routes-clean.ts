@@ -18,6 +18,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { v4 as uuidv4 } from "uuid";
 import { handleAIChat } from "./ai-assistant";
+import { WebSocketServer, WebSocket } from 'ws';
 
 // Stockage en mémoire pour les réunions
 interface StoredMeeting {
@@ -1061,7 +1062,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if ((global as any).wss?.clients) {
           let notificationsSent = 0;
           (global as any).wss.clients.forEach((client: any) => {
-            if (client.readyState === 1 && client.userId === sharedWithId) { // WebSocket.OPEN et bon utilisateur
+            if (client.readyState === WebSocket.OPEN && client.userId === sharedWithId) {
               client.send(JSON.stringify(courierData));
               notificationsSent++;
               console.log(`[WebSocket] ✅ Notification fichier envoyée à l'utilisateur ${sharedWithId}`);
@@ -1157,7 +1158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if ((global as any).wss?.clients) {
           let notificationsSent = 0;
           (global as any).wss.clients.forEach((client: any) => {
-            if (client.readyState === 1 && client.userId === sharedWithId) { // WebSocket.OPEN et bon utilisateur
+            if (client.readyState === WebSocket.OPEN && client.userId === sharedWithId) {
               client.send(JSON.stringify(courierData));
               notificationsSent++;
               console.log(`[WebSocket] ✅ Notification dossier envoyée à l'utilisateur ${sharedWithId}`);
@@ -2057,6 +2058,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: 'Erreur lors du téléchargement' });
     }
   });
+
+  // WEBSOCKET AMÉLIORÉ avec heartbeat et identification utilisateur
+  if (!(global as any).wss) {
+    const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+    (global as any).wss = wss;
+
+    wss.on('connection', (ws, req) => {
+    console.log('[WS] Client connection attempt from:', req.headers.origin);
+    console.log('[WS] New client connected');
+    
+    // Variables pour ce client
+    let userId: number | null = null;
+    let heartbeatInterval: NodeJS.Timeout | null = null;
+
+    // Setup heartbeat
+    const setupHeartbeat = () => {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      heartbeatInterval = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, 30000); // Ping every 30 seconds
+    };
+
+    setupHeartbeat();
+
+    ws.on('message', (data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        console.log('[WS] Message received:', message);
+
+        // Handle heartbeat pong
+        if (message.type === 'pong') {
+          console.log('[WS] Pong received from client');
+          return;
+        }
+
+        // Handle ping - respond with pong
+        if (message.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }));
+          return;
+        }
+
+        // Handle user identification
+        if (message.type === 'identify' && message.userId) {
+          userId = message.userId;
+          (ws as any).userId = userId;
+          console.log('[WS] Client identified as user:', userId);
+          return;
+        }
+
+        // Handle other message types
+        console.log('[WS] Processing message type:', message.type);
+        
+      } catch (error) {
+        console.error('[WS] Error parsing message:', error);
+      }
+    });
+
+    ws.on('close', () => {
+      console.log('[WS] Client disconnected');
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+      }
+    });
+
+    ws.on('error', (error) => {
+      console.error('[WS] WebSocket error:', error);
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+      }
+    });
+  });
+
+    console.log('[WS] WebSocket server configured on path /ws');
+  } else {
+    console.log('[WS] WebSocket server already configured, reusing existing instance');
+  }
 
   return httpServer;
 }
