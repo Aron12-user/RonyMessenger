@@ -38,10 +38,19 @@ import {
 } from "lucide-react";
 import type { File, Folder } from "@/../../shared/schema";
 
-// Import des icônes personnalisées
+// Import des icônes personnalisées pour dossiers
 import folderOrangeIcon from "@assets/icons8-dossier-mac-94_1750386744627.png";
 import folderArchiveIcon from "@assets/icons8-dossier-mac-64_1750386753922.png";
 import folderBlueIcon from "@assets/icons8-dossier-mac-48_1750386762042.png";
+
+// Import des icônes spécialisées pour fichiers (style OneDrive)
+import wordIcon from "@assets/icons8-ms-word-50_1750542408634.png";
+import excelIcon from "@assets/icons8-microsoft-excel-2019-50_1750542395351.png";
+import powerpointIcon from "@assets/icons8-ms-powerpoint-50_1750542416904.png";
+import csvIcon from "@assets/icons8-fichier-csv-50_1750542435006.png";
+import audioIcon from "@assets/icons8-fichier-audio-50_1750774307203.png";
+import videoIcon from "@assets/icons8-fichier-vidéo-64_1750542479690.png";
+import imageIcon from "@assets/icons8-image-50_1750542458133.png";
 
 export default function CloudStoragePro() {
   const { toast } = useToast();
@@ -294,29 +303,86 @@ export default function CloudStoragePro() {
     });
   };
 
-  const getFileIcon = (fileType: string) => {
-    const type = fileType.split('/')[0];
-    const iconClass = "h-8 w-8";
+  // Fonction optimisée pour les icônes de fichiers (style OneDrive)
+  const getFileIcon = (fileType: string, fileName: string) => {
+    const extension = fileName.split('.').pop()?.toLowerCase() || '';
+    const iconClass = "h-6 w-6 object-contain"; // Taille réduite comme OneDrive
     
-    switch (type) {
-      case 'image':
-        return <FileImage className={`${iconClass} text-green-500`} />;
-      case 'video':
-        return <FileVideo className={`${iconClass} text-purple-500`} />;
-      case 'audio':
-        return <FileAudio className={`${iconClass} text-yellow-500`} />;
-      case 'application':
-        if (fileType.includes('pdf')) {
-          return <FileText className={`${iconClass} text-red-500`} />;
-        }
-        return <Archive className={`${iconClass} text-blue-500`} />;
+    // Icônes spécifiques par extension comme OneDrive
+    switch (extension) {
+      // Documents Microsoft Office
+      case 'doc':
+      case 'docx':
+        return <img src={wordIcon} alt="Word" className={iconClass} />;
+      case 'xls':
+      case 'xlsx':
+        return <img src={excelIcon} alt="Excel" className={iconClass} />;
+      case 'ppt':
+      case 'pptx':
+        return <img src={powerpointIcon} alt="PowerPoint" className={iconClass} />;
+      
+      // Fichiers de données
+      case 'csv':
+        return <img src={csvIcon} alt="CSV" className={iconClass} />;
+      
+      // Fichiers multimédias
+      case 'mp3':
+      case 'wav':
+      case 'aac':
+      case 'flac':
+      case 'ogg':
+        return <img src={audioIcon} alt="Audio" className={iconClass} />;
+      case 'mp4':
+      case 'avi':
+      case 'mov':
+      case 'mkv':
+      case 'wmv':
+      case 'webm':
+        return <img src={videoIcon} alt="Vidéo" className={iconClass} />;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'bmp':
+      case 'svg':
+      case 'webp':
+        return <img src={imageIcon} alt="Image" className={iconClass} />;
+      
+      // PDF et texte
+      case 'pdf':
+        return <FileText className={`${iconClass} text-red-600`} />;
+      case 'txt':
+      case 'md':
+      case 'rtf':
+        return <FileText className={`${iconClass} text-blue-600`} />;
+      
+      // Archives et compression
+      case 'zip':
+      case 'rar':
+      case '7z':
+      case 'tar':
+      case 'gz':
+        return <Archive className={`${iconClass} text-orange-600`} />;
+      
+      // Défaut pour autres types
       default:
-        return <FileIcon className={`${iconClass} text-gray-500`} />;
+        const type = fileType.split('/')[0];
+        switch (type) {
+          case 'image':
+            return <img src={imageIcon} alt="Image" className={iconClass} />;
+          case 'video':
+            return <img src={videoIcon} alt="Vidéo" className={iconClass} />;
+          case 'audio':
+            return <img src={audioIcon} alt="Audio" className={iconClass} />;
+          default:
+            return <FileIcon className={`${iconClass} text-gray-600`} />;
+        }
     }
   };
 
+  // Fonction optimisée pour les icônes de dossier (taille réduite)
   const getFolderIcon = (iconType: string = "default") => {
-    const className = "h-12 w-12 object-contain";
+    const className = "h-8 w-8 object-contain"; // Taille réduite de h-12 w-12 à h-8 w-8
     switch (iconType) {
       case "orange":
         return <img src={folderOrangeIcon} alt="Dossier orange" className={className} />;
@@ -675,11 +741,11 @@ export default function CloudStoragePro() {
                   </div>
                   
                   {viewMode === 'grid' ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
                       {paginatedFolders.map((folder: Folder) => (
                         <div
                           key={folder.id}
-                          className={`group border rounded-lg p-4 hover:shadow-lg transition-all duration-200 cursor-pointer ${
+                          className={`group border rounded-lg p-3 hover:shadow-lg transition-all duration-200 cursor-pointer ${
                             selectedFolders[folder.id] 
                               ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
                               : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
@@ -730,11 +796,11 @@ export default function CloudStoragePro() {
                           
                           <div className="flex flex-col items-center text-center">
                             <div className="mb-3">
-                              {getFolderIcon(folder.iconType)}
+                              {getFolderIcon(folder.iconType || "default")}
                             </div>
                             <h4 className="font-medium text-sm truncate w-full">{folder.name}</h4>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              {formatDate(folder.updatedAt)}
+                              {formatDate(folder.updatedAt.toString())}
                             </p>
                           </div>
                         </div>
@@ -761,7 +827,7 @@ export default function CloudStoragePro() {
                           />
                           
                           <div className="mr-3">
-                            {getFolderIcon(folder.iconType)}
+                            {getFolderIcon(folder.iconType || "default")}
                           </div>
                           
                           <div className="flex-1 min-w-0">
@@ -831,11 +897,11 @@ export default function CloudStoragePro() {
                   </div>
                   
                   {viewMode === 'grid' ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
                       {paginatedFiles.map((file: File) => (
                         <div
                           key={file.id}
-                          className={`group border rounded-lg p-4 hover:shadow-lg transition-all duration-200 cursor-pointer ${
+                          className={`group border rounded-lg p-3 hover:shadow-lg transition-all duration-200 cursor-pointer ${
                             selectedFiles[file.id] 
                               ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
                               : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
@@ -883,14 +949,14 @@ export default function CloudStoragePro() {
                           
                           <div className="flex flex-col items-center text-center">
                             <div className="mb-3">
-                              {getFileIcon(file.type)}
+                              {getFileIcon(file.type, file.name)}
                             </div>
                             <h4 className="font-medium text-sm truncate w-full mb-1">{file.name}</h4>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
                               {formatFileSize(file.size)}
                             </p>
                             <p className="text-xs text-gray-400 dark:text-gray-500">
-                              {formatDate(file.updatedAt)}
+                              {formatDate(file.updatedAt.toString())}
                             </p>
                           </div>
                         </div>
@@ -917,13 +983,13 @@ export default function CloudStoragePro() {
                           />
                           
                           <div className="mr-3">
-                            {getFileIcon(file.type)}
+                            {getFileIcon(file.type, file.name)}
                           </div>
                           
                           <div className="flex-1 min-w-0">
                             <h4 className="font-medium truncate">{file.name}</h4>
                             <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {formatFileSize(file.size)} • {formatDate(file.updatedAt)}
+                              {formatFileSize(file.size)} • {formatDate(file.updatedAt.toString())}
                             </p>
                           </div>
                           
