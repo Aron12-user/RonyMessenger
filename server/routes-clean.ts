@@ -1502,7 +1502,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Simple création de réunion avec Jitsi Meet
-      const meetingUrl = `https://meet.jit.si/${roomCode}`;
+      const meetingUrl = `https://jitsiaronaduckdns.org/${roomCode}`;
 
       const meeting: StoredMeeting = {
         id: roomCode,
