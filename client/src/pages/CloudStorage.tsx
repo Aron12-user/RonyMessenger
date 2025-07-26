@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Search, Upload, FolderPlus, Download, Share, Settings, BarChart3, History, RotateCcw } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { apiRequest } from '@/lib/queryClient';
@@ -25,7 +26,6 @@ export default function CloudStorage() {
   const [currentFolderName, setCurrentFolderName] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'size' | 'type'>('name');
   const [filterType, setFilterType] = useState<'all' | 'documents' | 'images' | 'audio' | 'video'>('all');
-  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   const [isUploading, setIsUploading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -115,33 +115,118 @@ export default function CloudStorage() {
     enabled: true
   });
 
-  // Upload de fichiers avec optimisations
+  // États pour les dialogues et modales
+  const [isCreateFolderDialogOpen, setIsCreateFolderDialogOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [selectedFolderIcon, setSelectedFolderIcon] = useState<"orange" | "blue" | "archive">("orange");
+  const [uploadingFiles, setUploadingFiles] = useState(0);
+  const [totalFiles, setTotalFiles] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Mutations avec gestion des limites augmentées
+  const createFolderMutation = useMutation({
+    mutationFn: async (folderData: { name: string; parentId: number | null; iconType: string }) => {
+      const response = await fetch('/api/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(folderData)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to create folder');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
+      setIsCreateFolderDialogOpen(false);
+      setNewFolderName("");
+      setSelectedFolderIcon("orange");
+      toast({ title: "Dossier créé avec succès !" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    }
+  });
+
+  // Upload optimisé avec nouvelles limits : 1 Go fichiers, 5 Go dossiers
   const uploadFilesMutation = useMutation({
     mutationFn: async (files: FileList) => {
+      console.log('[upload] Starting upload with', files.length, 'files');
+      
+      if (!files || files.length === 0) {
+        throw new Error("Aucun fichier sélectionné");
+      }
+
+      setUploadingFiles(files.length);
+      setTotalFiles(files.length);
+
+      // Nouvelles limites augmentées
+      const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1 Go pour fichiers individuels
+      const MAX_FOLDER_SIZE = 5 * 1024 * 1024 * 1024; // 5 Go pour dossiers complets
+      
+      let totalSize = 0;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        totalSize += file.size;
+        
+        // Vérification taille fichier individuel
+        if (file.size > MAX_FILE_SIZE) {
+          throw new Error(`Le fichier ${file.name} est trop volumineux (maximum 1 Go)`);
+        }
+        
+        // Progress bar ultra-mince
+        const progress = Math.floor(((i + 1) / files.length) * 100);
+        setUploadProgress(progress);
+      }
+
+      // Vérification taille totale pour dossiers
+      if (totalSize > MAX_FOLDER_SIZE) {
+        throw new Error(`La taille totale est trop importante (maximum 5 Go)`);
+      }
+
       const formData = new FormData();
-      Array.from(files).forEach(file => {
+      
+      Array.from(files).forEach((file) => {
         formData.append('files', file);
       });
+      
       if (currentFolderId) {
         formData.append('folderId', currentFolderId.toString());
       }
-
-      return apiRequest('/api/upload', {
+      
+      const response = await fetch('/api/upload', {
         method: 'POST',
-        body: formData,
+        credentials: 'include',
+        body: formData
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Upload failed');
+      }
+
+      const result = await response.json();
+      console.log('[upload] Upload terminé:', result);
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
       setIsUploading(false);
-      setUploadProgress({});
-      toast({ title: "Fichiers uploadés avec succès !" });
+      setUploadProgress(0);
+      setUploadingFiles(0);
+      toast({ title: "Upload terminé !", description: `${totalFiles} fichier(s) uploadé(s) avec succès` });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error('Upload error:', error);
       setIsUploading(false);
-      setUploadProgress({});
-      toast({ title: "Erreur d'upload", variant: "destructive" });
+      setUploadProgress(0);
+      setUploadingFiles(0);
+      toast({ title: "Erreur d'upload", description: error.message, variant: "destructive" });
     }
   });
 
@@ -178,13 +263,41 @@ export default function CloudStorage() {
       setIsUploading(true);
       uploadFilesMutation.mutate(files);
     }
+    // Reset input pour permettre de re-sélectionner le même fichier
+    if (event.target) {
+      event.target.value = '';
+    }
+  };
+
+  const handleFolderUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      setIsUploading(true);
+      uploadFilesMutation.mutate(files);
+    }
+    // Reset input
+    if (event.target) {
+      event.target.value = '';
+    }
+  };
+
+  const handleCreateFolder = () => {
+    if (newFolderName.trim()) {
+      createFolderMutation.mutate({
+        name: newFolderName.trim(),
+        parentId: currentFolderId,
+        iconType: selectedFolderIcon
+      });
+    }
   };
 
   const triggerFileInput = () => {
+    console.log('[ui] Triggering file input click');
     fileInputRef.current?.click();
   };
 
   const triggerFolderInput = () => {
+    console.log('[ui] Triggering folder input click');
     folderInputRef.current?.click();
   };
 
@@ -203,42 +316,32 @@ export default function CloudStorage() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-gray-900">Cloud Storage</h1>
           
-          {/* Menu Actions Cloud unifié */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                <Settings className="mr-2 h-4 w-4" />
-                Actions Cloud
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={triggerFileInput}>
-                <Upload className="mr-2 h-4 w-4" />
-                Upload Fichiers
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={triggerFolderInput}>
-                <FolderPlus className="mr-2 h-4 w-4" />
-                Upload Dossier
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <FolderPlus className="mr-2 h-4 w-4" />
-                Nouveau Dossier
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Synchroniser Bureau
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <BarChart3 className="mr-2 h-4 w-4" />
-                Statistiques
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <History className="mr-2 h-4 w-4" />
-                Historique
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Boutons d'actions séparés comme l'original */}
+          <div className="flex items-center gap-2">
+            <Button 
+              onClick={triggerFileInput}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={isUploading}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Upload Fichiers
+            </Button>
+            <Button 
+              onClick={triggerFolderInput}
+              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={isUploading}
+            >
+              <FolderPlus className="mr-2 h-4 w-4" />
+              Upload Dossier
+            </Button>
+            <Button 
+              onClick={() => setIsCreateFolderDialogOpen(true)}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              <FolderPlus className="mr-2 h-4 w-4" />
+              Nouveau Dossier
+            </Button>
+          </div>
         </div>
 
         {/* Barre de recherche et filtres */}
@@ -254,11 +357,21 @@ export default function CloudStorage() {
           </div>
         </div>
 
-        {/* Progress bars ultra-minces */}
+        {/* Progress bars ultra-minces avec détails */}
         {isUploading && (
           <div className="mt-2 space-y-1">
-            <div className="h-1 bg-blue-500 rounded-full animate-pulse"></div>
-            <p className="text-xs text-gray-500">Upload en cours...</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-600">
+                Upload en cours... {uploadingFiles > 0 ? `${uploadingFiles}/${totalFiles} fichiers` : ''}
+              </p>
+              <p className="text-xs text-gray-500">{uploadProgress}%</p>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-1">
+              <div 
+                className="bg-blue-500 h-1 rounded-full transition-all duration-300" 
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
+            </div>
           </div>
         )}
       </div>
@@ -332,10 +445,85 @@ export default function CloudStorage() {
         ref={folderInputRef}
         type="file"
         multiple
-        onChange={handleFileUpload}
+        onChange={handleFolderUpload}
         className="hidden"
         webkitdirectory=""
       />
+
+      {/* Dialogue de création de dossier */}
+      <Dialog open={isCreateFolderDialogOpen} onOpenChange={setIsCreateFolderDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Créer un nouveau dossier</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Nom du dossier</label>
+              <Input
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="Entrez le nom du dossier"
+                className="w-full"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newFolderName.trim()) {
+                    handleCreateFolder();
+                  }
+                }}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-3 block">Choisir une icône</label>
+              <div className="flex gap-4 justify-center">
+                <div
+                  className={`cursor-pointer p-2 rounded-lg border-2 transition-all ${
+                    selectedFolderIcon === "orange"
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                  onClick={() => setSelectedFolderIcon("orange")}
+                >
+                  <img src={folderOrangeIcon} alt="Orange" className="h-12 w-12" />
+                  <p className="text-xs text-center mt-1">Orange</p>
+                </div>
+                <div
+                  className={`cursor-pointer p-2 rounded-lg border-2 transition-all ${
+                    selectedFolderIcon === "blue"
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                  onClick={() => setSelectedFolderIcon("blue")}
+                >
+                  <img src={folderBlueIcon} alt="Bleu" className="h-12 w-12" />
+                  <p className="text-xs text-center mt-1">Bleu</p>
+                </div>
+                <div
+                  className={`cursor-pointer p-2 rounded-lg border-2 transition-all ${
+                    selectedFolderIcon === "archive"
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                  onClick={() => setSelectedFolderIcon("archive")}
+                >
+                  <img src={folderArchiveIcon} alt="Archive" className="h-12 w-12" />
+                  <p className="text-xs text-center mt-1">Archive</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateFolderDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button 
+              onClick={handleCreateFolder}
+              disabled={!newFolderName.trim() || createFolderMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {createFolderMutation.isPending ? "Création..." : "Créer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
