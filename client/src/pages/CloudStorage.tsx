@@ -449,69 +449,117 @@ export default function CloudStorage() {
     syncMutation.mutate();
   };
 
+  // Handlers pour les actions fichiers/dossiers
+  const handlePreview = (file: any) => {
+    console.log('[preview] Opening preview for file:', file.name, file.type);
+    
+    // Types de fichiers pour ouverture externe directe (comme OneDrive)
+    const externalAppTypes = [
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint', 
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-project',
+      'application/x-msi',
+      'application/octet-stream'
+    ];
+    
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    const officeExtensions = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'msi', 'exe'];
+    
+    // Si c'est un fichier Office ou exécutable, ouvrir directement avec l'application système
+    if (externalAppTypes.includes(file.type) || officeExtensions.includes(extension)) {
+      console.log('[preview] Opening with external app:', file.name);
+      window.open(`/api/files/${file.id}/download`, '_blank');
+      toast({
+        title: "Ouverture externe",
+        description: `${file.name} s'ouvre dans l'application appropriée`
+      });
+      return;
+    }
+    
+    // Sinon utiliser la prévisualisation intégrée
+    setPreviewFile(file);
+    setIsPreviewOpen(true);
+  };
+
+  const handleRename = async (item: any, type: 'file' | 'folder') => {
+    if (!newItemName.trim()) {
+      setRenameItem(null);
+      return;
+    }
+
+    try {
+      const endpoint = type === 'file' ? `/api/files/${item.id}` : `/api/folders/${item.id}`;
+      const response = await fetch(endpoint, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name: newItemName.trim() })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to rename');
+      }
+
+      toast({ title: `${type === 'file' ? 'Fichier' : 'Dossier'} renommé avec succès !` });
+      // Invalider le cache pour le dossier actuel
+      queryClient.invalidateQueries({ queryKey: ['/api/files', currentFolderId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/folders', currentFolderId] });
+      setRenameItem(null);
+      setNewItemName("");
+    } catch (error) {
+      toast({ 
+        title: "Erreur de renommage", 
+        description: "Impossible de renommer l'élément",
+        variant: "destructive" 
+      });
+    }
+  };
+
+  const handleDelete = async (item: any, type: 'file' | 'folder') => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer ce ${type === 'file' ? 'fichier' : 'dossier'} ?`)) {
+      return;
+    }
+
+    try {
+      const endpoint = type === 'file' ? `/api/files/${item.id}` : `/api/folders/${item.id}`;
+      const response = await fetch(endpoint, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete');
+      }
+
+      toast({ title: `${type === 'file' ? 'Fichier' : 'Dossier'} supprimé avec succès !` });
+      // Invalider le cache pour le dossier actuel
+      queryClient.invalidateQueries({ queryKey: ['/api/files', currentFolderId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/folders', currentFolderId] });
+    } catch (error) {
+      toast({ 
+        title: "Erreur de suppression", 
+        description: "Impossible de supprimer l'élément",
+        variant: "destructive" 
+      });
+    }
+  };
+
+  const handleShare = async (item: any, type: 'file' | 'folder') => {
+    toast({ 
+      title: "Fonction de partage", 
+      description: "Le partage sera implémenté prochainement" 
+    });
+  };
+
   const handleRefresh = () => {
     console.log('[refresh] Refreshing data for folder:', currentFolderId);
     queryClient.invalidateQueries({ queryKey: ['/api/files', currentFolderId] });
     queryClient.invalidateQueries({ queryKey: ['/api/folders', currentFolderId] });
     toast({ title: "Actualisation", description: "Données actualisées" });
-  };
-
-  // Nouvelles fonctions pour les actions des items
-  const handleRename = async (item: any, type: 'file' | 'folder') => {
-    if (!newItemName.trim()) {
-      toast({ title: "Erreur", description: "Le nom ne peut pas être vide", variant: "destructive" });
-      return;
-    }
-
-    try {
-      const endpoint = type === 'file' ? `/api/files/${item.id}` : `/api/folders/${item.id}`;
-      await apiRequest(endpoint, 'PATCH', { name: newItemName.trim() });
-      
-      setRenameItem(null);
-      setNewItemName("");
-      handleRefresh();
-      toast({ title: "Succès", description: `${type === 'file' ? 'Fichier' : 'Dossier'} renommé avec succès` });
-    } catch (error) {
-      console.error('[rename] Failed:', error);
-      toast({ title: "Erreur", description: "Impossible de renommer", variant: "destructive" });
-    }
-  };
-
-  const handlePreview = (file: any) => {
-    console.log('[preview] Opening file:', file.name, file.type);
-    
-    // Pour certains types de fichiers, ouvrir avec une application externe
-    const extension = file.name.split('.').pop()?.toLowerCase();
-    const externalTypes = ['exe', 'msi', 'dmg', 'app', 'deb', 'rpm'];
-    
-    if (externalTypes.includes(extension || '')) {
-      // Tenter d'ouvrir avec l'application système
-      window.open(`/api/files/${file.id}/download`, '_blank');
-      toast({ title: "Ouverture externe", description: "Fichier ouvert avec l'application système" });
-      return;
-    }
-
-    // Pour les autres fichiers, utiliser la prévisualisation intégrée
-    setPreviewFile(file);
-    setIsPreviewOpen(true);
-  };
-
-  const handleShare = async (item: any, type: 'file' | 'folder') => {
-    console.log('[share] Sharing:', type, item.name);
-    toast({ title: "Partage", description: `Lien de partage généré pour ${item.name}` });
-  };
-
-  const handleDelete = async (item: any, type: 'file' | 'folder') => {
-    try {
-      const endpoint = type === 'file' ? `/api/files/${item.id}` : `/api/folders/${item.id}`;
-      await apiRequest(endpoint, 'DELETE');
-      
-      handleRefresh();
-      toast({ title: "Succès", description: `${type === 'file' ? 'Fichier' : 'Dossier'} supprimé avec succès` });
-    } catch (error) {
-      console.error('[delete] Failed:', error);
-      toast({ title: "Erreur", description: "Impossible de supprimer", variant: "destructive" });
-    }
   };
 
   const triggerFileInput = () => {
@@ -1080,10 +1128,18 @@ export default function CloudStorage() {
                     <p className="text-gray-600 mb-4">
                       Prévisualisation non disponible pour ce type de fichier
                     </p>
-                    <Button onClick={() => window.open(`/api/files/${previewFile.id}/download`, '_blank')}>
-                      <Download className="mr-2 h-4 w-4" />
-                      Ouvrir avec l'application système
-                    </Button>
+                    <div className="space-y-2">
+                      <Button onClick={() => {
+                        window.open(`/api/files/${previewFile.id}/download`, '_blank');
+                        setIsPreviewOpen(false);
+                      }}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Ouvrir avec l'application système
+                      </Button>
+                      <p className="text-xs text-gray-500">
+                        Ce fichier s'ouvrira dans l'application appropriée de votre système
+                      </p>
+                    </div>
                   </div>
                 )}
                 
