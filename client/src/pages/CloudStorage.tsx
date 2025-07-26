@@ -284,21 +284,40 @@ export default function CloudStorage() {
     }
   });
 
-  // Gestionnaires d'événements corrigés
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('[upload] File input triggered');
+  // Gestionnaires d'événements corrigés avec diagnostic complet
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('[upload] File input event triggered');
     const files = event.target.files;
-    console.log('[upload] Files selected:', files ? files.length : 0);
+    console.log('[upload] Event target:', event.target);
+    console.log('[upload] Files object:', files);
+    console.log('[upload] Files length:', files ? files.length : 'null');
     
     if (!files || files.length === 0) {
-      console.warn('[upload] No files selected');
+      console.error('[upload] No files selected - files is null or empty');
       toast({ title: "Erreur", description: "Aucun fichier sélectionné", variant: "destructive" });
       return;
     }
 
-    console.log('[upload] Starting file upload process');
+    // Vérifier les limites de taille (1GB par fichier)
+    const maxFileSize = 1024 * 1024 * 1024; // 1GB
+    for (let i = 0; i < files.length; i++) {
+      if (files[i].size > maxFileSize) {
+        toast({ title: "Erreur", description: `Le fichier ${files[i].name} dépasse la limite de 1 Go`, variant: "destructive" });
+        return;
+      }
+    }
+
+    console.log('[upload] Starting file upload process with', files.length, 'files');
+    console.log('[upload] Files details:', Array.from(files).map(f => ({ name: f.name, size: f.size, type: f.type })));
     setIsUploading(true);
-    uploadFilesMutation.mutate(files);
+    setUploadProgress(0);
+    
+    try {
+      await uploadFilesMutation.mutateAsync(files);
+    } catch (error) {
+      console.error('[upload] Upload failed:', error);
+      setIsUploading(false);
+    }
     
     // Reset input pour permettre de re-sélectionner le même fichier
     if (event.target) {
@@ -306,20 +325,37 @@ export default function CloudStorage() {
     }
   };
 
-  const handleFolderUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('[upload] Folder input triggered');
+  const handleFolderUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('[upload] Folder input event triggered');
     const files = event.target.files;
-    console.log('[upload] Folder files selected:', files ? files.length : 0);
+    console.log('[upload] Folder files object:', files);
+    console.log('[upload] Folder files length:', files ? files.length : 'null');
     
     if (!files || files.length === 0) {
-      console.warn('[upload] No folder files selected');
+      console.error('[upload] No folder files selected - files is null or empty');
       toast({ title: "Erreur", description: "Aucun dossier sélectionné", variant: "destructive" });
       return;
     }
 
-    console.log('[upload] Starting folder upload process');
+    // Vérifier la limite totale de 5GB pour le dossier
+    const maxFolderSize = 5 * 1024 * 1024 * 1024; // 5GB
+    const totalSize = Array.from(files).reduce((total, file) => total + file.size, 0);
+    if (totalSize > maxFolderSize) {
+      toast({ title: "Erreur", description: "Le dossier dépasse la limite de 5 Go", variant: "destructive" });
+      return;
+    }
+
+    console.log('[upload] Starting folder upload process with', files.length, 'files');
+    console.log('[upload] Total folder size:', (totalSize / (1024 * 1024 * 1024)).toFixed(2), 'GB');
     setIsUploading(true);
-    uploadFilesMutation.mutate(files);
+    setUploadProgress(0);
+    
+    try {
+      await uploadFilesMutation.mutateAsync(files);
+    } catch (error) {
+      console.error('[upload] Folder upload failed:', error);
+      setIsUploading(false);
+    }
     
     // Reset input
     if (event.target) {
@@ -327,17 +363,31 @@ export default function CloudStorage() {
     }
   };
 
-  const handleCreateFolder = () => {
+  const handleCreateFolder = async () => {
     if (!newFolderName.trim()) {
       toast({ title: "Erreur", description: "Le nom du dossier ne peut pas être vide", variant: "destructive" });
       return;
     }
     
-    createFolderMutation.mutate({
-      name: newFolderName.trim(),
-      parentId: currentFolderId,
-      iconType: selectedFolderIcon
-    });
+    console.log('[folder] Creating folder:', newFolderName.trim(), 'in parent:', currentFolderId);
+    
+    try {
+      await createFolderMutation.mutateAsync({
+        name: newFolderName.trim(),
+        parentId: currentFolderId,
+        iconType: selectedFolderIcon
+      });
+      
+      // Fermer le dialogue et réinitialiser le nom
+      setIsCreateFolderDialogOpen(false);
+      setNewFolderName("");
+      setSelectedFolderIcon("orange");
+      
+      toast({ title: "Succès", description: `Dossier "${newFolderName.trim()}" créé avec succès` });
+    } catch (error) {
+      console.error('[folder] Failed to create folder:', error);
+      toast({ title: "Erreur", description: "Impossible de créer le dossier", variant: "destructive" });
+    }
   };
 
   const handleSync = () => {
@@ -346,9 +396,9 @@ export default function CloudStorage() {
   };
 
   const handleRefresh = () => {
-    console.log('[refresh] Refreshing data');
-    queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-    queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
+    console.log('[refresh] Refreshing data for folder:', currentFolderId);
+    queryClient.invalidateQueries({ queryKey: ['/api/files', currentFolderId] });
+    queryClient.invalidateQueries({ queryKey: ['/api/folders', currentFolderId] });
     toast({ title: "Actualisation", description: "Données actualisées" });
   };
 
@@ -550,6 +600,28 @@ export default function CloudStorage() {
           </DropdownMenu>
         </div>
 
+        {/* Navigation de dossier et barre de recherche */}
+        <div className="flex items-center gap-4 mb-4">
+          {currentFolderId && (
+            <Button 
+              onClick={() => {
+                console.log('[navigation] Going back to root');
+                setCurrentFolderId(null);
+                setCurrentFolderName("");
+                queryClient.invalidateQueries({ queryKey: ['/api/files', null] });
+                queryClient.invalidateQueries({ queryKey: ['/api/folders', null] });
+              }}
+              variant="outline"
+              size="sm"
+            >
+              ← Retour
+            </Button>
+          )}
+          <span className="text-sm text-gray-600">
+            {currentFolderName ? `Dossier: ${currentFolderName}` : 'Dossier racine'}
+          </span>
+        </div>
+
         {/* Barre de recherche et filtres */}
         <div className="flex items-center gap-4">
           <div className="relative flex-1">
@@ -601,8 +673,12 @@ export default function CloudStorage() {
               key={folder.id}
               className="group cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all"
               onClick={() => {
+                console.log('[navigation] Navigating to folder:', folder.id, folder.name);
                 setCurrentFolderId(folder.id);
                 setCurrentFolderName(folder.name);
+                // Forcer le refresh des données du nouveau dossier
+                queryClient.invalidateQueries({ queryKey: ['/api/files', folder.id] });
+                queryClient.invalidateQueries({ queryKey: ['/api/folders', folder.id] });
               }}
             >
               <div className="flex flex-col items-center text-center">
