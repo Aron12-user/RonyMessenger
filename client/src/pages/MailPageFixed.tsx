@@ -85,23 +85,16 @@ export default function MailPageFixed() {
   const [selectMode, setSelectMode] = useState(false);
   const [bulkActionOpen, setBulkActionOpen] = useState(false);
   
-  // États pour les dialogs et fonctionnalités avancées
+  // États pour les dialogues
   const [showReplyDialog, setShowReplyDialog] = useState(false);
   const [showForwardDialog, setShowForwardDialog] = useState(false);
-  const [showFolderExplorer, setShowFolderExplorer] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
-  const [showQuickActions, setShowQuickActions] = useState(false);
   const [replyMessage, setReplyMessage] = useState('');
   const [forwardMessage, setForwardMessage] = useState('');
   const [forwardRecipient, setForwardRecipient] = useState('');
   const [composeRecipient, setComposeRecipient] = useState('');
   const [composeSubject, setComposeSubject] = useState('');
   const [composeMessage, setComposeMessage] = useState('');
-  const [emailTemplates, setEmailTemplates] = useState([
-    { id: 1, name: 'Remerciement', content: 'Merci beaucoup pour votre partage. J\'apprécie vraiment.' },
-    { id: 2, name: 'Demande info', content: 'Pouvez-vous me fournir plus d\'informations sur ce fichier ?' },
-    { id: 3, name: 'Confirmation', content: 'Je confirme avoir bien reçu le document. Merci !' }
-  ]);
 
   const queryClient = useQueryClient();
   const webSocket = useWebSocket();
@@ -237,6 +230,83 @@ export default function MailPageFixed() {
       toast({ title: 'Réponse envoyée', description: 'Votre réponse a été envoyée avec succès' });
       setShowReplyDialog(false);
       setReplyMessage('');
+    },
+    onError: (error: any) => {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  // Mutation pour transfert de courrier
+  const forwardMutation = useMutation({
+    mutationFn: async ({ recipientEmail, message, originalEmail }: any) => {
+      console.log('Envoi transfert courrier:', { recipientEmail, message, originalEmail });
+      
+      const response = await fetch('/api/courrier/forward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          recipientEmail: recipientEmail.includes('@') ? recipientEmail.replace('@rony.com', '') : recipientEmail,
+          message,
+          originalSubject: originalEmail.subject,
+          originalSender: originalEmail.sender,
+          originalContent: originalEmail.content,
+          senderName: (user as any)?.displayName || (user as any)?.username,
+          senderEmail: (user as any)?.username
+        })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Erreur transfert courrier:', errorText);
+        throw new Error('Erreur lors du transfert du courrier');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Courrier transféré', description: 'Le courrier a été transféré avec succès' });
+      setShowForwardDialog(false);
+      setForwardMessage('');
+      setForwardRecipient('');
+    },
+    onError: (error: any) => {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  // Mutation pour composition de nouveau courrier
+  const composeMutation = useMutation({
+    mutationFn: async ({ recipientEmail, subject, message }: any) => {
+      console.log('Envoi nouveau courrier:', { recipientEmail, subject, message });
+      
+      const response = await fetch('/api/courrier/compose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          recipientEmail: recipientEmail.includes('@') ? recipientEmail.replace('@rony.com', '') : recipientEmail,
+          subject,
+          message,
+          senderName: (user as any)?.displayName || (user as any)?.username,
+          senderEmail: (user as any)?.username
+        })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Erreur composition courrier:', errorText);
+        throw new Error('Erreur lors de l\'envoi du courrier');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Courrier envoyé', description: 'Le courrier a été envoyé avec succès' });
+      setShowCompose(false);
+      setComposeRecipient('');
+      setComposeSubject('');
+      setComposeMessage('');
     },
     onError: (error: any) => {
       toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
