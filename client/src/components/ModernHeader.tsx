@@ -27,6 +27,7 @@ interface ModernHeaderProps {
 
 export default function ModernHeader({ setIsMobileOpen, currentSection }: ModernHeaderProps) {
   const [showHelp, setShowHelp] = useState(false);
+  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const queryClient = useQueryClient();
 
   const getSectionTitle = (section: string) => {
@@ -92,15 +93,26 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
   };
 
   const markAllAsRead = async () => {
+    if (isMarkingAllRead) return;
+    
+    setIsMarkingAllRead(true);
     try {
-      await fetch('/api/notifications/mark-all-read', {
+      const response = await fetch('/api/notifications/mark-all-read', {
         method: 'PUT',
         credentials: 'include'
       });
-      // Invalider le cache pour rafraîchir
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications/all'] });
+      
+      if (response.ok) {
+        // Invalider le cache pour rafraîchir
+        await queryClient.invalidateQueries({ queryKey: ['/api/notifications/all'] });
+        console.log('✅ Notifications marquées comme lues');
+      } else {
+        console.error('Erreur réponse:', response.status);
+      }
     } catch (error) {
       console.error('Erreur marquer tout comme lu:', error);
+    } finally {
+      setIsMarkingAllRead(false);
     }
   };
 
@@ -182,7 +194,7 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
               )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
+          <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
             <DropdownMenuLabel className="font-semibold">
               Notifications ({totalNotifications})
             </DropdownMenuLabel>
@@ -194,10 +206,16 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
                 {/* En-tête avec bouton "Tout marquer comme lu" */}
                 {totalNotifications > 0 && (
                   <>
-                    <DropdownMenuItem onClick={markAllAsRead} className="p-3 hover:bg-muted/50 cursor-pointer">
+                    <DropdownMenuItem 
+                      onClick={markAllAsRead} 
+                      className="p-3 hover:bg-muted/50 cursor-pointer"
+                      disabled={isMarkingAllRead}
+                    >
                       <div className="flex items-center space-x-2 w-full">
                         <CheckCheck className="h-4 w-4 text-green-500" />
-                        <span className="text-sm font-medium text-green-600">Tout marquer comme lu</span>
+                        <span className="text-sm font-medium text-green-600">
+                          {isMarkingAllRead ? "Marquage en cours..." : "Tout marquer comme lu"}
+                        </span>
                       </div>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
