@@ -1,0 +1,38 @@
+Améliorer la fonction de prévisualisation de fichiers dans mon application cloud hébergée sur Replit pour qu’elle gère tous types de fichiers, même ceux qui nécessitent un logiciel externe pour être ouverts (comme le fait OneDrive).
+
+✅ Ce que l’agent doit faire :
+Détecter dynamiquement le type de fichier que l’utilisateur souhaite prévisualiser.
+
+Si le type de fichier :
+
+✅ est pris en charge nativement par l’application (ex. : PDF, images, texte, vidéo web-friendly) :
+
+→ L’ouvrir directement dans l’interface de prévisualisation de l’application.
+
+❌ n’est pas pris en charge nativement (ex. : fichiers .exe, .psd, .dwg, fichiers audio non compatibles, formats propriétaires, etc.) :
+
+→ Solliciter l’application ou le logiciel externe du système de l’utilisateur capable d’ouvrir ce type de fichier.
+
+→ Lancer l’ouverture avec l’application correspondante installée sur l’appareil, comme le fait OneDrive.
+
+⚠️ Contraintes importantes :
+Ne rien casser dans les fonctionnalités existantes du cloud (chargement, stockage, partage, sécurité, interface, etc.).
+
+Conserver toutes les performances et sécurités déjà implémentées.
+
+Ne pas provoquer de conflits entre les types de fichiers ou de problèmes de compatibilité avec les navigateurs.
+
+Ne pas tenter d’ouvrir un fichier qui pourrait mettre en danger la sécurité de l’utilisateur ou du système.
+
+🛠️ Détails techniques à prendre en compte (si implémentation en JS/HTML/React par exemple) :
+Utiliser window.navigator.msSaveOrOpenBlob (sur Edge/IE) ou URL.createObjectURL() + déclenchement window.open() avec un fallback pour proposer un téléchargement si l’ouverture externe est impossible.
+
+Pour les fichiers non pris en charge : déclencher un dialogue système d’ouverture (input type="file" ou download + open).
+
+Penser à inclure les MIME types dans la logique de détection automatique.
+
+Exemple : .psd → Adobe Photoshop, .docx → Microsoft Word, .dwg → AutoCAD, .apk → Android Studio ou émulateur, etc.
+
+🧠 Résumé rapide à afficher à l’utilisateur :
+"Ce fichier ne peut pas être prévisualisé ici. Voulez-vous l’ouvrir avec l’application installée sur votre appareil ?"
+
