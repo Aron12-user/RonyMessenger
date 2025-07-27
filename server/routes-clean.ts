@@ -19,6 +19,13 @@ import * as fs from "fs";
 import { v4 as uuidv4 } from "uuid";
 import { handleAIChat } from "./ai-assistant";
 import { WebSocketServer, WebSocket } from 'ws';
+import { eq, and, or, desc, sql, asc, like, exists } from "drizzle-orm";
+import { db } from "./db";
+import { 
+  users, conversations, messages, messageReactions, typingIndicators, files, folders, 
+  fileSharing, folderSharing, contacts, events, eventParticipants, conversationGroups, groupMembers,
+  internalMails
+} from "@shared/schema";
 
 // Stockage en mémoire pour les réunions
 interface StoredMeeting {
@@ -2161,6 +2168,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } else {
     console.log('[WS] WebSocket server already configured, reusing existing instance');
   }
+
+  // ===============================
+  // SYSTEM DE COURRIER INTERNE - API pour partage de fichiers par messages internes
+  // ===============================
+  
+  // Envoyer un message interne avec pièce jointe
+  app.post('/api/internal-mail/send', requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const { recipientEmail, subject, content, attachmentType, attachmentId, attachmentName, attachmentSize } = req.body;
+      
+      console.log('[internal-mail] Requête envoi:', req.body);
+      
+      // Validation des données
+      if (!recipientEmail || !subject || !content) {
+        return res.status(400).json({ error: 'Destinataire, objet et contenu requis' });
+      }
+      
+      if (!recipientEmail.endsWith('@rony.com')) {
+        return res.status(400).json({ error: 'Adresse email invalide - doit se terminer par @rony.com' });
+      }
+      
+      // Rechercher le destinataire par email complet
+      const [recipient] = await db.select()
+        .from(users)
+        .where(eq(users.username, recipientEmail));
+      
+      if (!recipient) {
+        return res.status(404).json({ error: 'Destinataire non trouvé dans le système Rony' });
+      }
+      
+      // Créer le mail interne avec les données complètes
+      const [internalMail] = await db.insert(internalMails)
+        .values({
+          fromUserId: req.user!.id,
+          toUserId: recipient.id,
+          subject: subject.trim(),
+          content: content.trim(),
+          attachmentType: attachmentType || null,
+          attachmentId: attachmentId || null,
+          attachmentName: attachmentName || null,
+          attachmentSize: attachmentSize || null
+        })
+        .returning();
+      
+      console.log('[internal-mail] Mail créé avec succès:', {
+        id: internalMail.id,
+        from: req.user!.username,
+        to: recipient.username,
+        subject: internalMail.subject,
+        hasAttachment: !!attachmentType
+      });
+      
+      // Envoyer une notification WebSocket au destinataire connecté
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN && (client as any).userId === recipient.id) {
+          client.send(JSON.stringify({
+            type: 'new_internal_mail',
+            data: {
+              id: internalMail.id,
+              from: req.user!.displayName || req.user!.username,
+              subject: internalMail.subject,
+              hasAttachment: !!attachmentType,
+              sentAt: internalMail.sentAt
+            }
+          }));
+          console.log('[internal-mail] Notification WebSocket envoyée au destinataire');
+        }
+      });
+      
+      res.json({ 
+        success: true, 
+        id: internalMail.id,
+        message: 'Message envoyé avec succès'
+      });
+      
+    } catch (error) {
+      console.error('[internal-mail] Erreur lors de l\'envoi:', error);
+      res.status(500).json({ error: 'Erreur serveur lors de l\'envoi du message' });
+    }
+  });
+  
+  // Récupérer la boîte de réception des messages internes
+  app.get('/api/internal-mail/inbox', requireAuth, async (req: AuthRequest, res) => {
+    try {
+      console.log('[internal-mail] Récupération inbox pour utilisateur:', req.user!.id);
+      
+      const mails = await db.select({
+        id: internalMails.id,
+        subject: internalMails.subject,
+        content: internalMails.content,
+        attachmentType: internalMails.attachmentType,
+        attachmentId: internalMails.attachmentId,
+        attachmentName: internalMails.attachmentName,
+        attachmentSize: internalMails.attachmentSize,
+        isRead: internalMails.isRead,
+        isStarred: internalMails.isStarred,
+        sentAt: internalMails.sentAt,
+        fromUser: {
+          id: users.id,
+          username: users.username,
+          displayName: users.displayName
+        }
+      })
+      .from(internalMails)
+      .innerJoin(users, eq(internalMails.fromUserId, users.id))
+      .where(and(
+        eq(internalMails.toUserId, req.user!.id),
+        eq(internalMails.isDeleted, false)
+      ))
+      .orderBy(desc(internalMails.sentAt));
+      
+      console.log('[internal-mail] Messages trouvés:', mails.length);
+      res.json(mails);
+      
+    } catch (error) {
+      console.error('[internal-mail] Erreur récupération inbox:', error);
+      res.status(500).json({ error: 'Erreur lors de la récupération des messages' });
+    }
+  });
+  
+  // Marquer un message comme lu
+  app.put('/api/internal-mail/:id/read', requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const mailId = parseInt(req.params.id);
+      
+      await db.update(internalMails)
+        .set({ 
+          isRead: true, 
+          readAt: new Date() 
+        })
+        .where(and(
+          eq(internalMails.id, mailId),
+          eq(internalMails.toUserId, req.user!.id)
+        ));
+      
+      res.json({ success: true });
+      
+    } catch (error) {
+      console.error('[internal-mail] Erreur marquage lu:', error);
+      res.status(500).json({ error: 'Erreur lors du marquage comme lu' });
+    }
+  });
 
   return httpServer;
 }
