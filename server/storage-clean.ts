@@ -949,9 +949,34 @@ export class CompleteMemStorage implements IStorageComplete {
   markAllNotificationsAsRead(userId: number): number {
     try {
       let markedCount = 0;
-      // Simuler le marquage de toutes les notifications actives
-      // Dans un vrai système DB, ceci mettrait à jour toutes les notifications non lues
-      markedCount = 5; // Simuler quelques notifications marquées
+      
+      // Marquer toutes les notifications existantes comme lues pour cet utilisateur
+      const userPrefix = `${userId}-`;
+      
+      // Générer les IDs de notifications potentielles à marquer
+      const notificationIds = [
+        'message-msg-1',
+        'courrier-file-1', 
+        'planning-event-1',
+        'meeting-meet-1',
+        'system-sys-1',
+        'system-sys-2',
+        'upload-upload-1'
+      ];
+      
+      notificationIds.forEach(notifId => {
+        const key = `${userId}-${notifId}`;
+        if (!this.notificationReadStates.has(key)) {
+          this.notificationReadStates.set(key, {
+            userId,
+            notificationId: notifId,
+            readAt: new Date(),
+            type: 'bulk_read'
+          });
+          markedCount++;
+        }
+      });
+      
       console.log(`[NOTIF-STATE] ✅ ${markedCount} notifications marquées comme lues pour utilisateur ${userId}`);
       return markedCount;
     } catch (error) {

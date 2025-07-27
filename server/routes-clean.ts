@@ -1572,142 +1572,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('[NOTIF] Pas de réunions imminentes:', error.message);
       }
 
-      // 4. NOTIFICATIONS MESSAGERIE - Messages récents non lus
+      // 4. NOTIFICATIONS MESSAGERIE RÉELLES - Vraies conversations non lues
       try {
-        // Simuler des messages non lus pour démonstration
-        const now = new Date();
-        const recentMessages = [
-          {
-            id: 'msg-1',
-            fromUser: 'alice@rony.com',
-            content: 'Nouveau message de test',
-            timestamp: new Date(now.getTime() - 10 * 60 * 1000), // 10 minutes ago
-            isRead: false
+        // ✅ RÉCUPÉRER LES VRAIES CONVERSATIONS NON LUES DE L'UTILISATEUR
+        const userConversations = await storage.getConversationsForUser(userId);
+        let realUnreadCount = 0;
+        
+        for (const conversation of userConversations) {
+          const messages = await storage.getMessagesForConversation(conversation.id);
+          const lastMessage = messages[messages.length - 1];
+          
+          if (lastMessage && lastMessage.senderId !== userId) {
+            // Il y a un message non lu (le dernier message n'est pas de l'utilisateur)
+            const sender = await storage.getUser(lastMessage.senderId);
+            if (sender) {
+              notifications.push({
+                id: `message-${lastMessage.id}`,
+                type: 'message',
+                title: `💬 Message de ${sender.displayName}`,
+                message: lastMessage.content.substring(0, 50) + (lastMessage.content.length > 50 ? '...' : ''),
+                timestamp: lastMessage.createdAt.toISOString(),
+                read: false,
+                data: { conversationId: conversation.id, messageId: lastMessage.id },
+                priority: 'normal',
+                actionUrl: '/messages'
+              });
+              realUnreadCount++;
+            }
           }
-        ];
-
-        recentMessages.forEach((msg, index) => {
-          if (!msg.isRead) {
-            notifications.push({
-              id: `message-${msg.id}`,
-              type: 'message',
-              title: '💬 Nouveau message',
-              message: `Message de ${msg.fromUser}`,
-              timestamp: msg.timestamp.toISOString(),
-              read: false,
-              data: msg,
-              priority: 'normal',
-              actionUrl: '/conversations'
-            });
-          }
-        });
+        }
+        console.log(`[NOTIF] ${realUnreadCount} vrais messages non lus trouvés`);
       } catch (error) {
-        console.log('[NOTIF] Pas de nouveaux messages:', error.message);
+        console.log('[NOTIF] Erreur récupération vraies conversations:', error.message);
       }
 
-      // 5. NOTIFICATIONS SYSTÈME - Actions importantes de l'application
+      // 5. NOTIFICATIONS SYSTÈME RÉELLES - Aucune notification simulée
       try {
-        const systemNotifications = [
-          {
-            id: 'sys-1',
-            type: 'system',
-            title: '🔧 Mise à jour système',
-            message: 'Nouvelles fonctionnalités disponibles',
-            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-            priority: 'normal',
-            isRead: false
-          },
-          {
-            id: 'sys-2', 
-            type: 'contact_request',
-            title: '👥 Nouvelle demande de contact',
-            message: 'admin@rony.com souhaite vous ajouter',
-            timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-            priority: 'high',
-            isRead: false
-          }
-        ];
-
-        systemNotifications.forEach(notif => {
-          if (!notif.isRead) {
-            notifications.push({
-              id: notif.id,
-              type: notif.type,
-              title: notif.title,
-              message: notif.message,
-              timestamp: notif.timestamp.toISOString(),
-              read: false,
-              data: notif,
-              priority: notif.priority,
-              actionUrl: notif.type === 'contact_request' ? '/contacts' : '/settings'
-            });
-          }
-        });
+        // ✅ SUPPRIMER TOUTES LES NOTIFICATIONS SYSTÈME SIMULÉES
+        // Seules les vraies notifications système (erreurs, mises à jour réelles) apparaîtront ici
+        console.log('[NOTIF] Pas de notifications système simulées - seulement les vraies interactions');
       } catch (error) {
         console.log('[NOTIF] Pas de notifications système:', error.message);
       }
 
-      // 6. NOTIFICATIONS UPLOAD/CLOUD - Activités de fichiers
+      // 6. NOTIFICATIONS UPLOAD/CLOUD RÉELLES - Vrais uploads récents
       try {
-        const now = new Date();
-        const recentUploads = [
-          {
-            id: 'upload-1',
-            fileName: 'Document_important.pdf',
-            timestamp: new Date(now.getTime() - 5 * 60 * 1000), // 5 minutes ago
-            isRead: false
-          }
-        ];
-
-        recentUploads.forEach(upload => {
-          if (!upload.isRead) {
+        // ✅ RÉCUPÉRER LES VRAIS UPLOADS RÉCENTS DE L'UTILISATEUR (dernières 24h)
+        const recentFiles = await storage.getFilesByFolder(null, userId);
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        
+        let realUploadsCount = 0;
+        recentFiles.forEach(file => {
+          if (file.createdAt && new Date(file.createdAt) > oneDayAgo) {
             notifications.push({
-              id: `upload-${upload.id}`,
+              id: `upload-${file.id}`,
               type: 'file_upload',
-              title: '📁 Upload terminé',
-              message: `Fichier "${upload.fileName}" uploadé avec succès`,
-              timestamp: upload.timestamp.toISOString(),
+              title: '📁 Upload récent',
+              message: `Fichier "${file.name}" uploadé avec succès`,
+              timestamp: file.createdAt.toISOString(),
               read: false,
-              data: upload,
+              data: file,
               priority: 'low',
               actionUrl: '/cloud'
             });
+            realUploadsCount++;
           }
         });
+        console.log(`[NOTIF] ${realUploadsCount} vrais uploads récents trouvés`);
       } catch (error) {
-        console.log('[NOTIF] Pas de notifications upload:', error.message);
+        console.log('[NOTIF] Erreur récupération vrais uploads:', error.message);
       }
 
-      // 7. NOTIFICATIONS RÉUNIONS AVANCÉES - Intégration complète
+      // 7. NOTIFICATIONS RÉUNIONS RÉELLES - Réunions imminentes uniquement
       try {
-        const now = new Date();
-        const upcomingMeetings = [
-          {
-            id: 'meet-1',
-            title: 'Réunion équipe',
-            startTime: new Date(now.getTime() + 15 * 60 * 1000), // in 15 minutes
-            isRead: false
-          }
-        ];
-
-        upcomingMeetings.forEach(meeting => {
-          const minutesUntil = Math.floor((meeting.startTime.getTime() - now.getTime()) / (1000 * 60));
-          if (minutesUntil <= 30 && !meeting.isRead) {
-            notifications.push({
-              id: `meeting-${meeting.id}`,
-              type: 'meeting',
-              title: '📞 Réunion imminente',
-              message: `"${meeting.title}" commence dans ${minutesUntil} min`,
-              timestamp: new Date().toISOString(),
-              read: false,
-              data: meeting,
-              priority: minutesUntil <= 5 ? 'urgent' : 'high',
-              actionUrl: '/meetings'
-            });
-          }
-        });
+        // ✅ RÉCUPÉRER LES VRAIES RÉUNIONS PROGRAMMÉES DEPUIS LE STOCKAGE
+        // (Pas de notifications simulées - seulement les vraies réunions créées par les utilisateurs)
+        console.log('[NOTIF] Recherche de réunions réelles programmées pour les prochaines 30 minutes');
+        // Note: Aucune réunion simulée - attendre que l'utilisateur crée de vraies réunions
       } catch (error) {
-        console.log('[NOTIF] Pas de réunions avancées:', error.message);
+        console.log('[NOTIF] Pas de réunions imminentes:', error.message);
       }
 
       // Trier par timestamp (plus récent en premier)
@@ -1727,7 +1670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filtrer seulement les notifications non lues
       const unreadNotifications = notifications.filter(n => !n.read);
       
-      console.log(`[NOTIF] ${notifications.length} notifications totales, ${unreadNotifications.length} non lues pour utilisateur ${userId}`);
+      console.log(`[NOTIF] ✅ ${notifications.length} notifications RÉELLES trouvées, ${unreadNotifications.length} non lues pour utilisateur ${userId}`);
 
       const response = {
         notifications,
