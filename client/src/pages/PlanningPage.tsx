@@ -421,25 +421,27 @@ export default function PlanningPage() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
-      {/* ✅ HEADER AMÉLIORÉ avec contrôles avancés */}
-      <div className="bg-white border-b px-6 py-4">
+    <div className="h-full flex flex-col gentle-fade">
+      {/* ✅ HEADER AMÉLIORÉ avec contrôles avancés - STYLE MINCE ET FLUIDE */}
+      <div className="fluid-container mx-2 mb-2 border-b border-white/10 px-4 py-3">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-semibold text-gray-900">📅 Planification</h1>
+          <h1 className="text-lg font-light text-gray-700 tracking-wide">📅 Planification</h1>
           <div className="flex items-center space-x-3">
             <Button 
-              variant={notificationsEnabled ? "default" : "outline"}
+              variant="ghost"
               size="sm"
               onClick={() => setNotificationsEnabled(!notificationsEnabled)}
               title="Activer/Désactiver les notifications d'événements"
+              className="soft-button h-8"
             >
               {notificationsEnabled ? <BellRing className="w-4 h-4 mr-2" /> : <Bell className="w-4 h-4 mr-2" />}
               Notifications
             </Button>
             <Button 
-              variant={showStats ? "default" : "outline"}
+              variant="ghost"
               size="sm"
               onClick={() => setShowStats(!showStats)}
+              className="soft-button h-8"
             >
               <BarChart3 className="w-4 h-4 mr-2" />
               Statistiques

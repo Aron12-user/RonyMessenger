@@ -2,6 +2,103 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ✅ STYLES GLOBAUX POUR INTERFACES MINCES ET FLUIDES */
+@layer base {
+  * {
+    @apply transition-all duration-300 ease-out;
+  }
+  
+  /* Variables pour interfaces douces et légères */
+  :root {
+    --soft-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.03);
+    --soft-shadow-hover: 0 2px 6px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.05);
+    --soft-border: 1px solid rgba(0, 0, 0, 0.04);
+    --soft-bg: rgba(255, 255, 255, 0.7);
+    --soft-bg-hover: rgba(255, 255, 255, 0.85);
+    --glass-bg: rgba(255, 255, 255, 0.2);
+    --glass-border: rgba(255, 255, 255, 0.3);
+  }
+}
+
+@layer components {
+  /* Cartes minces et fluides */
+  .soft-card {
+    @apply bg-white/70 backdrop-blur-md border border-white/20 rounded-xl;
+    box-shadow: var(--soft-shadow);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .soft-card:hover {
+    @apply bg-white/85 border-white/30;
+    box-shadow: var(--soft-shadow-hover);
+    transform: translateY(-1px);
+  }
+  
+  /* Boutons doux et légers */
+  .soft-button {
+    @apply bg-white/60 hover:bg-white/80 border border-white/20 hover:border-white/30 rounded-lg px-3 py-1.5 text-sm font-light;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Conteneurs fluides */
+  .fluid-container {
+    @apply bg-gradient-to-br from-white/30 to-white/10 backdrop-blur-xl border border-white/20 rounded-2xl;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Inputs légers */
+  .soft-input {
+    @apply bg-white/50 border border-white/20 rounded-lg px-3 py-2 text-sm placeholder:text-gray-400/70;
+    backdrop-filter: blur(8px);
+  }
+  
+  .soft-input:focus {
+    @apply bg-white/70 border-white/40 outline-none ring-2 ring-blue-200/30;
+  }
+  
+  /* Grilles fluides */
+  .fluid-grid {
+    @apply grid gap-3;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+  
+  /* Animations douces */
+  .gentle-fade {
+    animation: gentleFadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  @keyframes gentleFadeIn {
+    from { 
+      opacity: 0; 
+      transform: translateY(10px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+  
+  /* Scrollbars minces */
+  .thin-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  .thin-scrollbar::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 4px;
+  }
+  
+  .thin-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+  }
+  
+  .thin-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.2);
+  }
+}
+
 /* CSS RADICAL ANTI-BORDS NOIRS - APPLICATION GLOBALE */
 video {
   position: absolute !important;

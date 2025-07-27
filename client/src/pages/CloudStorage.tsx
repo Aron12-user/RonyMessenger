@@ -989,17 +989,17 @@ export default function CloudStorage() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-white">
-      {/* Header avec barre de recherche et actions */}
-      <div className="border-b border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">Cloud Storage</h1>
+    <div className="h-full flex flex-col gentle-fade">
+      {/* Header avec barre de recherche et actions - STYLE MINCE ET FLUIDE */}
+      <div className="border-b border-white/10 p-4 fluid-container mx-2 mb-2">
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-lg font-light text-gray-700 tracking-wide">Cloud Storage</h1>
           
           {/* Dropdown unifié Actions Cloud avec toutes les fonctions */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button 
-                className="bg-blue-600 hover:bg-blue-700 text-white min-w-[160px]"
+                className="soft-button min-w-[140px] h-8"
                 disabled={isUploading || isSyncing}
               >
                 <Cloud className="mr-2 h-4 w-4" />
