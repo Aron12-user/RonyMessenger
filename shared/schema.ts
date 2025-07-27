@@ -287,6 +287,26 @@ export const eventParticipants = pgTable("event_participants", {
   }
 });
 
+// ✅ EVENT SHARES TABLE - Pour le partage automatique d'événements
+export const eventShares = pgTable("event_shares", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  sharedWithUserId: integer("shared_with_user_id").notNull().references(() => users.id),
+  sharedByUserId: integer("shared_by_user_id").notNull().references(() => users.id),
+  sharedAt: timestamp("shared_at").defaultNow().notNull(),
+  accessLevel: text("access_level").default("read").notNull(), // read, edit
+  isAutoShared: boolean("is_auto_shared").default(true), // Partage automatique via participants
+  emailAddress: text("email_address"), // Email utilisé pour le partage
+}, (table) => {
+  return {
+    eventIdIdx: index("event_share_event_id_idx").on(table.eventId),
+    sharedWithIdx: index("event_share_with_idx").on(table.sharedWithUserId),
+    sharedByIdx: index("event_share_by_idx").on(table.sharedByUserId),
+    eventUserShareIdx: uniqueIndex("event_user_share_idx").on(table.eventId, table.sharedWithUserId),
+    emailIdx: index("event_share_email_idx").on(table.emailAddress),
+  }
+});
+
 // Groupes de conversation
 export const conversationGroups = pgTable('conversation_groups', {
   id: serial('id').primaryKey(),
@@ -419,6 +439,11 @@ export type InsertConversationGroup = z.infer<typeof insertConversationGroupSche
 
 export type GroupMember = typeof groupMembers.$inferSelect;
 export type InsertGroupMember = z.infer<typeof insertGroupMemberSchema>;
+
+// ✅ EVENT SHARES TYPES
+export const insertEventShareSchema = createInsertSchema(eventShares);
+export type EventShare = typeof eventShares.$inferSelect;
+export type InsertEventShare = z.infer<typeof insertEventShareSchema>;
 
 export type InternalMail = typeof internalMails.$inferSelect;
 export type InsertInternalMail = z.infer<typeof insertInternalMailSchema>;

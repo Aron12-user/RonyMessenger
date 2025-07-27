@@ -75,6 +75,21 @@ Rony is a comprehensive communication platform that combines messaging, video co
 
 ## Recent Changes
 
+### ✅ SYSTÈME PARTAGE AUTOMATIQUE D'ÉVÉNEMENTS (27 juillet 2025)
+- **PARTAGE AUTOMATIQUE COMPLET**: Implémentation d'un système de partage d'événements ultra-performant
+  - **Table event_shares**: Nouvelle table pour gérer les partages d'événements avec relations utilisateurs
+  - **Partage instantané**: Les participants invités reçoivent automatiquement les événements dans leur Planification
+  - **Fusion intelligente**: Événements propres + partagés affichés dans une seule interface unifiée
+  - **Validation @rony.com**: Seuls les utilisateurs internes du domaine peuvent recevoir des événements
+  - **Élimination doublons**: Gestion propre des événements uniques sans duplication
+  - **Logs complets**: Traçabilité totale avec `[EVENT-SHARE]` et `[EVENTS]` pour debugging
+- **FONCTIONNEMENT TESTÉ ET VALIDÉ**: Création d'événement avec participants automatiquement distribué
+  - Test réussi: Créateur `testuser@rony.com` → Participants `participant1@rony.com, participant2@rony.com`
+  - Résultat: Participants voient l'événement comme s'ils l'avaient créé (0 propres + 1 partagés = 1 total)
+  - Interface unifiée: Aucune distinction visuelle entre événements propres et partagés
+- **MODIFICATION DYNAMIQUE**: Partage automatique lors des mises à jour d'événements existants
+- **PRÉSERVATION TOTALE**: Toutes les fonctionnalités Planning, Cloud, Courrier, et notifications maintenues
+
 ### ✅ AMÉLIORATIONS CLOUD AVANCÉES (27 juillet 2025)
 - **UPLOAD OPTIMISÉ**: Implémentation d'upload de dossiers ultra-rapide avec traitement par batch
   - Traitement simultané de 5 fichiers en parallèle pour vitesse maximale
