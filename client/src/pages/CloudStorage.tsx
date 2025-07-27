@@ -1653,7 +1653,7 @@ export default function CloudStorage() {
 
       {/* Nouvelle boîte de dialogue de partage par courrier interne */}
       <Dialog open={!!shareDialog} onOpenChange={() => setShareDialog(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Share2 className="h-5 w-5 text-blue-600" />
@@ -1661,19 +1661,19 @@ export default function CloudStorage() {
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Aperçu de l'élément à partager */}
-            <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
               <div className="flex-shrink-0">
                 {shareDialog && (shareDialog.type === 'file' 
                   ? getFileIcon(shareDialog.item.type, shareDialog.item.name)
                   : getFolderIcon(shareDialog.item.iconType))}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900 truncate">
+                <p className="font-medium text-gray-900 truncate text-sm">
                   {shareDialog?.item.name}
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-xs text-gray-500">
                   {shareDialog?.type === 'file' 
                     ? formatFileSize(shareDialog.item.size)
                     : 'Dossier'}
@@ -1684,12 +1684,12 @@ export default function CloudStorage() {
               </div>
             </div>
 
-            {/* Formulaire de partage */}
-            <div className="space-y-4">
+            {/* Formulaire de partage compact */}
+            <div className="space-y-3">
               {/* Adresse du destinataire */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📩 Adresse Rony du destinataire *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  📩 Destinataire *
                 </label>
                 <Input
                   placeholder="utilisateur@rony.com"
@@ -1700,15 +1700,12 @@ export default function CloudStorage() {
                   })}
                   className="w-full"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  L'adresse doit se terminer par @rony.com
-                </p>
               </div>
 
               {/* Objet du message */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  🏷️ Objet du message
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  🏷️ Objet *
                 </label>
                 <Input
                   placeholder="Objet de votre message"
@@ -1723,8 +1720,8 @@ export default function CloudStorage() {
 
               {/* Message personnalisé */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📝 Message personnalisé
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  📝 Message
                 </label>
                 <textarea
                   placeholder="Écrivez votre message ici..."
@@ -1733,23 +1730,17 @@ export default function CloudStorage() {
                     ...shareFormData,
                     message: e.target.value
                   })}
-                  className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  className="w-full h-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-sm"
                 />
               </div>
             </div>
 
-            {/* Informations importantes */}
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            {/* Informations importantes - compactes */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
               <div className="flex items-start gap-2">
-                <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <Info className="h-3 w-3 text-amber-600 mt-0.5 flex-shrink-0" />
                 <div className="text-xs text-amber-800">
-                  <p className="font-medium mb-1">Système de courrier interne :</p>
-                  <ul className="space-y-1">
-                    <li>• Le message sera envoyé dans la boîte de réception du destinataire</li>
-                    <li>• {shareDialog?.type === 'file' ? 'Le fichier' : 'Le dossier'} sera joint automatiquement</li>
-                    <li>• Le destinataire pourra prévisualiser et télécharger la pièce jointe</li>
-                    <li>• Seuls les utilisateurs enregistrés Rony peuvent recevoir le message</li>
-                  </ul>
+                  <p className="font-medium">Courrier interne - La pièce jointe sera envoyée automatiquement</p>
                 </div>
               </div>
             </div>
