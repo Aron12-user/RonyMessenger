@@ -1310,6 +1310,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Route /api/files/:id/share supprimée pour éviter les doublons - utilise uniquement /api/files/share
 
+  // ✅ API EXPLORATEUR DE DOSSIERS - Récupérer les fichiers d'un dossier partagé
+  app.get("/api/folders/:id/files", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      const folderId = parseInt(req.params.id);
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+      
+      if (!folderId || isNaN(folderId)) {
+        return res.status(400).json({ error: "ID de dossier invalide" });
+      }
+      
+      console.log(`[FOLDER-EXPLORER-API] Récupération fichiers dossier ${folderId} pour utilisateur ${userId}`);
+      
+      // Vérifier que l'utilisateur a accès à ce dossier partagé
+      const sharedFolders = await storage.getSharedFolders(userId);
+      const targetFolder = sharedFolders.find((folder: any) => folder.id === folderId);
+      
+      if (!targetFolder) {
+        console.log(`[FOLDER-EXPLORER-API] Accès refusé au dossier ${folderId} pour utilisateur ${userId}`);
+        return res.status(403).json({ error: "Accès refusé à ce dossier" });
+      }
+      
+      // Récupérer les fichiers du dossier
+      const folderFiles = await storage.getFilesByFolder(folderId);
+      
+      console.log(`[FOLDER-EXPLORER-API] Dossier ${folderId}: ${folderFiles.length} fichiers trouvés`);
+      
+      // Formatage des fichiers pour l'interface
+      const formattedFiles = folderFiles.map((file: any) => ({
+        id: file.id,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        url: `/api/files/${file.id}/download`,
+        uploadedAt: file.uploadedAt,
+        extension: file.name.split('.').pop()?.toLowerCase() || ''
+      }));
+      
+      res.json({
+        folderId,
+        folderName: targetFolder.name || 'Dossier',
+        files: formattedFiles,
+        count: formattedFiles.length
+      });
+      
+    } catch (error: any) {
+      console.error('[FOLDER-EXPLORER-API] Erreur:', error);
+      res.status(500).json({ error: "Erreur serveur lors de la récupération des fichiers" });
+    }
+  });
+
   // APIs PLANIFICATION - Système d'événements complet
   
   // Créer un nouvel événement
