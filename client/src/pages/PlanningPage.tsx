@@ -38,8 +38,13 @@ export default function PlanningPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Form state - identique à l'image
+  // ✅ ÉTATS AMÉLIORÉS pour la planification avancée
   const [showNewEventForm, setShowNewEventForm] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'agenda'>('list');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showStats, setShowStats] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -105,9 +110,11 @@ export default function PlanningPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/events'] });
+      setShowNewEventForm(false);
+      resetForm();
       toast({
-        title: 'Événement modifié',
-        description: 'L\'événement a été modifié avec succès',
+        title: editingEventId ? 'Événement modifié' : 'Événement créé',
+        description: editingEventId ? 'L\'événement a été modifié avec succès' : 'L\'événement a été créé avec succès',
       });
     },
     onError: (error: any) => {
@@ -134,21 +141,7 @@ export default function PlanningPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/events'] });
       setShowNewEventForm(false);
-      setFormData({
-        title: '',
-        description: '',
-        participants: '',
-        date: new Date(),
-        startTime: '00:00',
-        endTime: '00:30',
-        isAllDay: false,
-        isRecurring: false,
-        location: '',
-        isInPerson: true,
-        isPrivate: false,
-        reminderMinutes: 15,
-        calendar: user?.username || 'utilisateur@rony.com'
-      });
+      resetForm();
       toast({
         title: 'Événement créé',
         description: 'Votre événement a été créé avec succès',
@@ -187,6 +180,7 @@ export default function PlanningPage() {
     });
   };
 
+  // ✅ FONCTIONS PLANIFICATION AVANCÉES
   const handleSubmit = () => {
     if (!formData.title.trim()) {
       toast({
@@ -209,10 +203,76 @@ export default function PlanningPage() {
       location: formData.location,
       isInPerson: formData.isInPerson,
       isPrivate: formData.isPrivate,
-      reminderMinutes: formData.reminderMinutes
+      reminderMinutes: formData.reminderMinutes,
+      priority: 'medium',
+      status: 'scheduled',
+      color: '#3b82f6',
+      attendeeEmails: formData.participants // Gestion des participants
     };
 
-    createEventMutation.mutate(eventData);
+    if (editingEventId) {
+      // Mode édition
+      updateEventMutation.mutate({ eventId: editingEventId, eventData });
+    } else {
+      // Mode création
+      createEventMutation.mutate(eventData);
+    }
+  };
+
+  // Nouvelles fonctions complémentaires
+  const getEventStats = () => {
+    const total = events.length;
+    const today = getTodayEvents().length;
+    const upcoming = getUpcomingEvents().length;
+    const thisWeek = events.filter(event => {
+      const eventDate = new Date(event.startDate);
+      const now = new Date();
+      const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      return eventDate >= weekStart && eventDate <= weekEnd;
+    }).length;
+    
+    return { total, today, upcoming, thisWeek };
+  };
+
+  const getFilteredEvents = () => {
+    let filtered = events;
+    
+    // Filtre par recherche
+    if (searchQuery) {
+      filtered = filtered.filter(event => 
+        event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (event.description && event.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (event.location && event.location.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    }
+    
+    // Filtre par statut
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(event => event.status === filterStatus);
+    }
+    
+    return filtered.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+  };
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      participants: '',
+      date: new Date(),
+      startTime: '00:00',
+      endTime: '00:30',
+      isAllDay: false,
+      isRecurring: false,
+      location: '',
+      isInPerson: true,
+      isPrivate: false,
+      reminderMinutes: 15,
+      calendar: user?.username || 'utilisateur@rony.com'
+    });
+    setEditingEventId(null);
   };
 
   if (isLoading) {
@@ -225,17 +285,108 @@ export default function PlanningPage() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b px-6 py-4 flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900">Planification</h1>
-        <Button 
-          onClick={() => setShowNewEventForm(true)}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nouvel événement
-        </Button>
+      {/* ✅ HEADER AMÉLIORÉ avec contrôles avancés */}
+      <div className="bg-white border-b px-6 py-4">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-semibold text-gray-900">📅 Planification</h1>
+          <div className="flex items-center space-x-3">
+            <Button 
+              variant={showStats ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowStats(!showStats)}
+            >
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Statistiques
+            </Button>
+            <Select value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="list">📋 Liste</SelectItem>
+                <SelectItem value="calendar">📅 Calendrier</SelectItem>
+                <SelectItem value="agenda">📝 Agenda</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button 
+              onClick={() => {
+                resetForm();
+                setShowNewEventForm(true);
+              }}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Nouvel événement
+            </Button>
+          </div>
+        </div>
+        
+        {/* ✅ BARRE DE RECHERCHE ET FILTRES */}
+        <div className="flex items-center space-x-4">
+          <div className="flex-1 max-w-md">
+            <Input
+              placeholder="🔍 Rechercher un événement..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full"
+            />
+          </div>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les statuts</SelectItem>
+              <SelectItem value="scheduled">📅 Programmé</SelectItem>
+              <SelectItem value="ongoing">⏳ En cours</SelectItem>
+              <SelectItem value="completed">✅ Terminé</SelectItem>
+              <SelectItem value="cancelled">❌ Annulé</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => {
+              setSearchQuery('');
+              setFilterStatus('all');
+            }}
+          >
+            <Filter className="w-4 h-4 mr-2" />
+            Réinitialiser
+          </Button>
+        </div>
       </div>
+
+      {/* ✅ PANNEAU STATISTIQUES AVANCÉ */}
+      {showStats && (
+        <div className="bg-blue-50 border-b px-6 py-4">
+          <div className="grid grid-cols-4 gap-4 max-w-4xl">
+            {(() => {
+              const stats = getEventStats();
+              return (
+                <>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
+                    <div className="text-sm text-gray-600">Total événements</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">{stats.today}</div>
+                    <div className="text-sm text-gray-600">Aujourd'hui</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-orange-600">{stats.upcoming}</div>
+                    <div className="text-sm text-gray-600">À venir</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600">{stats.thisWeek}</div>
+                    <div className="text-sm text-gray-600">Cette semaine</div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       {/* Content - Avec défilement pour éviter le débordement */}
       <div className="flex-1 overflow-y-auto">
@@ -248,7 +399,9 @@ export default function PlanningPage() {
               <Card className="bg-white shadow-sm">
                 <CardHeader className="border-b bg-gray-50">
                   <div className="flex justify-between items-center">
-                    <CardTitle className="text-lg">Nouvel événement : Calendrier</CardTitle>
+                    <CardTitle className="text-lg">
+                    {editingEventId ? '✏️ Modifier événement' : '➕ Nouvel événement'} : Calendrier
+                  </CardTitle>
                     <div className="flex space-x-2">
                       <Button variant="outline" size="sm">
                         <Clock className="w-4 h-4 mr-1" />
@@ -261,16 +414,27 @@ export default function PlanningPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
-                  {/* Bouton Enregistrer */}
+                  {/* ✅ BOUTONS ENREGISTRER ET ANNULER */}
                   <div className="flex justify-between items-center">
-                    <Button 
-                      onClick={handleSubmit}
-                      disabled={createEventMutation.isPending}
-                      className="bg-teal-500 hover:bg-teal-600 text-white"
-                    >
-                      <Save className="w-4 h-4 mr-2" />
-                      Enregistrer
-                    </Button>
+                    <div className="flex space-x-3">
+                      <Button 
+                        onClick={handleSubmit}
+                        disabled={createEventMutation.isPending || updateEventMutation.isPending}
+                        className="bg-teal-500 hover:bg-teal-600 text-white"
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        {editingEventId ? 'Modifier' : 'Enregistrer'}
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        onClick={() => {
+                          setShowNewEventForm(false);
+                          resetForm();
+                        }}
+                      >
+                        ❌ Annuler
+                      </Button>
+                    </div>
                     <Select defaultValue={user?.username || 'utilisateur@rony.com'}>
                       <SelectTrigger className="w-64">
                         <SelectValue />
@@ -454,9 +618,42 @@ export default function PlanningPage() {
             </div>
           </div>
         ) : (
-          // Liste des événements
+          // ✅ AFFICHAGE MULTI-MODE DES ÉVÉNEMENTS
           <div className="max-w-4xl mx-auto">
-            {(events as Event[]).length === 0 ? (
+            {/* Widget rapide planning */}
+            {!showNewEventForm && (
+              <div className="mb-6">
+                <PlanningCalendarWidget 
+                  events={events as Event[]} 
+                  onEventClick={(event) => {
+                    setFormData({
+                      title: event.title,
+                      description: event.description || '',
+                      participants: '',
+                      date: new Date(event.startDate),
+                      startTime: event.startTime || '00:00',
+                      endTime: event.endTime || '00:30',
+                      isAllDay: event.isAllDay,
+                      isRecurring: event.isRecurring,
+                      location: event.location || '',
+                      isInPerson: event.isInPerson,
+                      isPrivate: event.isPrivate,
+                      reminderMinutes: event.reminderMinutes,
+                      calendar: user?.username || 'utilisateur@rony.com'
+                    });
+                    setEditingEventId(event.id);
+                    setShowNewEventForm(true);
+                  }}
+                  onNewEvent={() => {
+                    resetForm();
+                    setShowNewEventForm(true);
+                  }}
+                  className="mb-6"
+                />
+              </div>
+            )}
+            
+            {getFilteredEvents().length === 0 ? (
               <Card className="bg-white text-center py-12">
                 <CardContent>
                   <CalendarIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
@@ -477,23 +674,110 @@ export default function PlanningPage() {
               </Card>
             ) : (
               <div className="space-y-4">
-                {(events as Event[]).map((event: Event) => (
-                  <Card key={event.id} className="bg-white">
+                {/* ✅ AFFICHAGE AMÉLIORÉ DES ÉVÉNEMENTS */}
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {getFilteredEvents().length} événement{getFilteredEvents().length > 1 ? 's' : ''} trouvé{getFilteredEvents().length > 1 ? 's' : ''}
+                  </h2>
+                  <Button variant="outline" size="sm">
+                    <SortAsc className="w-4 h-4 mr-2" />
+                    Trier par date
+                  </Button>
+                </div>
+                
+                {getFilteredEvents().map((event: Event) => (
+                  <Card key={event.id} className="bg-white hover:shadow-md transition-shadow border-l-4" style={{borderLeftColor: event.status === 'completed' ? '#22c55e' : event.status === 'cancelled' ? '#ef4444' : '#3b82f6'}}>
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-medium text-gray-900">{event.title}</h3>
-                          <p className="text-sm text-gray-500">
-                            {format(new Date(event.startDate), 'dd MMMM yyyy', { locale: fr })}
-                            {event.startTime && ` à ${event.startTime}`}
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <h3 className="font-medium text-gray-900">{event.title}</h3>
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              event.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
+                              event.status === 'ongoing' ? 'bg-yellow-100 text-yellow-800' :
+                              event.status === 'completed' ? 'bg-green-100 text-green-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {event.status === 'scheduled' ? '📅 Programmé' :
+                               event.status === 'ongoing' ? '⏳ En cours' :
+                               event.status === 'completed' ? '✅ Terminé' : '❌ Annulé'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500 mb-1">
+                            📅 {format(new Date(event.startDate), 'dd MMMM yyyy', { locale: fr })}
+                            {event.startTime && ` • ⏰ ${event.startTime}`}
+                            {event.endTime && ` - ${event.endTime}`}
                           </p>
+                          {event.location && (
+                            <p className="text-sm text-gray-500 mb-1">
+                              📍 {event.location}
+                            </p>
+                          )}
+                          {event.description && (
+                            <p className="text-sm text-gray-600 mt-2 max-w-md">
+                              {event.description.length > 100 ? `${event.description.slice(0, 100)}...` : event.description}
+                            </p>
+                          )}
+                          <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                            {event.isAllDay && <span>🕐 Toute la journée</span>}
+                            {event.isRecurring && <span>🔄 Récurrent</span>}
+                            {event.isPrivate && <span>🔒 Privé</span>}
+                            {event.reminderMinutes > 0 && <span>🔔 Rappel {event.reminderMinutes}min avant</span>}
+                          </div>
                         </div>
-                        <div className="flex space-x-2">
-                          <Button variant="outline" size="sm">
-                            Modifier
+                        <div className="flex flex-col space-y-2 ml-4">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              // ✅ FONCTION MODIFIER OPÉRATIONNELLE
+                              setFormData({
+                                title: event.title,
+                                description: event.description || '',
+                                participants: '',
+                                date: new Date(event.startDate),
+                                startTime: event.startTime || '00:00',
+                                endTime: event.endTime || '00:30',
+                                isAllDay: event.isAllDay,
+                                isRecurring: event.isRecurring,
+                                location: event.location || '',
+                                isInPerson: event.isInPerson,
+                                isPrivate: event.isPrivate,
+                                reminderMinutes: event.reminderMinutes,
+                                calendar: user?.username || 'utilisateur@rony.com'
+                              });
+                              setEditingEventId(event.id);
+                              setShowNewEventForm(true);
+                            }}
+                          >
+                            ✏️ Modifier
                           </Button>
-                          <Button variant="outline" size="sm">
-                            Supprimer
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              // ✅ FONCTION SUPPRIMER OPÉRATIONNELLE
+                              if (confirm(`Êtes-vous sûr de vouloir supprimer l'événement "${event.title}" ?`)) {
+                                deleteEventMutation.mutate(event.id);
+                              }
+                            }}
+                            disabled={deleteEventMutation.isPending}
+                          >
+                            🗑️ Supprimer
+                          </Button>
+                          {/* ✅ BOUTONS ACTIONS AVANCÉES */}
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              const newStatus = event.status === 'completed' ? 'scheduled' : 'completed';
+                              updateEventMutation.mutate({ 
+                                eventId: event.id, 
+                                eventData: { ...event, status: newStatus }
+                              });
+                            }}
+                          >
+                            {event.status === 'completed' ? '↩️ Réactiver' : '✅ Marquer terminé'}
                           </Button>
                         </div>
                       </div>
