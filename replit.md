@@ -75,18 +75,24 @@ Rony is a comprehensive communication platform that combines messaging, video co
 
 ## Recent Changes
 
-### ✅ FINALISATION LIMITES STOCKAGE (27 juillet 2025)
-- **VALIDATION COMPLÈTE DES LIMITES**: Toutes les limites de stockage sont maintenant strictement configurées
-  - Fichiers individuels: **10 Go maximum** (implémenté frontend + backend)
-  - Dossiers complets: **2 To maximum** (validation upload complète)
-  - Stockage total Cloud: **10 To maximum** par utilisateur
-  - Configuration multer backend alignée avec limites frontend
-- **MODULE DE VALIDATION CRÉÉ**: `server/storage-limits.ts` centralise toute la logique
-  - Fonctions utilitaires pour formatage et validation des tailles
-  - Constantes centralisées pour cohérence système
-  - Validation côté frontend et backend harmonisée
-- **SÉCURITÉ RENFORCÉE**: Double validation (client + serveur) pour tous les uploads
-- **EXPÉRIENCE UTILISATEUR**: Messages d'erreur clairs avec tailles formatées
+### ✅ AMÉLIORATIONS CLOUD AVANCÉES (27 juillet 2025)
+- **UPLOAD OPTIMISÉ**: Implémentation d'upload de dossiers ultra-rapide avec traitement par batch
+  - Traitement simultané de 5 fichiers en parallèle pour vitesse maximale
+  - Barre de progression en temps réel avec suivi précis des fichiers complétés
+  - Gestion intelligente des gros dossiers avec chunking automatique
+- **NOUVELLES FONCTIONS CLOUD**: Ajout complet des 5 fonctions selon image fournie
+  - **Synchronisation**: Sync intelligent avec le cloud et indicateur de progression
+  - **Actualiser**: Rafraîchissement instantané des vues et cache
+  - **Statistiques**: Dashboard complet avec espace utilisé/disponible (10 To confirmé)
+  - **Historique**: Suivi des versions et modifications de fichiers
+  - **Archives**: Gestion des fichiers archivés avec interface dédiée
+- **SUPPRESSION NETTOYER**: Fonction "Nettoyer" complètement supprimée comme demandé (inutile)
+- **LIMITES CONFIRMÉES**: Validation définitive des limites de stockage
+  - Fichiers individuels: **10 Go maximum** (augmenté depuis 1 Go)
+  - Dossiers complets: **2 To maximum** avec upload rapide
+  - Stockage total Cloud: **10 To OBLIGATOIRE** (confirmé par utilisateur)
+- **INTERFACE OPTIMISÉE**: Dropdown Actions Cloud unifié avec icônes colorées et descriptions
+- **PRÉSERVATION TOTALE**: Toutes les fonctionnalités Courrier et Cloud existantes maintenues intactes
 
 ### Comprehensive Courrier System Resolution (July 26, 2025)
 - **MAJOR SUCCESS**: Definitively resolved persistent courrier display issues

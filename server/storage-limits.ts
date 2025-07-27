@@ -8,8 +8,8 @@ export const STORAGE_LIMITS = {
   // Limite par dossier complet
   MAX_FOLDER_SIZE: 2 * 1024 * 1024 * 1024 * 1024, // 2 To
 
-  // Limite totale de stockage Cloud par utilisateur
-  MAX_TOTAL_CLOUD_STORAGE: 10 * 1024 * 1024 * 1024 * 1024, // 10 To
+  // ✅ LIMITE TOTALE CONFIRMÉE par l'utilisateur
+  MAX_TOTAL_CLOUD_STORAGE: 10 * 1024 * 1024 * 1024 * 1024, // 10 To OBLIGATOIRE
 
   // Autres limites techniques
   MAX_FILES_PER_UPLOAD: 50,
