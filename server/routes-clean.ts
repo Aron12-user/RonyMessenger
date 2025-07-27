@@ -1374,18 +1374,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const event = await storage.createEvent(eventData);
       
-      // ✅ PARTAGE AUTOMATIQUE - Si des participants sont invités
-      if (req.body.participants && req.body.participants.trim()) {
-        const participantEmails = req.body.participants
+      // ✅ PARTAGE AUTOMATIQUE - Si des participants sont invités (attendeeEmails du frontend)
+      const participantField = req.body.attendeeEmails || req.body.participants || '';
+      if (participantField && participantField.trim()) {
+        const participantEmails = participantField
           .split(',')
           .map((email: string) => email.trim())
-          .filter((email: string) => email.length > 0);
+          .filter((email: string) => email.length > 0 && email.includes('@rony.com'));
         
         console.log(`[EVENTS] Partage automatique avec ${participantEmails.length} participants:`, participantEmails);
         
         if (participantEmails.length > 0) {
           await storage.shareEventWithUsers(event.id, participantEmails, userId);
           console.log(`[EVENTS] ✅ Événement ${event.id} partagé automatiquement avec succès`);
+        } else {
+          console.log(`[EVENTS] Aucun participant @rony.com valide trouvé dans: "${participantField}"`);
         }
       }
       
@@ -1455,18 +1458,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updatedEvent = await storage.updateEvent(eventId, updates);
       
-      // ✅ PARTAGE AUTOMATIQUE - Si les participants ont été modifiés
-      if (req.body.participants && req.body.participants.trim()) {
-        const participantEmails = req.body.participants
+      // ✅ PARTAGE AUTOMATIQUE - Si les participants ont été modifiés (attendeeEmails du frontend)
+      const participantField = req.body.attendeeEmails || req.body.participants || '';
+      if (participantField && participantField.trim()) {
+        const participantEmails = participantField
           .split(',')
           .map((email: string) => email.trim())
-          .filter((email: string) => email.length > 0);
+          .filter((email: string) => email.length > 0 && email.includes('@rony.com'));
         
         console.log(`[EVENTS] Mise à jour partage avec ${participantEmails.length} participants:`, participantEmails);
         
         if (participantEmails.length > 0) {
           await storage.shareEventWithUsers(eventId, participantEmails, userId);
           console.log(`[EVENTS] ✅ Partage mis à jour pour événement ${eventId}`);
+        } else {
+          console.log(`[EVENTS] Aucun participant @rony.com valide trouvé dans: "${participantField}"`);
         }
       }
       

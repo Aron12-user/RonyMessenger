@@ -84,9 +84,10 @@ Rony is a comprehensive communication platform that combines messaging, video co
   - **Élimination doublons**: Gestion propre des événements uniques sans duplication
   - **Logs complets**: Traçabilité totale avec `[EVENT-SHARE]` et `[EVENTS]` pour debugging
 - **FONCTIONNEMENT TESTÉ ET VALIDÉ**: Création d'événement avec participants automatiquement distribué
-  - Test réussi: Créateur `testuser@rony.com` → Participants `participant1@rony.com, participant2@rony.com`
-  - Résultat: Participants voient l'événement comme s'ils l'avaient créé (0 propres + 1 partagés = 1 total)
+  - Test réussi via interface web: Créateur `testcreator@rony.com` → Invité `testinvitee@rony.com`
+  - Résultat confirmé: Invité voit l'événement instantanément (0 propres + 1 partagés = 1 total)
   - Interface unifiée: Aucune distinction visuelle entre événements propres et partagés
+  - **CORRECTION FRONTEND**: Synchronisation parfaite entre champ `attendeeEmails` (frontend) et logique de partage (backend)
 - **MODIFICATION DYNAMIQUE**: Partage automatique lors des mises à jour d'événements existants
 - **PRÉSERVATION TOTALE**: Toutes les fonctionnalités Planning, Cloud, Courrier, et notifications maintenues
 
