@@ -329,15 +329,31 @@ export default function MailPageFixed() {
     }
   };
 
-  // Fonction pour télécharger un fichier
+  // Fonction universelle pour télécharger TOUS types de fichiers
   const downloadFile = async (fileUrl: string, fileName: string) => {
     try {
-      const response = await fetch(fileUrl, { credentials: 'include' });
+      console.log(`[DOWNLOAD] Téléchargement de: ${fileName} depuis ${fileUrl}`);
+      
+      // Méthode principale avec authentification
+      const response = await fetch(fileUrl, { 
+        credentials: 'include',
+        headers: {
+          'Accept': '*/*',
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+      
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = fileName;
+      a.target = '_blank';
+      a.style.display = 'none';
+      
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -345,15 +361,28 @@ export default function MailPageFixed() {
       
       toast({ 
         title: 'Téléchargement réussi', 
-        description: `${fileName} a été téléchargé avec succès` 
+        description: `"${fileName}" a été téléchargé avec succès` 
       });
+      
+      console.log(`[DOWNLOAD] Succès: ${fileName}`);
     } catch (error) {
-      console.error('Erreur téléchargement:', error);
-      toast({ 
-        title: 'Erreur', 
-        description: 'Erreur lors du téléchargement du fichier',
-        variant: 'destructive' 
-      });
+      console.error('[DOWNLOAD] Erreur téléchargement:', error);
+      
+      // Méthode de fallback: ouverture dans nouvel onglet
+      try {
+        window.open(fileUrl, '_blank');
+        toast({ 
+          title: 'Ouverture du fichier', 
+          description: `"${fileName}" s'ouvre dans un nouvel onglet.`
+        });
+      } catch (fallbackError) {
+        console.error('[DOWNLOAD] Erreur fallback:', fallbackError);
+        toast({ 
+          title: 'Erreur de téléchargement', 
+          description: `Impossible de télécharger "${fileName}". Vérifiez votre connexion.`,
+          variant: 'destructive'
+        });
+      }
     }
   };
 
@@ -676,8 +705,15 @@ export default function MailPageFixed() {
                             e.preventDefault();
                             toggleEmailSelection(email.id);
                           } else {
+                            // Marquer comme lu et ouvrir/fermer
                             markAsRead(email.id);
                             setExpandedEmail(expandedEmail === email.id ? null : email.id);
+                            
+                            // Si c'est un fichier, proposer le téléchargement direct
+                            if (email.category === 'files' && email.attachment && expandedEmail !== email.id) {
+                              // Optionnel: téléchargement automatique
+                              // window.open(email.attachment.url, '_blank');
+                            }
                           }
                         }}
                       >
@@ -710,13 +746,16 @@ export default function MailPageFixed() {
                           )}
                         </div>
 
-                        {/* Expéditeur */}
+                        {/* Expéditeur avec indicateur non lu */}
                         <div className="w-32 flex-shrink-0">
                           <div className={cn(
-                            "text-sm truncate",
+                            "text-sm truncate flex items-center gap-2",
                             !readEmails.has(email.id) ? "font-semibold text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"
                           )}>
                             {email.sender}
+                            {!readEmails.has(email.id) && (
+                              <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" title="Non lu"></div>
+                            )}
                           </div>
                         </div>
 

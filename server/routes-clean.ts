@@ -1208,47 +1208,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[COURRIER-AMÉLIORÉ] Storage retourné: ${sharedFiles.length} fichiers, ${sharedFolders.length} dossiers`);
 
-      // Convertir en format EmailItem avec IDs uniques et horodatage précis
-      const fileEmails = sharedFiles.map((file: any, index: number) => ({
-        id: 1000 + file.id, // ID unique basé sur l'ID du fichier
-        subject: `Fichier partagé: ${file.name}`,
-        sender: file.sharedBy?.displayName || 'Utilisateur',
-        senderEmail: file.sharedBy?.username || 'user@rony.com',
-        content: `Fichier "${file.name}" a été partagé avec vous.\n\nTaille: ${(file.size / 1024).toFixed(1)} KB\nType: ${file.type || 'Non spécifié'}\n\nCliquez pour télécharger.`,
-        preview: `Fichier partagé: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`,
-        date: new Date(file.sharedAt).toLocaleDateString('fr-FR'),
-        time: new Date(file.sharedAt).toLocaleTimeString('fr-FR'),
-        timestamp: new Date(file.sharedAt || Date.now()).toISOString(), // Pour tri précis
-        priority: 'medium' as const,
-        hasAttachment: true,
-        attachment: {
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          url: `/api/files/${file.id}/download`
-        },
-        category: 'files' as const
-      }));
+      // Convertir TOUS les types de fichiers en format EmailItem - SANS RESTRICTION
+      const fileEmails = sharedFiles.map((file: any, index: number) => {
+        const owner = file.sharedBy || { displayName: 'Utilisateur', username: 'user@rony.com' };
+        const shareDate = file.sharedAt || file.createdAt || Date.now();
+        
+        return {
+          id: 1000 + file.id + index, // ID unique pour éviter doublons
+          subject: `Fichier partagé: ${file.name}`,
+          sender: owner.displayName || owner.username || 'Utilisateur',
+          senderEmail: `${owner.username || 'user'}@rony.com`,
+          content: `Le fichier "${file.name}" a été partagé avec vous.\n\nTaille: ${(file.size / 1024).toFixed(1)} KB\nType: ${file.type || 'Fichier'}\nFormat: ${file.name.split('.').pop()?.toUpperCase() || 'INCONNU'}\n\nCliquez pour télécharger ou ouvrir.`,
+          preview: `Fichier: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`,
+          date: new Date(shareDate).toLocaleDateString('fr-FR'),
+          time: new Date(shareDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: new Date(shareDate).toISOString(),
+          priority: 'medium' as const,
+          hasAttachment: true,
+          isRead: false, // Nouveau courrier = non lu par défaut
+          attachment: {
+            id: file.id,
+            name: file.name,
+            size: file.size,
+            type: file.type || 'application/octet-stream',
+            url: `/api/files/${file.id}/download`,
+            extension: file.name.split('.').pop()?.toLowerCase() || ''
+          },
+          category: 'files' as const,
+          fileType: file.type || 'application/octet-stream'
+        };
+      });
 
-      const folderEmails = sharedFolders.map((folder: any, index: number) => ({
-        id: 2000 + folder.id, // ID unique basé sur l'ID du dossier
-        subject: `Dossier partagé: ${folder.name}`,
-        sender: folder.sharedBy?.displayName || 'Utilisateur',
-        senderEmail: folder.sharedBy?.username || 'user@rony.com',
-        content: `Dossier "${folder.name}" a été partagé avec vous.\n\nVous pouvez l'explorer et télécharger son contenu.`,
-        preview: `Dossier partagé: ${folder.name}`,
-        date: new Date(folder.sharedAt).toLocaleDateString('fr-FR'),
-        time: new Date(folder.sharedAt).toLocaleTimeString('fr-FR'),
-        timestamp: new Date(folder.sharedAt || Date.now()).toISOString(), // Pour tri précis
-        priority: 'medium' as const,
-        hasAttachment: true,
-        folder: {
-          id: folder.id,
-          name: folder.name,
-          fileCount: 0
-        },
-        category: 'folders' as const
-      }));
+      const folderEmails = sharedFolders.map((folder: any, index: number) => {
+        const owner = folder.sharedBy || { displayName: 'Utilisateur', username: 'user@rony.com' };
+        const shareDate = folder.sharedAt || folder.createdAt || Date.now();
+        
+        return {
+          id: 2000 + folder.id + index, // ID unique pour éviter doublons
+          subject: `Dossier partagé: ${folder.name}`,
+          sender: owner.displayName || owner.username || 'Utilisateur',
+          senderEmail: `${owner.username || 'user'}@rony.com`,
+          content: `Le dossier "${folder.name}" a été partagé avec vous.\n\nVous pouvez explorer son contenu et télécharger les fichiers.\nAccès complet au dossier et à ses sous-dossiers.`,
+          preview: `Dossier: ${folder.name}`,
+          date: new Date(shareDate).toLocaleDateString('fr-FR'),
+          time: new Date(shareDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: new Date(shareDate).toISOString(),
+          priority: 'medium' as const,
+          hasAttachment: true,
+          isRead: false, // Nouveau courrier = non lu par défaut
+          folder: {
+            id: folder.id,
+            name: folder.name,
+            fileCount: folder.fileCount || 0,
+            url: `/api/folders/${folder.id}/download`
+          },
+          category: 'folders' as const
+        };
+      });
 
       // ✅ TRI OPTIMAL: Plus récents en premier (tri par timestamp pour précision)
       const allEmails = [...fileEmails, ...folderEmails].sort((a, b) => {
