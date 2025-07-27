@@ -59,7 +59,6 @@ export default function ModernSidebar({
     { id: "meetings", label: "Réunions", icon: Monitor },
     { id: "files", label: "Cloud", icon: FolderOpen },
     { id: "mail", label: "Courrier", icon: Mail },
-    { id: "internal-mail", label: "Courrier Interne", icon: Inbox },
     { id: "planning", label: "Planification", icon: Calendar },
     { id: "contacts", label: "Contacts", icon: Users },
   ];

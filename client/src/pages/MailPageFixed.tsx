@@ -74,7 +74,7 @@ export default function MailPageFixed() {
   const [showEmailReader, setShowEmailReader] = useState(false);
   const [selectedEmails, setSelectedEmails] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<'date' | 'sender' | 'subject' | 'priority'>('date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc'); // Par défaut : plus récents en premier
   const [showPreview, setShowPreview] = useState(true);
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
   const [expandedEmail, setExpandedEmail] = useState<number | null>(null);
@@ -105,15 +105,18 @@ export default function MailPageFixed() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // ✅ SOLUTION DÉFINITIVE: Récupérer les courriers avec l'API unifiée /api/mail
+  // ✅ SOLUTION DÉFINITIVE: Récupérer les courriers avec l'API unifiée /api/mail - RÉCEPTION ILLIMITÉE
   const { data: emailsData, refetch, isLoading: isLoadingEmails, error: emailsError } = useQuery({
     queryKey: ['/api/mail', forceRefreshTrigger], // API unifiée
     enabled: !!user,
     staleTime: 0,
-    retry: 3,
-    retryDelay: 1000,
-    refetchInterval: 5 * 1000,
+    retry: 5,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    refetchInterval: 3 * 1000, // Vérification plus fréquente pour réception instantanée
     refetchIntervalInBackground: true,
+    gcTime: 0, // Pas de cache pour garantir les données les plus récentes
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   // Configuration WebSocket pour réception instantanée
