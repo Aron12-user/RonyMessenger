@@ -384,11 +384,11 @@ export default function CloudStorage() {
       return;
     }
 
-    // Vérifier les limites de taille (1GB par fichier)
-    const maxFileSize = 1024 * 1024 * 1024; // 1GB
+    // ✅ LIMITES FINALES : 10 Go par fichier
+    const maxFileSize = 10 * 1024 * 1024 * 1024; // 10GB
     for (let i = 0; i < files.length; i++) {
       if (files[i].size > maxFileSize) {
-        toast({ title: "Erreur", description: `Le fichier ${files[i].name} dépasse la limite de 1 Go`, variant: "destructive" });
+        toast({ title: "Erreur", description: `Le fichier ${files[i].name} dépasse la limite de 10 Go`, variant: "destructive" });
         return;
       }
     }
@@ -423,11 +423,11 @@ export default function CloudStorage() {
       return;
     }
 
-    // Vérifier la limite totale de 5GB pour le dossier
-    const maxFolderSize = 5 * 1024 * 1024 * 1024; // 5GB
+    // ✅ LIMITES FINALES : 2 To pour dossier complet
+    const maxFolderSize = 2 * 1024 * 1024 * 1024 * 1024; // 2TB
     const totalSize = Array.from(files).reduce((total, file) => total + file.size, 0);
     if (totalSize > maxFolderSize) {
-      toast({ title: "Erreur", description: "Le dossier dépasse la limite de 5 Go", variant: "destructive" });
+      toast({ title: "Erreur", description: "Le dossier dépasse la limite de 2 To", variant: "destructive" });
       return;
     }
 

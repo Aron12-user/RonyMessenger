@@ -597,14 +597,15 @@ export default function MailPageFixed() {
     if (pinnedEmails.has(a.id) && !pinnedEmails.has(b.id)) return -1;
     if (!pinnedEmails.has(a.id) && pinnedEmails.has(b.id)) return 1;
     
-    // 2. Tri par timestamp/date - TOUJOURS les plus récents en premier
+    // 2. FORCE TRI CHRONOLOGIQUE - Plus récents en premier OBLIGATOIRE
     let comparison = 0;
     
     switch (sortBy) {
       case 'date':
+      default: // FORCER LE TRI CHRONOLOGIQUE PAR DÉFAUT
         const dateA = new Date(`${a.date} ${a.time}`);
         const dateB = new Date(`${b.date} ${b.time}`);
-        comparison = dateB.getTime() - dateA.getTime(); // Plus récents en premier OBLIGATOIRE
+        comparison = dateB.getTime() - dateA.getTime(); // Ordre anti-chronologique strict
         break;
       case 'sender':
         comparison = a.sender.localeCompare(b.sender);
@@ -618,9 +619,9 @@ export default function MailPageFixed() {
         break;
     }
     
-    // Pour la date, ignorer sortOrder et toujours plus récents en premier
-    if (sortBy === 'date') {
-      return comparison; // Déjà calculé dateB - dateA
+    // ✅ FORCE TRI DATE : Toujours plus récents en premier
+    if (sortBy === 'date' || sortBy === undefined) {
+      return comparison; // dateB - dateA = anti-chronologique OBLIGATOIRE
     } else {
       return sortOrder === 'asc' ? comparison : -comparison;
     }
@@ -773,13 +774,13 @@ export default function MailPageFixed() {
           </Button>
         </div>
 
-        {/* Statistiques */}
+        {/* ✅ STATISTIQUES CORRIGÉES - Calculs précis selon données réelles */}
         <div className="flex items-center gap-6 text-sm text-gray-600 dark:text-gray-400">
-          <span>Total: {filteredEmails.length}</span>
-          <span>Non lus: {filteredEmails.filter(e => !readEmails.has(e.id)).length}</span>
-          <span>Favoris: {favoriteEmails.size}</span>
-          <span>Épinglés: {pinnedEmails.size}</span>
-          <span>Archivés: {archivedEmails.size}</span>
+          <span>Total: {emails.filter(e => !deletedEmails.has(e.id)).length}</span>
+          <span>Non lus: {emails.filter(e => !deletedEmails.has(e.id) && !readEmails.has(e.id)).length}</span>
+          <span>Favoris: {emails.filter(e => favoriteEmails.has(e.id) && !deletedEmails.has(e.id)).length}</span>
+          <span>Épinglés: {emails.filter(e => pinnedEmails.has(e.id) && !deletedEmails.has(e.id)).length}</span>
+          <span>Archivés: {emails.filter(e => archivedEmails.has(e.id) && !deletedEmails.has(e.id)).length}</span>
           {selectMode && <span className="text-blue-600">Sélectionnés: {selectedEmails.size}</span>}
           {isLoadingEmails && <span className="text-blue-600">Chargement...</span>}
         </div>
@@ -814,7 +815,7 @@ export default function MailPageFixed() {
                       <div
                         className={cn(
                           "flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors relative",
-                          !readEmails.has(email.id) && "bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600",
+                          !readEmails.has(email.id) && "bg-blue-100 dark:bg-blue-900/30 border-l-4 border-l-blue-600 font-medium",
                           expandedEmail === email.id && "bg-blue-50 dark:bg-blue-900/20",
                           selectedEmails.has(email.id) && "ring-2 ring-blue-500 bg-blue-100 dark:bg-blue-800",
                           pinnedEmails.has(email.id) && "border-t-2 border-t-yellow-400"
