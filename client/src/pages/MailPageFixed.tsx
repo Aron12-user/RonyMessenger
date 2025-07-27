@@ -434,33 +434,65 @@ export default function MailPageFixed() {
     }
   };
 
-  // Fonction pour télécharger un dossier complet
+  // Fonction pour télécharger un dossier complet - VERSION AMÉLIORÉE
   const downloadFolder = async (folderId: number, folderName: string) => {
     try {
       console.log(`[FOLDER-DOWNLOAD] Téléchargement dossier ID: ${folderId}, Nom: ${folderName}`);
       
-      const downloadUrl = `/api/folders/${folderId}/download`;
+      toast({
+        title: 'Téléchargement en cours...',
+        description: `Préparation du téléchargement du dossier "${folderName}"`
+      });
       
-      // Créer un lien de téléchargement
+      // Utiliser fetch avec credentials pour l'authentification
+      const response = await fetch(`/api/folders/${folderId}/download`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/zip'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Erreur HTTP: ${response.status}`);
+      }
+      
+      // Vérifier le type de contenu
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/zip')) {
+        throw new Error('Le serveur n\'a pas renvoyé un fichier ZIP valide');
+      }
+      
+      // Télécharger le blob
+      const blob = await response.blob();
+      
+      // Créer l'URL de téléchargement
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = downloadUrl;
+      link.href = url;
       link.download = `${folderName}.zip`;
       link.style.display = 'none';
       
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
+      
+      // Nettoyer
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(link);
+      }, 100);
       
       toast({
-        title: 'Téléchargement démarré',
-        description: `Le dossier "${folderName}" est en cours de téléchargement...`
+        title: 'Téléchargement réussi',
+        description: `Le dossier "${folderName}" a été téléchargé avec succès.`
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('[FOLDER-DOWNLOAD] Erreur téléchargement:', error);
       toast({
         title: 'Erreur de téléchargement',
-        description: `Impossible de télécharger le dossier "${folderName}".`,
+        description: `Impossible de télécharger le dossier "${folderName}". ${error.message}`,
         variant: 'destructive'
       });
     }
@@ -541,7 +573,7 @@ export default function MailPageFixed() {
     toast({ title: `${selectedEmails.size} courriers supprimés` });
   };
 
-  // Filtrer et trier les emails
+  // Filtrer et trier les emails - ORDRE CHRONOLOGIQUE STRICT
   const filteredEmails = emails.filter(email => {
     if (deletedEmails.has(email.id)) return false;
     if (showArchived !== archivedEmails.has(email.id)) return false;
@@ -561,11 +593,18 @@ export default function MailPageFixed() {
     
     return true;
   }).sort((a, b) => {
+    // 1. Priorité aux épinglés
+    if (pinnedEmails.has(a.id) && !pinnedEmails.has(b.id)) return -1;
+    if (!pinnedEmails.has(a.id) && pinnedEmails.has(b.id)) return 1;
+    
+    // 2. Tri par timestamp/date - TOUJOURS les plus récents en premier
     let comparison = 0;
     
     switch (sortBy) {
       case 'date':
-        comparison = new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime();
+        const dateA = new Date(`${a.date} ${a.time}`);
+        const dateB = new Date(`${b.date} ${b.time}`);
+        comparison = dateB.getTime() - dateA.getTime(); // Plus récents en premier OBLIGATOIRE
         break;
       case 'sender':
         comparison = a.sender.localeCompare(b.sender);
@@ -579,12 +618,12 @@ export default function MailPageFixed() {
         break;
     }
     
-    return sortOrder === 'asc' ? comparison : -comparison;
-  }).sort((a, b) => {
-    // Toujours mettre les épinglés en premier
-    if (pinnedEmails.has(a.id) && !pinnedEmails.has(b.id)) return -1;
-    if (!pinnedEmails.has(a.id) && pinnedEmails.has(b.id)) return 1;
-    return 0;
+    // Pour la date, ignorer sortOrder et toujours plus récents en premier
+    if (sortBy === 'date') {
+      return comparison; // Déjà calculé dateB - dateA
+    } else {
+      return sortOrder === 'asc' ? comparison : -comparison;
+    }
   });
 
   // Indicateur d'état de connexion

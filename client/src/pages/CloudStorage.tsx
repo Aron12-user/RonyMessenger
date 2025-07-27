@@ -227,9 +227,9 @@ export default function CloudStorage() {
       setUploadingFiles(files.length);
       setTotalFiles(files.length);
 
-      // Nouvelles limites augmentées
-      const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1 Go pour fichiers individuels
-      const MAX_FOLDER_SIZE = 5 * 1024 * 1024 * 1024; // 5 Go pour dossiers complets
+      // Limites de stockage mises à jour selon spécifications utilisateur
+      const MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024; // 10 Go pour fichiers individuels
+      const MAX_FOLDER_SIZE = 2 * 1024 * 1024 * 1024 * 1024; // 2 To pour dossiers complets
       
       let totalSize = 0;
       for (let i = 0; i < files.length; i++) {
@@ -238,7 +238,7 @@ export default function CloudStorage() {
         
         // Vérification taille fichier individuel
         if (file.size > MAX_FILE_SIZE) {
-          throw new Error(`Le fichier ${file.name} est trop volumineux (maximum 1 Go)`);
+          throw new Error(`Le fichier ${file.name} est trop volumineux (maximum 10 Go)`);
         }
         
         // Progress bar ultra-mince
@@ -248,7 +248,7 @@ export default function CloudStorage() {
 
       // Vérification taille totale pour dossiers
       if (totalSize > MAX_FOLDER_SIZE) {
-        throw new Error(`La taille totale est trop importante (maximum 5 Go)`);
+        throw new Error(`La taille totale est trop importante (maximum 2 To)`);
       }
 
       const formData = new FormData();
