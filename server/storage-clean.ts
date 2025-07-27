@@ -946,23 +946,43 @@ export class CompleteMemStorage implements IStorageComplete {
     }
   }
 
-  markAllNotificationsAsRead(userId: number): number {
+  async markAllNotificationsAsRead(userId: number): Promise<number> {
     try {
       let markedCount = 0;
       
       // Marquer toutes les notifications existantes comme lues pour cet utilisateur
       const userPrefix = `${userId}-`;
       
-      // Générer les IDs de notifications potentielles à marquer
-      const notificationIds = [
-        'message-msg-1',
-        'courrier-file-1', 
-        'planning-event-1',
-        'meeting-meet-1',
-        'system-sys-1',
-        'system-sys-2',
-        'upload-upload-1'
-      ];
+      // Marquer toutes les notifications potentielles comme lues
+      // Récupérer tous les IDs de partage, événements, fichiers récents, etc.
+      const notificationIds = [];
+      
+      // IDs de courrier (fichiers partagés)
+      const sharedFiles = await this.getSharedFiles(userId);
+      sharedFiles.forEach(file => {
+        notificationIds.push(`courrier-${file.id}`);
+      });
+      
+      // IDs d'événements
+      const userEvents = await this.getEventsForUser(userId);
+      userEvents.forEach(event => {
+        notificationIds.push(`planning-${event.id}`);
+      });
+      
+      // IDs de fichiers uploadés récemment
+      const userFiles = await this.getFilesByFolder(null, userId);
+      userFiles.forEach(file => {
+        notificationIds.push(`upload-${file.id}`);
+      });
+      
+      // IDs de conversations/messages
+      const conversations = await this.getConversationsForUser(userId);
+      for (const conversation of conversations) {
+        const messages = await this.getMessagesForConversation(conversation.id);
+        messages.forEach(message => {
+          notificationIds.push(`message-${message.id}`);
+        });
+      }
       
       notificationIds.forEach(notifId => {
         const key = `${userId}-${notifId}`;
