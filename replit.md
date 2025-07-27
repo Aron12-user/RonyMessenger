@@ -91,6 +91,19 @@ Rony is a comprehensive communication platform that combines messaging, video co
 - **MODIFICATION DYNAMIQUE**: Partage automatique lors des mises à jour d'événements existants
 - **PRÉSERVATION TOTALE**: Toutes les fonctionnalités Planning, Cloud, Courrier, et notifications maintenues
 
+### ✅ SYSTÈME DE NOTIFICATION CENTRALISÉ (27 juillet 2025)
+- **REMPLACEMENT HEADER COMPLET**: Suppression barre de recherche et bouton "Nouveau/Nouvelle"
+  - **Icône cloche de notification**: Système centralisé affichant toutes les notifications de l'application
+  - **Badge dynamique**: Compteur en temps réel des notifications non lues (courriers + événements)
+  - **Dropdown intelligent**: Affichage détaillé par type (📧 courriers, 📅 événements)
+  - **Mise à jour automatique**: Vérification courriers (5s) et événements (30s)
+- **ICÔNE D'AIDE INTÉGRÉE**: Guide d'utilisation complet accessible via icône "?"
+  - **Guide par module**: Instructions détaillées pour chaque fonctionnalité
+  - **Conseils d'utilisation**: Limites de stockage, domaines @rony.com, partage automatique
+  - **Interface modal**: Dialog scrollable avec sections organisées
+- **API NOTIFICATIONS**: Nouveaux endpoints `/api/mail/unread-count` et `/api/events/upcoming`
+- **PRÉSERVATION TOTALE**: Toutes les fonctionnalités existantes maintenues sans modifications
+
 ### ✅ AMÉLIORATIONS CLOUD AVANCÉES (27 juillet 2025)
 - **UPLOAD OPTIMISÉ**: Implémentation d'upload de dossiers ultra-rapide avec traitement par batch
   - Traitement simultané de 5 fichiers en parallèle pour vitesse maximale

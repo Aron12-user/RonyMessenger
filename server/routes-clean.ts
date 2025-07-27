@@ -1408,6 +1408,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ✅ API POUR SYSTÈME DE NOTIFICATION CENTRALISÉ
+  app.get("/api/mail/unread-count", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      // Simuler le nombre de courriers non lus (en attendant l'implémentation complète)
+      const unreadCount = 0; // TODO: Implémenter le comptage réel des courriers non lus
+      res.json(unreadCount);
+    } catch (error) {
+      console.error('[NOTIF] Erreur récupération courriers non lus:', error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.get("/api/events/upcoming", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const now = new Date();
+      const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      
+      // Récupérer tous les événements de l'utilisateur
+      const allEvents = await storage.getEventsForUser(userId);
+      
+      // Filtrer les événements à venir dans les prochaines 24 heures
+      const upcomingEvents = allEvents.filter(event => {
+        const eventStart = new Date(event.startDate);
+        return eventStart > now && eventStart <= in24Hours;
+      });
+
+      console.log(`[NOTIF] ${upcomingEvents.length} événements à venir pour utilisateur ${userId}`);
+      res.json(upcomingEvents);
+    } catch (error) {
+      console.error('[NOTIF] Erreur récupération événements à venir:', error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
   // Récupérer les événements d'un utilisateur
   app.get("/api/events", requireAuth, async (req, res) => {
     try {
