@@ -24,7 +24,6 @@ import { db } from "./db";
 import { 
   users, conversations, messages, messageReactions, typingIndicators, files, folders, 
   fileSharing, folderSharing, contacts, events, eventParticipants, conversationGroups, groupMembers,
-  internalMails
 } from "@shared/schema";
 
 // Stockage en mémoire pour les réunions
@@ -2168,122 +2167,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } else {
     console.log('[WS] WebSocket server already configured, reusing existing instance');
   }
-
-  // ===============================
-  // SYSTEM DE COURRIER INTERNE - API pour partage de fichiers par messages internes
-  // ===============================
-  
-  // Envoyer un message interne avec pièce jointe
-  app.post('/api/internal-mail/send', requireAuth, async (req: AuthRequest, res) => {
-    try {
-      const { recipientEmail, subject, content, attachmentType, attachmentId, attachmentName, attachmentSize } = req.body;
-      
-      console.log('[internal-mail] Requête envoi:', req.body);
-      
-      // Validation des données
-      if (!recipientEmail || !subject || !content) {
-        return res.status(400).json({ error: 'Destinataire, objet et contenu requis' });
-      }
-      
-      if (!recipientEmail.endsWith('@rony.com')) {
-        return res.status(400).json({ error: 'Adresse email invalide - doit se terminer par @rony.com' });
-      }
-      
-      // Rechercher le destinataire par email complet avec le storage en mémoire
-      const recipient = await storage.getUserByUsername(recipientEmail);
-      
-      if (!recipient) {
-        return res.status(404).json({ error: 'Destinataire non trouvé dans le système Rony' });
-      }
-      
-      console.log('[internal-mail] Destinataire trouvé:', recipient.username);
-      
-      // Créer le mail interne avec le storage en mémoire
-      const internalMail = await storage.createInternalMail({
-        fromUserId: req.user!.id,
-        toUserId: recipient.id,
-        subject: subject.trim(),
-        content: content.trim(),
-        attachmentType: attachmentType || null,
-        attachmentId: attachmentId || null,
-        attachmentName: attachmentName || null,
-        attachmentSize: attachmentSize || null,
-        isRead: false,
-        isStarred: false,
-        isDeleted: false,
-        sentAt: new Date()
-      });
-      
-      console.log('[internal-mail] Mail créé avec succès:', {
-        id: internalMail.id,
-        from: req.user!.username,
-        to: recipient.username,
-        subject: internalMail.subject,
-        hasAttachment: !!attachmentType
-      });
-      
-      // Envoyer une notification WebSocket au destinataire connecté
-      if ((global as any).wss && (global as any).wss.clients) {
-        (global as any).wss.clients.forEach((client: any) => {
-          if (client.readyState === WebSocket.OPEN && client.userId === recipient.id) {
-            client.send(JSON.stringify({
-              type: 'new_internal_mail',
-              data: {
-                id: internalMail.id,
-                from: req.user!.displayName || req.user!.username,
-                subject: internalMail.subject,
-                hasAttachment: !!attachmentType,
-                sentAt: internalMail.sentAt
-              }
-            }));
-            console.log('[internal-mail] Notification WebSocket envoyée au destinataire');
-          }
-        });
-      }
-      
-      res.json({ 
-        success: true, 
-        id: internalMail.id,
-        message: 'Message envoyé avec succès'
-      });
-      
-    } catch (error) {
-      console.error('[internal-mail] Erreur lors de l\'envoi:', error);
-      res.status(500).json({ error: 'Erreur serveur lors de l\'envoi du message' });
-    }
-  });
-  
-  // Récupérer la boîte de réception des messages internes
-  app.get('/api/internal-mail/inbox', requireAuth, async (req: AuthRequest, res) => {
-    try {
-      console.log('[internal-mail] Récupération inbox pour utilisateur:', req.user!.id);
-      
-      // Utiliser le storage en mémoire pour récupérer les mails
-      const mails = await storage.getInternalMailsForUser(req.user!.id);
-      
-      console.log('[internal-mail] Messages trouvés:', mails.length);
-      res.json(mails);
-      
-    } catch (error) {
-      console.error('[internal-mail] Erreur récupération inbox:', error);
-      res.status(500).json({ error: 'Erreur lors de la récupération des messages' });
-    }
-  });
-  
-  // Marquer un message comme lu
-  app.put('/api/internal-mail/:id/read', requireAuth, async (req: AuthRequest, res) => {
-    try {
-      const mailId = parseInt(req.params.id);
-      
-      await storage.markInternalMailAsRead(mailId, req.user!.id);
-      
-      res.json({ success: true });
-      
-    } catch (error) {
-      console.error('[internal-mail] Erreur marquage lu:', error);
-      res.status(500).json({ error: 'Erreur lors du marquage comme lu' });
-    }
-  });
 
   return httpServer;
 }
