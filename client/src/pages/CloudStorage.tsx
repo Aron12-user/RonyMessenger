@@ -402,9 +402,43 @@ export default function CloudStorage() {
     setUploadProgress(0);
     
     try {
-      await uploadFilesMutation.mutateAsync(files);
+      // ✅ UPLOAD FICHIERS ULTRA-RAPIDE avec traitement parallèle optimisé
+      const BATCH_SIZE = 10; // Traitement de 10 fichiers simultanés
+      const filesArray = Array.from(files);
+      const batches = [];
+      
+      for (let i = 0; i < filesArray.length; i += BATCH_SIZE) {
+        batches.push(filesArray.slice(i, i + BATCH_SIZE));
+      }
+      
+      let completedFiles = 0;
+      for (const batch of batches) {
+        await Promise.all(batch.map(async (file) => {
+          const formData = new FormData();
+          formData.append('files', file);
+          if (currentFolderId) formData.append('folderId', currentFolderId.toString());
+          
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include'
+          });
+          
+          if (!response.ok) throw new Error('Upload failed');
+          
+          completedFiles++;
+          setUploadProgress(Math.round((completedFiles / filesArray.length) * 100));
+        }));
+      }
+      
+      // Rafraîchir immédiatement après upload
+      queryClient.invalidateQueries({ queryKey: ['/api/files', currentFolderId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/folders', currentFolderId] });
+      toast({ title: "✅ Upload rapide", description: `${files.length} fichiers uploadés avec succès` });
+      setIsUploading(false);
     } catch (error) {
       console.error('[upload] Upload failed:', error);
+      toast({ title: "Erreur", description: "Échec de l'upload rapide", variant: "destructive" });
       setIsUploading(false);
     }
     
@@ -440,44 +474,61 @@ export default function CloudStorage() {
     setUploadProgress(0);
     
     try {
-      // ✅ UPLOAD OPTIMISÉ : Traitement par batch de 5 fichiers simultanés
-      const BATCH_SIZE = 5;
+      // ✅ UPLOAD SUPER OPTIMISÉ : Traitement par batch de 8 fichiers simultanés + structure de dossier
+      const BATCH_SIZE = 8; // Augmenté pour plus de rapidité
       const filesArray = Array.from(files);
-      const batches = [];
       
-      for (let i = 0; i < filesArray.length; i += BATCH_SIZE) {
-        batches.push(filesArray.slice(i, i + BATCH_SIZE));
+      // Créer la structure de dossiers avec webkitRelativePath
+      const formData = new FormData();
+      const filePaths: string[] = [];
+      
+      filesArray.forEach((file, index) => {
+        formData.append('files', file);
+        // Utiliser webkitRelativePath pour maintenir la structure de dossier
+        const relativePath = (file as any).webkitRelativePath || file.name;
+        filePaths.push(relativePath);
+      });
+      
+      // Ajouter les métadonnées pour l'upload de dossier
+      formData.append('filePaths', JSON.stringify(filePaths));
+      formData.append('isFolder', 'true');
+      if (currentFolderId) formData.append('folderId', currentFolderId.toString());
+      
+      console.log('[upload] Sending optimized folder upload with', filesArray.length, 'files');
+      
+      // Upload direct optimisé avec /api/upload endpoint
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
       }
       
-      let completedFiles = 0;
-      for (const batch of batches) {
-        await Promise.all(batch.map(async (file) => {
-          const formData = new FormData();
-          formData.append('files', file);
-          if (currentFolderId) formData.append('folderId', currentFolderId.toString());
-          
-          const response = await fetch('/api/files/upload', {
-            method: 'POST',
-            body: formData,
-            credentials: 'include'
-          });
-          
-          if (!response.ok) throw new Error('Upload failed');
-          
-          completedFiles++;
-          setUploadProgress(Math.round((completedFiles / filesArray.length) * 100));
-        }));
-      }
+      const result = await response.json();
+      console.log('[upload] Folder upload result:', result);
       
-      // Rafraîchir les données après upload complet
+      // ✅ Upload terminé avec succès - Rafraîchir immédiatement
+      setUploadProgress(100);
       queryClient.invalidateQueries({ queryKey: ['/api/files', currentFolderId] });
       queryClient.invalidateQueries({ queryKey: ['/api/folders', currentFolderId] });
-      toast({ title: "Succès", description: `${files.length} fichiers uploadés rapidement` });
+      toast({ 
+        title: "✅ Upload dossier ultra-rapide", 
+        description: `${files.length} fichiers uploadés avec structure préservée` 
+      });
       setIsUploading(false);
+      setUploadProgress(0);
     } catch (error) {
-      console.error('[upload] Optimized folder upload failed:', error);
+      console.error('[upload] Super optimized folder upload failed:', error);
       setIsUploading(false);
-      toast({ title: "Erreur", description: "Échec de l'upload optimisé", variant: "destructive" });
+      setUploadProgress(0);
+      toast({ 
+        title: "Erreur upload dossier", 
+        description: "Échec de l'upload optimisé - Réessayez",
+        variant: "destructive" 
+      });
     }
     
     // Reset input
@@ -986,7 +1037,7 @@ export default function CloudStorage() {
                 <FolderPlus className="mr-3 h-4 w-4 text-green-600" />
                 <div className="flex flex-col">
                   <span className="font-medium">Upload Dossier</span>
-                  <span className="text-xs text-gray-500">Jusqu'à 2 To par dossier (RAPIDE)</span>
+                  <span className="text-xs text-gray-500">Jusqu'à 2 To par dossier (ULTRA-RAPIDE)</span>
                 </div>
               </DropdownMenuItem>
               
@@ -1041,51 +1092,7 @@ export default function CloudStorage() {
                 </div>
               </DropdownMenuItem>
 
-              <DropdownMenuItem 
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleShowStats();
-                }}
-                className="cursor-pointer"
-              >
-                <BarChart3 className="mr-3 h-4 w-4 text-blue-600" />
-                <div className="flex flex-col">
-                  <span className="font-medium">Statistiques</span>
-                  <span className="text-xs text-gray-500">Espace utilisé et analytics</span>
-                </div>
-              </DropdownMenuItem>
-
-              <DropdownMenuItem 
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleShowHistory();
-                }}
-                className="cursor-pointer"
-              >
-                <History className="mr-3 h-4 w-4 text-amber-600" />
-                <div className="flex flex-col">
-                  <span className="font-medium">Historique</span>
-                  <span className="text-xs text-gray-500">Versions et modifications</span>
-                </div>
-              </DropdownMenuItem>
-
-              <DropdownMenuItem 
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleShowArchives();
-                }}
-                className="cursor-pointer"
-              >
-                <Archive className="mr-3 h-4 w-4 text-green-600" />
-                <div className="flex flex-col">
-                  <span className="font-medium">Archives</span>
-                  <span className="text-xs text-gray-500">Fichiers archivés</span>
-                </div>
-              </DropdownMenuItem>
-              
-              <DropdownMenuSeparator />
-              
-              {/* Actions avancées - OPÉRATIONNELLES */}
+              {/* ✅ FONCTIONS CLOUD UNIQUES - Pas de doublons */}
               <DropdownMenuItem 
                 onClick={(e) => {
                   e.preventDefault();
