@@ -2169,6 +2169,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ✅ API TÉLÉCHARGEMENT DOSSIER COMPLET - Nouvelle fonctionnalité
+  app.get("/api/folders/:id/download", requireAuth, async (req, res) => {
+    try {
+      const folderId = parseInt(req.params.id, 10);
+      const userId = req.user?.id;
+
+      console.log(`[FOLDER-DOWNLOAD] Téléchargement dossier ${folderId} pour utilisateur ${userId}`);
+
+      // Vérifier si l'utilisateur a accès au dossier
+      const sharedFolders = await storage.getSharedFolders(userId);
+      const folder = sharedFolders.find(f => f.id === folderId);
+      
+      if (!folder) {
+        return res.status(404).json({ error: "Dossier non trouvé ou accès non autorisé" });
+      }
+
+      // Récupérer tous les fichiers du dossier
+      const folderFiles = await storage.getFilesByFolder(folderId);
+      
+      if (folderFiles.length === 0) {
+        return res.status(404).json({ error: "Aucun fichier trouvé dans le dossier" });
+      }
+
+      const archiver = require('archiver');
+      const fs = require('fs');
+      const path = require('path');
+
+      // Configurer les headers pour le téléchargement
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${folder.name}.zip"`);
+
+      // Créer l'archive ZIP
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      
+      archive.on('error', (err: any) => {
+        console.error('[FOLDER-DOWNLOAD] Erreur archivage:', err);
+        res.status(500).json({ error: "Erreur lors de la création de l'archive" });
+      });
+
+      // Pipe l'archive vers la réponse
+      archive.pipe(res);
+
+      // Ajouter chaque fichier à l'archive
+      for (const file of folderFiles) {
+        try {
+          const filePath = path.join('uploads', file.name);
+          if (fs.existsSync(filePath)) {
+            archive.file(filePath, { name: file.name });
+            console.log(`[FOLDER-DOWNLOAD] Fichier ajouté: ${file.name}`);
+          } else {
+            console.warn(`[FOLDER-DOWNLOAD] Fichier non trouvé: ${filePath}`);
+          }
+        } catch (fileError) {
+          console.error(`[FOLDER-DOWNLOAD] Erreur fichier ${file.name}:`, fileError);
+        }
+      }
+
+      // Finaliser l'archive
+      archive.finalize();
+      
+      console.log(`[FOLDER-DOWNLOAD] Archive créée pour dossier: ${folder.name} avec ${folderFiles.length} fichiers`);
+
+    } catch (error: any) {
+      console.error('[FOLDER-DOWNLOAD] Erreur générale:', error);
+      res.status(500).json({ error: error.message || "Erreur lors du téléchargement du dossier" });
+    }
+  });
+
   // WEBSOCKET AMÉLIORÉ avec heartbeat et identification utilisateur
   if (!(global as any).wss) {
     const wss = new WebSocketServer({ server: httpServer, path: '/ws' });

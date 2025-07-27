@@ -36,7 +36,8 @@ import {
   MessageSquare,
   ChevronDown,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  FileText
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -397,7 +398,6 @@ export default function MailPageFixed() {
       console.log(`[FOLDER-EXPLORER] Exploration du dossier ID: ${folderId}, Nom: ${folderName}`);
       
       setSelectedFolderForExplorer({ id: folderId, name: folderName });
-      setShowFolderExplorer(true);
       
       // Récupérer le contenu du dossier
       const response = await fetch(`/api/folders/${folderId}/files`, {
@@ -408,24 +408,59 @@ export default function MailPageFixed() {
       });
       
       if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
+        const errorText = await response.text();
+        console.error(`[FOLDER-EXPLORER] Erreur ${response.status}:`, errorText);
+        throw new Error(`Erreur HTTP: ${response.status} - ${errorText}`);
       }
       
       const contents = await response.json();
       console.log(`[FOLDER-EXPLORER] Contenu récupéré:`, contents);
       
       setFolderContents(contents.files || []);
+      setShowFolderExplorer(true);
       
       toast({
         title: 'Dossier ouvert',
         description: `Exploration du dossier "${folderName}" avec ${contents.files?.length || 0} fichiers.`
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('[FOLDER-EXPLORER] Erreur exploration:', error);
       toast({
         title: 'Erreur d\'exploration',
-        description: 'Impossible d\'ouvrir le dossier. Veuillez réessayer.',
+        description: `Impossible d'ouvrir le dossier "${folderName}". Erreur: ${error.message}`,
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // Fonction pour télécharger un dossier complet
+  const downloadFolder = async (folderId: number, folderName: string) => {
+    try {
+      console.log(`[FOLDER-DOWNLOAD] Téléchargement dossier ID: ${folderId}, Nom: ${folderName}`);
+      
+      const downloadUrl = `/api/folders/${folderId}/download`;
+      
+      // Créer un lien de téléchargement
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `${folderName}.zip`;
+      link.style.display = 'none';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: 'Téléchargement démarré',
+        description: `Le dossier "${folderName}" est en cours de téléchargement...`
+      });
+      
+    } catch (error) {
+      console.error('[FOLDER-DOWNLOAD] Erreur téléchargement:', error);
+      toast({
+        title: 'Erreur de téléchargement',
+        description: `Impossible de télécharger le dossier "${folderName}".`,
         variant: 'destructive'
       });
     }
@@ -827,9 +862,10 @@ export default function MailPageFixed() {
                           {favoriteEmails.has(email.id) && (
                             <Star className="h-4 w-4 text-yellow-500 fill-current" />
                           )}
-                          <span className="text-xs text-gray-500 w-16 text-right">
-                            {email.time.substring(0, 5)}
-                          </span>
+                          <div className="text-xs text-gray-500 w-20 text-right">
+                            <div>{email.time.substring(0, 5)}</div>
+                            <div className="text-xs text-gray-400">{email.date}</div>
+                          </div>
                           
                           {/* Menu trois points */}
                           <DropdownMenu>
@@ -1041,16 +1077,30 @@ export default function MailPageFixed() {
                                       </div>
                                     </div>
                                   </div>
-                                  <Button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      downloadFile(email.attachment.url, email.attachment.name);
-                                    }}
-                                    className="bg-blue-600 hover:bg-blue-700"
-                                  >
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Télécharger
-                                  </Button>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Prévisualiser le fichier
+                                        window.open(email.attachment.url, '_blank');
+                                      }}
+                                      variant="outline"
+                                      className="border-gray-300 hover:border-blue-500"
+                                    >
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      Prévisualiser
+                                    </Button>
+                                    <Button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        downloadFile(email.attachment.url, email.attachment.name);
+                                      }}
+                                      className="bg-blue-600 hover:bg-blue-700"
+                                    >
+                                      <Download className="h-4 w-4 mr-2" />
+                                      Télécharger
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                             )}
@@ -1076,17 +1126,31 @@ export default function MailPageFixed() {
                                       </div>
                                     </div>
                                   </div>
-                                  <Button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      // Ouvrir l'explorateur de dossier
-                                      exploreFolderContents(email.folder.id, email.folder.name);
-                                    }}
-                                    className="bg-indigo-600 hover:bg-indigo-700"
-                                  >
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    Explorer
-                                  </Button>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Ouvrir l'explorateur de dossier
+                                        exploreFolderContents(email.folder.id, email.folder.name);
+                                      }}
+                                      className="bg-indigo-600 hover:bg-indigo-700"
+                                    >
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      Explorer
+                                    </Button>
+                                    <Button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Télécharger le dossier complet
+                                        downloadFolder(email.folder.id, email.folder.name);
+                                      }}
+                                      variant="outline"
+                                      className="border-indigo-300 hover:border-indigo-500"
+                                    >
+                                      <Download className="h-4 w-4 mr-2" />
+                                      Télécharger
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                             )}
