@@ -95,6 +95,11 @@ export default function MailPageFixed() {
   const [composeRecipient, setComposeRecipient] = useState('');
   const [composeSubject, setComposeSubject] = useState('');
   const [composeMessage, setComposeMessage] = useState('');
+  
+  // États pour l'explorateur de dossiers
+  const [showFolderExplorer, setShowFolderExplorer] = useState(false);
+  const [selectedFolderForExplorer, setSelectedFolderForExplorer] = useState<any>(null);
+  const [folderContents, setFolderContents] = useState<any[]>([]);
 
   const queryClient = useQueryClient();
   const webSocket = useWebSocket();
@@ -383,6 +388,46 @@ export default function MailPageFixed() {
           variant: 'destructive'
         });
       }
+    }
+  };
+
+  // Fonction pour explorer un dossier partagé - NOUVELLE FONCTIONNALITÉ
+  const exploreFolderContents = async (folderId: number, folderName: string) => {
+    try {
+      console.log(`[FOLDER-EXPLORER] Exploration du dossier ID: ${folderId}, Nom: ${folderName}`);
+      
+      setSelectedFolderForExplorer({ id: folderId, name: folderName });
+      setShowFolderExplorer(true);
+      
+      // Récupérer le contenu du dossier
+      const response = await fetch(`/api/folders/${folderId}/files`, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+      
+      const contents = await response.json();
+      console.log(`[FOLDER-EXPLORER] Contenu récupéré:`, contents);
+      
+      setFolderContents(contents.files || []);
+      
+      toast({
+        title: 'Dossier ouvert',
+        description: `Exploration du dossier "${folderName}" avec ${contents.files?.length || 0} fichiers.`
+      });
+      
+    } catch (error) {
+      console.error('[FOLDER-EXPLORER] Erreur exploration:', error);
+      toast({
+        title: 'Erreur d\'exploration',
+        description: 'Impossible d\'ouvrir le dossier. Veuillez réessayer.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -686,9 +731,9 @@ export default function MailPageFixed() {
         ) : (
           <div className="space-y-1">
             {viewMode === 'compact' ? (
-              // Vue compacte style Outlook
+              // Vue compacte style Outlook avec défilement vertical
               <div className="bg-white dark:bg-gray-800 rounded-lg border overflow-hidden">
-                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                <div className="max-h-[calc(100vh-280px)] overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
                   {filteredEmails.map((email) => (
                     <div key={email.id} className="group">
                       {/* Ligne compacte */}
@@ -1034,7 +1079,8 @@ export default function MailPageFixed() {
                                   <Button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      // Navigation vers le dossier dans Cloud
+                                      // Ouvrir l'explorateur de dossier
+                                      exploreFolderContents(email.folder.id, email.folder.name);
                                     }}
                                     className="bg-indigo-600 hover:bg-indigo-700"
                                   >
@@ -1088,6 +1134,87 @@ export default function MailPageFixed() {
           </div>
         )}
       </div>
+
+      {/* Dialog pour l'explorateur de dossiers */}
+      <Dialog open={showFolderExplorer} onOpenChange={setShowFolderExplorer}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Folder className="h-5 w-5 text-indigo-600" />
+              Explorateur de dossier: {selectedFolderForExplorer?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="mt-4">
+            {folderContents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <Folder className="h-16 w-16 mb-4 opacity-50" />
+                <p className="text-lg font-medium">Dossier vide</p>
+                <p className="text-sm">Ce dossier ne contient aucun fichier.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex justify-between items-center mb-4">
+                  <p className="text-sm text-gray-600">
+                    {folderContents.length} fichier{folderContents.length > 1 ? 's' : ''} dans ce dossier
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowFolderExplorer(false)}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Fermer
+                  </Button>
+                </div>
+                
+                {/* Liste des fichiers avec défilement */}
+                <div className="max-h-96 overflow-y-auto space-y-2 pr-2">
+                  {folderContents.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                          <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {file.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {Math.round(file.size / 1024)} KB • {file.type?.split('/')[1]?.toUpperCase() || 'FICHIER'}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => downloadFile(file.url || `/api/files/${file.id}/download`, file.name)}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Télécharger
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => window.open(file.url || `/api/files/${file.id}/download`, '_blank')}
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          Ouvrir
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog pour répondre */}
       <Dialog open={showReplyDialog} onOpenChange={setShowReplyDialog}>
