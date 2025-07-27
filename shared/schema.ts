@@ -338,6 +338,42 @@ export const insertEventParticipantSchema = createInsertSchema(eventParticipants
 export const insertConversationGroupSchema = createInsertSchema(conversationGroups).omit({ id: true });
 export const insertGroupMemberSchema = createInsertSchema(groupMembers).omit({ id: true });
 
+// Table pour les messages du système de courrier interne
+export const internalMails = pgTable("internal_mails", {
+  id: serial("id").primaryKey(),
+  fromUserId: integer("from_user_id").notNull().references(() => users.id),
+  toUserId: integer("to_user_id").notNull().references(() => users.id),
+  subject: text("subject").notNull(),
+  content: text("content").notNull(),
+  attachmentType: text("attachment_type"), // 'file' ou 'folder'
+  attachmentId: integer("attachment_id"), // ID du fichier ou dossier
+  attachmentName: text("attachment_name"),
+  attachmentSize: integer("attachment_size"),
+  isRead: boolean("is_read").default(false),
+  isArchived: boolean("is_archived").default(false),
+  isDeleted: boolean("is_deleted").default(false),
+  isStarred: boolean("is_starred").default(false),
+  readAt: timestamp("read_at"),
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+  archivedAt: timestamp("archived_at"),
+  deletedAt: timestamp("deleted_at"),
+  replyToId: integer("reply_to_id").references(() => internalMails.id), // Pour les réponses
+  forwardedFromId: integer("forwarded_from_id").references(() => internalMails.id), // Pour les transferts
+}, (table) => {
+  return {
+    fromUserIdIdx: index("internal_mails_from_user_id_idx").on(table.fromUserId),
+    toUserIdIdx: index("internal_mails_to_user_id_idx").on(table.toUserId),
+    sentAtIdx: index("internal_mails_sent_at_idx").on(table.sentAt),
+    isReadIdx: index("internal_mails_is_read_idx").on(table.isRead),
+    isArchivedIdx: index("internal_mails_is_archived_idx").on(table.isArchived),
+    isDeletedIdx: index("internal_mails_is_deleted_idx").on(table.isDeleted),
+    replyToIdIdx: index("internal_mails_reply_to_id_idx").on(table.replyToId),
+    attachmentIdx: index("internal_mails_attachment_idx").on(table.attachmentType, table.attachmentId),
+  }
+});
+
+export const insertInternalMailSchema = createInsertSchema(internalMails).omit({ id: true });
+
 // ============================================================================
 // TYPES TYPESCRIPT - Déclarés après tous les schémas
 // ============================================================================
@@ -383,3 +419,6 @@ export type InsertConversationGroup = z.infer<typeof insertConversationGroupSche
 
 export type GroupMember = typeof groupMembers.$inferSelect;
 export type InsertGroupMember = z.infer<typeof insertGroupMemberSchema>;
+
+export type InternalMail = typeof internalMails.$inferSelect;
+export type InsertInternalMail = z.infer<typeof insertInternalMailSchema>;

@@ -153,6 +153,12 @@ export default function CloudStorage() {
   const [renameItem, setRenameItem] = useState<any>(null);
   const [newItemName, setNewItemName] = useState("");
   const [externalOpenDialog, setExternalOpenDialog] = useState<{file: any, app: string} | null>(null);
+  const [shareDialog, setShareDialog] = useState<{item: any, type: 'file' | 'folder'} | null>(null);
+  const [shareFormData, setShareFormData] = useState({
+    recipientEmail: '',
+    subject: '',
+    message: ''
+  });
 
   // Mutations avec gestion des limites augmentées
   const createFolderMutation = useMutation({
@@ -704,54 +710,87 @@ export default function CloudStorage() {
     }
   };
 
-  const handleShare = async (item: any, type: 'file' | 'folder') => {
+  const handleShare = (item: any, type: 'file' | 'folder') => {
+    console.log('[share] Opening share dialog for:', item.name, type);
+    setShareDialog({ item, type });
+    
+    // Pré-remplir l'objet par défaut
+    const defaultSubject = type === 'file' 
+      ? `Partage de fichier : ${item.name}`
+      : `Partage de dossier : ${item.name}`;
+    
+    setShareFormData({
+      recipientEmail: '',
+      subject: defaultSubject,
+      message: `Bonjour,\n\nJe partage avec vous ${type === 'file' ? 'le fichier' : 'le dossier'} "${item.name}".\n\nCordialement`
+    });
+  };
+
+  // Nouvelle fonction pour envoyer le message interne
+  const handleSendInternalMail = async () => {
+    if (!shareDialog) return;
+    
     try {
-      console.log('[share] Sharing item:', type, item.name);
+      const { item, type } = shareDialog;
       
-      // Générer un lien de partage temporaire
-      const shareResponse = await fetch(`/api/${type}s/${item.id}/share`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          expiration: 7, // 7 jours par défaut
-          allowDownload: true 
-        })
-      });
-
-      if (!shareResponse.ok) {
-        throw new Error('Failed to create share link');
+      // Validation de l'email au format @rony.com
+      if (!shareFormData.recipientEmail.endsWith('@rony.com')) {
+        toast({
+          title: "Adresse invalide",
+          description: "L'adresse doit être au format utilisateur@rony.com",
+          variant: "destructive"
+        });
+        return;
       }
-
-      const shareData = await shareResponse.json();
       
-      // Copier le lien dans le presse-papiers
-      const shareUrl = `${window.location.origin}/shared/${shareData.shareToken}`;
-      await navigator.clipboard.writeText(shareUrl);
+      if (!shareFormData.subject.trim()) {
+        toast({
+          title: "Objet requis",
+          description: "Veuillez saisir un objet pour votre message",
+          variant: "destructive"
+        });
+        return;
+      }
       
-      toast({
-        title: "Lien de partage créé",
-        description: `Lien copié dans le presse-papiers. Expire dans 7 jours.`
+      // Préparer les données du mail interne
+      const mailData = {
+        recipientEmail: shareFormData.recipientEmail,
+        subject: shareFormData.subject,
+        content: shareFormData.message,
+        attachmentType: type,
+        attachmentId: item.id,
+        attachmentName: item.name,
+        attachmentSize: item.size || 0
+      };
+      
+      console.log('[share] Sending internal mail:', mailData);
+      
+      // Envoyer le mail interne
+      const response = await apiRequest(`/api/internal-mail/send`, {
+        method: 'POST',
+        body: mailData
       });
+      
+      if (response.ok) {
+        toast({
+          title: "Message envoyé !",
+          description: `${type === 'file' ? 'Le fichier' : 'Le dossier'} "${item.name}" a été partagé avec ${shareFormData.recipientEmail}`
+        });
+        
+        // Fermer la boîte de dialogue
+        setShareDialog(null);
+        setShareFormData({ recipientEmail: '', subject: '', message: '' });
+      } else {
+        throw new Error('Erreur lors de l\'envoi');
+      }
       
     } catch (error) {
-      console.error('[share] Error:', error);
-      
-      // Fallback : copier l'URL de téléchargement direct
-      const downloadUrl = `${window.location.origin}/api/${type}s/${item.id}/download`;
-      try {
-        await navigator.clipboard.writeText(downloadUrl);
-        toast({
-          title: "Lien de téléchargement copié",
-          description: "Lien direct copié dans le presse-papiers"
-        });
-      } catch (clipError) {
-        toast({
-          title: "Lien de partage",
-          description: `Copiez ce lien : ${downloadUrl}`,
-          variant: "default"
-        });
-      }
+      console.error('[share] Error sending internal mail:', error);
+      toast({
+        title: "Erreur d'envoi",
+        description: "Impossible d'envoyer le message. Vérifiez l'adresse du destinataire.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -1607,6 +1646,129 @@ export default function CloudStorage() {
             >
               <ExternalLink className="mr-2 h-4 w-4" />
               Ouvrir avec {externalOpenDialog?.app}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Nouvelle boîte de dialogue de partage par courrier interne */}
+      <Dialog open={!!shareDialog} onOpenChange={() => setShareDialog(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="h-5 w-5 text-blue-600" />
+              Partager {shareDialog?.type === 'file' ? 'le fichier' : 'le dossier'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Aperçu de l'élément à partager */}
+            <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex-shrink-0">
+                {shareDialog && (shareDialog.type === 'file' 
+                  ? getFileIcon(shareDialog.item.type, shareDialog.item.name)
+                  : getFolderIcon(shareDialog.item.iconType))}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-900 truncate">
+                  {shareDialog?.item.name}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {shareDialog?.type === 'file' 
+                    ? formatFileSize(shareDialog.item.size)
+                    : 'Dossier'}
+                </p>
+              </div>
+              <div className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                📎 Pièce jointe
+              </div>
+            </div>
+
+            {/* Formulaire de partage */}
+            <div className="space-y-4">
+              {/* Adresse du destinataire */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  📩 Adresse Rony du destinataire *
+                </label>
+                <Input
+                  placeholder="utilisateur@rony.com"
+                  value={shareFormData.recipientEmail}
+                  onChange={(e) => setShareFormData({
+                    ...shareFormData,
+                    recipientEmail: e.target.value
+                  })}
+                  className="w-full"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  L'adresse doit se terminer par @rony.com
+                </p>
+              </div>
+
+              {/* Objet du message */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  🏷️ Objet du message
+                </label>
+                <Input
+                  placeholder="Objet de votre message"
+                  value={shareFormData.subject}
+                  onChange={(e) => setShareFormData({
+                    ...shareFormData,
+                    subject: e.target.value
+                  })}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Message personnalisé */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  📝 Message personnalisé
+                </label>
+                <textarea
+                  placeholder="Écrivez votre message ici..."
+                  value={shareFormData.message}
+                  onChange={(e) => setShareFormData({
+                    ...shareFormData,
+                    message: e.target.value
+                  })}
+                  className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Informations importantes */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-amber-800">
+                  <p className="font-medium mb-1">Système de courrier interne :</p>
+                  <ul className="space-y-1">
+                    <li>• Le message sera envoyé dans la boîte de réception du destinataire</li>
+                    <li>• {shareDialog?.type === 'file' ? 'Le fichier' : 'Le dossier'} sera joint automatiquement</li>
+                    <li>• Le destinataire pourra prévisualiser et télécharger la pièce jointe</li>
+                    <li>• Seuls les utilisateurs enregistrés Rony peuvent recevoir le message</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => setShareDialog(null)}
+            >
+              Annuler
+            </Button>
+            <Button 
+              onClick={handleSendInternalMail}
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={!shareFormData.recipientEmail || !shareFormData.subject.trim()}
+            >
+              <Share2 className="mr-2 h-4 w-4" />
+              Envoyer
             </Button>
           </DialogFooter>
         </DialogContent>
