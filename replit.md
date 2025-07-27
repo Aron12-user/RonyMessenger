@@ -75,6 +75,19 @@ Rony is a comprehensive communication platform that combines messaging, video co
 
 ## Recent Changes
 
+### ✅ FINALISATION LIMITES STOCKAGE (27 juillet 2025)
+- **VALIDATION COMPLÈTE DES LIMITES**: Toutes les limites de stockage sont maintenant strictement configurées
+  - Fichiers individuels: **10 Go maximum** (implémenté frontend + backend)
+  - Dossiers complets: **2 To maximum** (validation upload complète)
+  - Stockage total Cloud: **10 To maximum** par utilisateur
+  - Configuration multer backend alignée avec limites frontend
+- **MODULE DE VALIDATION CRÉÉ**: `server/storage-limits.ts` centralise toute la logique
+  - Fonctions utilitaires pour formatage et validation des tailles
+  - Constantes centralisées pour cohérence système
+  - Validation côté frontend et backend harmonisée
+- **SÉCURITÉ RENFORCÉE**: Double validation (client + serveur) pour tous les uploads
+- **EXPÉRIENCE UTILISATEUR**: Messages d'erreur clairs avec tailles formatées
+
 ### Comprehensive Courrier System Resolution (July 26, 2025)
 - **MAJOR SUCCESS**: Definitively resolved persistent courrier display issues
   - Created robust unified API `/api/mail` that automatically transforms shared files/folders into EmailItem format
