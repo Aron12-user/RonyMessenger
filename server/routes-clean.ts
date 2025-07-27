@@ -738,28 +738,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Aucun fichier sélectionné" });
       }
 
-      // Validation des fichiers
-      const maxSize = 100 * 1024 * 1024; // 100MB
-      const allowedTypes = [
-        'image/', 'video/', 'audio/', 'text/', 'application/pdf',
-        'application/msword', 'application/vnd.openxmlformats-officedocument',
-        'application/vnd.ms-excel', 'application/vnd.ms-powerpoint',
-        'application/zip', 'application/x-rar-compressed'
-      ];
-
+      // ✅ VALIDATION FICHIERS OPTIMISÉE : 10 Go par fichier, tous types autorisés
+      const maxSize = 10 * 1024 * 1024 * 1024; // 10 Go par fichier comme demandé
+      
       for (const file of req.files) {
         if (file.size > maxSize) {
           return res.status(400).json({ 
-            error: `Le fichier "${file.originalname}" dépasse la taille limite de 100MB` 
+            error: `Le fichier "${file.originalname}" dépasse la limite de 10 Go` 
           });
         }
-
-        const isAllowed = allowedTypes.some(type => file.mimetype.startsWith(type));
-        if (!isAllowed) {
-          return res.status(400).json({ 
-            error: `Le type de fichier "${file.mimetype}" n'est pas autorisé pour "${file.originalname}"` 
-          });
-        }
+        // Tous types de fichiers autorisés pour flexibilité maximale
       }
 
       const folderId = req.body.folderId && req.body.folderId !== 'null' ? parseInt(req.body.folderId) : null;
