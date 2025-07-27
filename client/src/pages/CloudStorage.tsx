@@ -746,7 +746,7 @@ export default function CloudStorage() {
     });
   };
 
-  // Nouvelle fonction pour envoyer le message interne
+  // Fonction pour partager via le système Courrier existant
   const handleSendInternalMail = async () => {
     if (!shareDialog) return;
     
@@ -772,33 +772,51 @@ export default function CloudStorage() {
         return;
       }
       
-      // Préparer les données du mail interne
-      const mailData = {
-        recipientEmail: shareFormData.recipientEmail,
+      // Trouver l'utilisateur destinataire par email
+      const usersResponse = await fetch('/api/users', { credentials: 'include' });
+      if (!usersResponse.ok) {
+        throw new Error('Impossible de récupérer les utilisateurs');
+      }
+      
+      const usersData = await usersResponse.json();
+      const allUsers = Array.isArray(usersData) ? usersData : usersData.data || [];
+      const targetUser = allUsers.find((u: any) => u.username === shareFormData.recipientEmail);
+      
+      if (!targetUser) {
+        toast({
+          title: "Utilisateur introuvable",
+          description: "Aucun utilisateur trouvé avec cette adresse email",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      console.log('[share] Sharing with existing Courrier system:', item.name, 'to user:', targetUser.id);
+      
+      // Utiliser l'API de partage existante qui intègre avec le système Courrier
+      const apiEndpoint = type === 'file' ? '/api/files/share' : '/api/folders/share';
+      const shareData = {
+        [type === 'file' ? 'fileId' : 'folderId']: item.id,
+        sharedWithId: targetUser.id,
+        permission: 'read',
         subject: shareFormData.subject,
-        content: shareFormData.message,
-        attachmentType: type,
-        attachmentId: item.id,
-        attachmentName: item.name,
-        attachmentSize: item.size || 0
+        message: shareFormData.message
       };
       
-      console.log('[share] Sending internal mail:', mailData);
-      
-      // Envoyer le mail interne avec fetch direct
-      const response = await fetch('/api/internal-mail/send', {
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         credentials: 'include',
-        body: JSON.stringify(mailData)
+        body: JSON.stringify(shareData)
       });
       
       if (response.ok) {
+        const result = await response.json();
         toast({
-          title: "Message envoyé !",
-          description: `${type === 'file' ? 'Le fichier' : 'Le dossier'} "${item.name}" a été partagé avec ${shareFormData.recipientEmail}`
+          title: "Partagé avec succès !",
+          description: `${type === 'file' ? 'Le fichier' : 'Le dossier'} "${item.name}" a été partagé avec ${shareFormData.recipientEmail}. Le destinataire le recevra dans son Courrier.`
         });
         
         // Fermer la boîte de dialogue
@@ -806,14 +824,14 @@ export default function CloudStorage() {
         setShareFormData({ recipientEmail: '', subject: '', message: '' });
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Erreur lors de l\'envoi');
+        throw new Error(errorData.error || 'Erreur lors du partage');
       }
       
     } catch (error: any) {
-      console.error('[share] Error sending internal mail:', error);
+      console.error('[share] Error sharing via Courrier:', error);
       toast({
-        title: "Erreur d'envoi",
-        description: error.message || "Impossible d'envoyer le message. Vérifiez l'adresse du destinataire.",
+        title: "Erreur de partage",
+        description: error.message || "Impossible de partager. Vérifiez l'adresse du destinataire.",
         variant: "destructive"
       });
     }
