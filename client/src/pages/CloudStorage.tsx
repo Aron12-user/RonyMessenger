@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Search, Upload, FolderPlus, Download, Share, Settings, BarChart3, History, RotateCcw, RefreshCw, Trash2, Archive, Cloud, HardDrive, ChevronDown, MoreVertical, Edit3, Eye, Share2 } from 'lucide-react';
+import { Search, Upload, FolderPlus, Download, Share, Settings, BarChart3, History, RotateCcw, RefreshCw, Trash2, Archive, Cloud, HardDrive, ChevronDown, MoreVertical, Edit3, Eye, Share2, AlertCircle, Info, ExternalLink, ArrowLeft, Sync, X, Maximize2, Play, Pause, Volume2, Filter } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { apiRequest } from '@/lib/queryClient';
 import { toast } from '@/hooks/use-toast';
@@ -152,6 +152,7 @@ export default function CloudStorage() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [renameItem, setRenameItem] = useState<any>(null);
   const [newItemName, setNewItemName] = useState("");
+  const [externalOpenDialog, setExternalOpenDialog] = useState<{file: any, app: string} | null>(null);
 
   // Mutations avec gestion des limites augmentées
   const createFolderMutation = useMutation({
@@ -449,40 +450,195 @@ export default function CloudStorage() {
     syncMutation.mutate();
   };
 
-  // Handlers pour les actions fichiers/dossiers
-  const handlePreview = (file: any) => {
-    console.log('[preview] Opening preview for file:', file.name, file.type);
-    
-    // Types de fichiers pour ouverture externe directe (comme OneDrive)
-    const externalAppTypes = [
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-powerpoint', 
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-project',
-      'application/x-msi',
-      'application/octet-stream'
-    ];
-    
+  // Fonction de détection intelligente des types de fichiers
+  const detectFileTypeAndAction = (file: any) => {
     const extension = file.name.split('.').pop()?.toLowerCase();
-    const officeExtensions = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'msi', 'exe', 'dmg', 'app'];
+    const mimeType = file.type?.toLowerCase();
     
-    // Si c'est un fichier Office ou exécutable, ouvrir directement avec l'application système
-    if (externalAppTypes.includes(file.type) || officeExtensions.includes(extension)) {
-      console.log('[preview] Opening with external app:', file.name);
-      window.open(`/api/files/${file.id}/download`, '_blank');
-      toast({
-        title: "Ouverture externe",
-        description: `${file.name} s'ouvre dans l'application appropriée`
-      });
-      return;
+    // Types supportés nativement par l'application (prévisualisation intégrée)
+    const nativelySupported = {
+      images: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'],
+      videos: ['mp4', 'webm', 'ogg', 'mov'],
+      audio: ['mp3', 'wav', 'ogg', 'aac', 'm4a'],
+      documents: ['pdf'],
+      text: ['txt', 'md', 'json', 'xml', 'css', 'js', 'html', 'csv']
+    };
+    
+    // Types nécessitant ouverture externe avec applications spécifiques
+    const externalAppTypes = {
+      office: {
+        extensions: ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'xlsm', 'pptm', 'docm', 'xltx', 'potx'],
+        mimeTypes: ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+        app: 'Microsoft Office'
+      },
+      adobe: {
+        extensions: ['psd', 'ai', 'indd', 'eps', 'psb', 'xd', 'aep', 'prproj'],
+        mimeTypes: ['image/vnd.adobe.photoshop', 'application/postscript'],
+        app: 'Adobe Creative Suite'
+      },
+      cad: {
+        extensions: ['dwg', 'dxf', 'step', 'iges', 'stp', 'igs', 'catpart', 'catproduct'],
+        mimeTypes: ['application/acad', 'image/vnd.dwg'],
+        app: 'AutoCAD ou logiciel CAD'
+      },
+      executables: {
+        extensions: ['exe', 'msi', 'dmg', 'app', 'deb', 'rpm', 'pkg', 'run', 'bin'],
+        mimeTypes: ['application/x-msdownload', 'application/x-msi', 'application/x-apple-diskimage', 'application/x-debian-package'],
+        app: 'Système d\'exploitation'
+      },
+      compressed: {
+        extensions: ['rar', '7z', 'tar', 'gz', 'bz2', 'xz', 'lzma', 'z', 'lz4'],
+        mimeTypes: ['application/x-rar-compressed', 'application/x-7z-compressed', 'application/x-tar', 'application/gzip'],
+        app: 'Gestionnaire d\'archives'
+      },
+      development: {
+        extensions: ['py', 'java', 'cpp', 'c', 'h', 'php', 'rb', 'go', 'rs', 'swift', 'kt', 'scala', 'r', 'pl', 'sh', 'bat', 'ps1'],
+        mimeTypes: ['text/x-python', 'text/x-java-source', 'text/x-c', 'text/x-php'],
+        app: 'IDE ou éditeur de code'
+      },
+      mobile: {
+        extensions: ['apk', 'ipa', 'xapk', 'aab'],
+        mimeTypes: ['application/vnd.android.package-archive'],
+        app: 'Émulateur mobile ou appareil'
+      },
+      specialized: {
+        extensions: ['blend', 'max', 'ma', 'mb', 'obj', 'fbx', 'stl', '3ds', 'dae', 'ply', 'x3d'],
+        mimeTypes: ['model/obj', 'model/stl'],
+        app: 'Logiciel de modélisation 3D'
+      },
+      databases: {
+        extensions: ['db', 'sqlite', 'mdb', 'accdb', 'dbf'],
+        mimeTypes: ['application/x-sqlite3', 'application/msaccess'],
+        app: 'Gestionnaire de base de données'
+      },
+      fonts: {
+        extensions: ['ttf', 'otf', 'woff', 'woff2', 'eot'],
+        mimeTypes: ['font/ttf', 'font/otf', 'font/woff', 'font/woff2'],
+        app: 'Gestionnaire de polices'
+      },
+      ebooks: {
+        extensions: ['epub', 'mobi', 'azw', 'azw3', 'fb2'],
+        mimeTypes: ['application/epub+zip'],
+        app: 'Lecteur d\'e-books'
+      }
+    };
+    
+    // Vérifier si le fichier est supporté nativement
+    for (const [category, extensions] of Object.entries(nativelySupported)) {
+      if (extensions.includes(extension) || 
+          (mimeType && (
+            (category === 'images' && mimeType.startsWith('image/')) ||
+            (category === 'videos' && mimeType.startsWith('video/')) ||
+            (category === 'audio' && mimeType.startsWith('audio/')) ||
+            (category === 'documents' && mimeType === 'application/pdf') ||
+            (category === 'text' && mimeType.startsWith('text/'))
+          ))) {
+        return { action: 'native', category };
+      }
     }
     
-    // Sinon utiliser la prévisualisation intégrée améliorée
-    setPreviewFile(file);
-    setIsPreviewOpen(true);
+    // Vérifier si le fichier nécessite une application externe
+    for (const [category, info] of Object.entries(externalAppTypes)) {
+      if (info.extensions.includes(extension) || 
+          (mimeType && info.mimeTypes?.some(mime => mimeType.includes(mime.toLowerCase())))) {
+        return { action: 'external', category, app: info.app };
+      }
+    }
+    
+    // Fichier de type inconnu ou non supporté
+    return { action: 'unknown', category: 'unknown', app: 'Application système appropriée' };
+  };
+
+  // Handlers pour les actions fichiers/dossiers
+  const handlePreview = (file: any) => {
+    console.log('[preview] Analyzing file:', file.name, file.type);
+    
+    const fileAnalysis = detectFileTypeAndAction(file);
+    console.log('[preview] File analysis:', fileAnalysis);
+    
+    if (fileAnalysis.action === 'native') {
+      // Ouvrir la prévisualisation intégrée
+      console.log('[preview] Opening native preview for:', file.name);
+      setPreviewFile(file);
+      setIsPreviewOpen(true);
+    } else if (fileAnalysis.action === 'external' || fileAnalysis.action === 'unknown') {
+      // Ouvrir le dialogue de confirmation pour ouverture externe
+      setExternalOpenDialog({ file, app: fileAnalysis.app });
+    }
+  };
+
+  // Fonction pour ouvrir un fichier avec une application externe
+  const handleExternalOpen = async (file: any, app: string) => {
+    console.log('[preview] Opening with external app:', file.name, app);
+    
+    try {
+      // Méthode 1: Ouverture directe dans un nouvel onglet (le navigateur gère l'association)
+      const downloadUrl = `/api/files/${file.id}/download`;
+      const newWindow = window.open(downloadUrl, '_blank');
+      
+      // Vérifier si la fenêtre a été bloquée
+      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+        throw new Error('Popup blocked');
+      }
+      
+      toast({
+        title: "Ouverture externe",
+        description: `${file.name} s'ouvre avec ${app}`
+      });
+      
+    } catch (error) {
+      console.log('[preview] Direct open failed, trying download method:', error);
+      
+      try {
+        // Méthode 2: Téléchargement forcé avec déclenchement automatique
+        const response = await fetch(`/api/files/${file.id}/download`, {
+          credentials: 'include'
+        });
+        
+        if (!response.ok) throw new Error('Download failed');
+        
+        const blob = await response.blob();
+        
+        // Utiliser URL.createObjectURL pour créer un lien temporaire
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.name;
+        link.style.display = 'none';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Nettoyer l'URL temporaire après un délai
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        
+        toast({
+          title: "Téléchargement initié",
+          description: `${file.name} téléchargé. Ouvrez-le pour utiliser ${app}.`
+        });
+        
+      } catch (downloadError) {
+        console.error('[preview] Download method failed:', downloadError);
+        
+        // Méthode 3: Fallback simple
+        const link = document.createElement('a');
+        link.href = `/api/files/${file.id}/download`;
+        link.download = file.name;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast({
+          title: "Ouverture demandée",
+          description: "Votre navigateur va traiter le fichier selon vos paramètres système.",
+          variant: "default"
+        });
+      }
+    }
+    
+    setExternalOpenDialog(null);
   };
 
   const handleRename = async (item: any, type: 'file' | 'folder') => {
@@ -1389,6 +1545,68 @@ export default function CloudStorage() {
             <Button onClick={() => window.open(`/api/files/${previewFile?.id}/download`, '_blank')}>
               <Download className="mr-2 h-4 w-4" />
               Télécharger
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogue de confirmation pour ouverture externe */}
+      <Dialog open={!!externalOpenDialog} onOpenChange={() => setExternalOpenDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-500" />
+              Ouverture avec application externe
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <div className="flex-shrink-0">
+                {externalOpenDialog && getFileIcon(externalOpenDialog.file.type, externalOpenDialog.file.name)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-900 truncate">
+                  {externalOpenDialog?.file.name}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {externalOpenDialog && formatFileSize(externalOpenDialog.file.size)}
+                </p>
+              </div>
+            </div>
+            
+            <div className="text-center space-y-2">
+              <p className="text-gray-700">
+                Ce fichier ne peut pas être prévisualisé ici.
+              </p>
+              <p className="text-sm text-gray-600">
+                Voulez-vous l'ouvrir avec <span className="font-medium text-blue-600">{externalOpenDialog?.app}</span> installée sur votre appareil ?
+              </p>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-blue-800">
+                  <p className="font-medium mb-1">Sécurité :</p>
+                  <p>Le fichier sera ouvert selon les paramètres de votre système. Assurez-vous qu'il provient d'une source fiable.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setExternalOpenDialog(null)}
+            >
+              Annuler
+            </Button>
+            <Button 
+              onClick={() => externalOpenDialog && handleExternalOpen(externalOpenDialog.file, externalOpenDialog.app)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Ouvrir avec {externalOpenDialog?.app}
             </Button>
           </DialogFooter>
         </DialogContent>
