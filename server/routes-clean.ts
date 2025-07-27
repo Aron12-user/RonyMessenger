@@ -18,6 +18,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { v4 as uuidv4 } from "uuid";
 import { handleAIChat } from "./ai-assistant";
+import { STORAGE_LIMITS, validateFileSize, validateFolderSize, formatFileSize } from "./storage-limits";
 import { WebSocketServer, WebSocket } from 'ws';
 import { eq, and, or, desc, sql, asc, like, exists } from "drizzle-orm";
 import { db } from "./db";
@@ -98,8 +99,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const upload = multer({ 
     storage: multerStorage,
     limits: { 
-      fileSize: 10 * 1024 * 1024 * 1024, // 10GB limit par fichier
-      files: 50 // Maximum 50 files per request
+      fileSize: STORAGE_LIMITS.MAX_FILE_SIZE, // ✅ 10GB limit par fichier
+      files: STORAGE_LIMITS.MAX_FILES_PER_UPLOAD // ✅ Maximum 50 files per request
     },
     fileFilter: (req, file, cb) => {
       console.log('[multer] Processing file:', file.originalname, 'type:', file.mimetype);

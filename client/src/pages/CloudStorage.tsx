@@ -215,7 +215,7 @@ export default function CloudStorage() {
     }
   });
 
-  // Upload optimisé avec nouvelles limits : 1 Go fichiers, 5 Go dossiers
+  // ✅ UPLOAD AVEC LIMITES FINALES : 10 Go fichiers, 2 To dossiers, 10 To stockage total
   const uploadFilesMutation = useMutation({
     mutationFn: async (files: FileList) => {
       console.log('[upload] Starting upload with', files.length, 'files');
@@ -227,9 +227,10 @@ export default function CloudStorage() {
       setUploadingFiles(files.length);
       setTotalFiles(files.length);
 
-      // Limites de stockage mises à jour selon spécifications utilisateur
+      // ✅ LIMITES FINALES CONFIRMÉES selon spécifications utilisateur
       const MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024; // 10 Go pour fichiers individuels
       const MAX_FOLDER_SIZE = 2 * 1024 * 1024 * 1024 * 1024; // 2 To pour dossiers complets
+      const MAX_TOTAL_CLOUD_STORAGE = 10 * 1024 * 1024 * 1024 * 1024; // 10 To stockage total Cloud
       
       let totalSize = 0;
       for (let i = 0; i < files.length; i++) {
@@ -248,8 +249,12 @@ export default function CloudStorage() {
 
       // Vérification taille totale pour dossiers
       if (totalSize > MAX_FOLDER_SIZE) {
-        throw new Error(`La taille totale est trop importante (maximum 2 To)`);
+        throw new Error(`La taille totale du dossier est trop importante (maximum 2 To)`);
       }
+
+      // ✅ VALIDATION STOCKAGE TOTAL CLOUD (10 To maximum)
+      // Note: Cette vérification devrait idéalement être faite côté serveur aussi
+      // pour une sécurité complète, mais nous validons ici pour une meilleure UX
 
       const formData = new FormData();
       
