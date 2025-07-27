@@ -1,4 +1,4 @@
-import { User, InsertUser, Conversation, InsertConversation, Message, InsertMessage, File, InsertFile, Contact, InsertContact, Folder, InsertFolder, FileSharing, InsertFileSharing, Event, InsertEvent, EventParticipant, InsertEventParticipant, ConversationGroup, InsertConversationGroup, GroupMember, InsertGroupMember } from "@shared/schema";
+import { User, InsertUser, Conversation, InsertConversation, Message, InsertMessage, File, InsertFile, Contact, InsertContact, Folder, InsertFolder, FileSharing, InsertFileSharing, Event, InsertEvent, EventParticipant, InsertEventParticipant, ConversationGroup, InsertConversationGroup, GroupMember, InsertGroupMember, EventShare, InsertEventShare } from "@shared/schema";
 import { PaginatedResult, PaginationOptions } from "./pg-storage";
 
 // Interface complète et fonctionnelle pour le storage
@@ -72,6 +72,11 @@ export interface IStorageComplete {
   getEventParticipants(eventId: number): Promise<EventParticipant[]>;
   updateParticipantResponse(eventId: number, userId: number, response: string): Promise<void>;
   
+  // ✅ EVENT SHARING METHODS - Partage automatique d'événements
+  shareEventWithUsers(eventId: number, userEmails: string[], sharedById: number): Promise<void>;
+  getSharedEventsForUser(userId: number): Promise<Event[]>;
+  isEventSharedWithUser(eventId: number, userId: number): Promise<boolean>;
+  
   // Pagination methods
   getPaginatedUsers(options: PaginationOptions): Promise<PaginatedResult<User>>;
   
@@ -108,6 +113,7 @@ export class CompleteMemStorage implements IStorageComplete {
   private reactions: Map<number, any> = new Map();
   private conversationGroups: Map<number, ConversationGroup> = new Map();
   private groupMembers: Map<number, GroupMember> = new Map();
+  private eventShares: Map<number, any> = new Map();
 
 
   // Compteurs pour les IDs
@@ -123,6 +129,7 @@ export class CompleteMemStorage implements IStorageComplete {
   private groupMemberId = 1;
   private eventId = 1;
   private eventParticipantId = 1;
+  private eventShareId = 1;
 
 
   // User methods
@@ -661,28 +668,7 @@ export class CompleteMemStorage implements IStorageComplete {
     return event;
   }
 
-  async getEventsForUser(userId: number): Promise<Event[]> {
-    // Récupérer les événements créés par l'utilisateur ET ceux où il est participant
-    const createdEvents = Array.from(this.events.values()).filter(event => event.creatorId === userId);
-    
-    const participantEvents = [];
-    for (const event of this.events.values()) {
-      const participants = Array.from(this.eventParticipants.values()).filter(p => p.eventId === event.id && p.userId === userId);
-      if (participants.length > 0) {
-        participantEvents.push(event);
-      }
-    }
-    
-    // Fusionner et dédupliquer
-    const allEvents = [...createdEvents];
-    for (const event of participantEvents) {
-      if (!allEvents.find(e => e.id === event.id)) {
-        allEvents.push(event);
-      }
-    }
-    
-    return allEvents.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
-  }
+  // Méthode remplacée par la nouvelle version ci-dessous avec partage automatique
 
   async getEventById(eventId: number): Promise<Event | undefined> {
     return this.events.get(eventId);
@@ -824,6 +810,104 @@ export class CompleteMemStorage implements IStorageComplete {
         break;
       }
     }
+  }
+
+  // ✅ EVENT SHARING METHODS - Système de partage automatique d'événements
+  async shareEventWithUsers(eventId: number, userEmails: string[], sharedById: number): Promise<void> {
+    console.log(`[EVENT-SHARE] Partage événement ${eventId} avec ${userEmails.length} participants`);
+    
+    for (const email of userEmails) {
+      // Nettoyer l'email et vérifier le format @rony.com
+      const cleanEmail = email.trim();
+      if (!cleanEmail.includes('@')) {
+        continue; // Ignore les emails invalides
+      }
+      
+      // Trouver l'utilisateur par email/username
+      const targetUser = await this.getUserByUsername(cleanEmail);
+      if (!targetUser) {
+        console.log(`[EVENT-SHARE] Utilisateur introuvable: ${cleanEmail}`);
+        continue;
+      }
+      
+      // Vérifier si déjà partagé
+      const existingShare = Array.from(this.eventShares.values()).find(
+        (share: any) => share.eventId === eventId && share.sharedWithUserId === targetUser.id
+      );
+      
+      if (!existingShare) {
+        // Créer le partage
+        const shareId = this.eventShareId++;
+        const eventShare = {
+          id: shareId,
+          eventId,
+          sharedWithUserId: targetUser.id,
+          sharedByUserId: sharedById,
+          sharedAt: new Date(),
+          accessLevel: 'read',
+          isAutoShared: true,
+          emailAddress: cleanEmail
+        };
+        
+        this.eventShares.set(shareId, eventShare);
+        console.log(`[EVENT-SHARE] Événement partagé avec ${targetUser.displayName} (${cleanEmail})`);
+      }
+    }
+  }
+
+  async getSharedEventsForUser(userId: number): Promise<Event[]> {
+    console.log(`[EVENT-SHARE] Récupération événements partagés pour utilisateur ${userId}`);
+    
+    // Récupérer tous les partages pour cet utilisateur
+    const userShares = Array.from(this.eventShares.values()).filter(
+      (share: any) => share.sharedWithUserId === userId
+    );
+    
+    console.log(`[EVENT-SHARE] Trouvé ${userShares.length} partages pour utilisateur ${userId}`);
+    
+    // Récupérer les événements correspondants
+    const sharedEvents: Event[] = [];
+    for (const share of userShares) {
+      const event = this.events.get(share.eventId);
+      if (event) {
+        sharedEvents.push(event);
+      }
+    }
+    
+    console.log(`[EVENT-SHARE] Retour de ${sharedEvents.length} événements partagés`);
+    return sharedEvents;
+  }
+
+  async isEventSharedWithUser(eventId: number, userId: number): Promise<boolean> {
+    const share = Array.from(this.eventShares.values()).find(
+      (share: any) => share.eventId === eventId && share.sharedWithUserId === userId
+    );
+    return !!share;
+  }
+
+  // ✅ MODIFICATION MÉTHODE getEventsForUser - Inclure les événements partagés
+  async getEventsForUser(userId: number): Promise<Event[]> {
+    console.log(`[EVENTS] Récupérer événements pour utilisateur ${userId}`);
+    
+    // Événements créés par l'utilisateur
+    const ownEvents = Array.from(this.events.values()).filter(
+      event => event.creatorId === userId
+    );
+    
+    // Événements partagés avec l'utilisateur
+    const sharedEvents = await this.getSharedEventsForUser(userId);
+    
+    // Combiner et éliminer les doublons
+    const allEvents = [...ownEvents];
+    for (const sharedEvent of sharedEvents) {
+      if (!allEvents.find(e => e.id === sharedEvent.id)) {
+        allEvents.push(sharedEvent);
+      }
+    }
+    
+    console.log(`[EVENTS] Utilisateur ${userId}: ${ownEvents.length} propres + ${sharedEvents.length} partagés = ${allEvents.length} total`);
+    
+    return allEvents.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
   }
 
 

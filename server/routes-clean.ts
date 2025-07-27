@@ -1355,7 +1355,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // APIs PLANIFICATION - Système d'événements complet
   
-  // Créer un nouvel événement
+  // ✅ Créer un nouvel événement avec partage automatique
   app.post("/api/events", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
@@ -1373,6 +1373,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[EVENTS] Créer événement pour utilisateur ${userId}:`, eventData);
       
       const event = await storage.createEvent(eventData);
+      
+      // ✅ PARTAGE AUTOMATIQUE - Si des participants sont invités
+      if (req.body.participants && req.body.participants.trim()) {
+        const participantEmails = req.body.participants
+          .split(',')
+          .map((email: string) => email.trim())
+          .filter((email: string) => email.length > 0);
+        
+        console.log(`[EVENTS] Partage automatique avec ${participantEmails.length} participants:`, participantEmails);
+        
+        if (participantEmails.length > 0) {
+          await storage.shareEventWithUsers(event.id, participantEmails, userId);
+          console.log(`[EVENTS] ✅ Événement ${event.id} partagé automatiquement avec succès`);
+        }
+      }
       
       res.json({ success: true, event });
     } catch (error: any) {
@@ -1417,7 +1432,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Modifier un événement
+  // ✅ Modifier un événement avec partage automatique
   app.put("/api/events/:id", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
@@ -1439,6 +1454,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const updatedEvent = await storage.updateEvent(eventId, updates);
+      
+      // ✅ PARTAGE AUTOMATIQUE - Si les participants ont été modifiés
+      if (req.body.participants && req.body.participants.trim()) {
+        const participantEmails = req.body.participants
+          .split(',')
+          .map((email: string) => email.trim())
+          .filter((email: string) => email.length > 0);
+        
+        console.log(`[EVENTS] Mise à jour partage avec ${participantEmails.length} participants:`, participantEmails);
+        
+        if (participantEmails.length > 0) {
+          await storage.shareEventWithUsers(eventId, participantEmails, userId);
+          console.log(`[EVENTS] ✅ Partage mis à jour pour événement ${eventId}`);
+        }
+      }
       
       res.json({ success: true, event: updatedEvent });
     } catch (error: any) {
