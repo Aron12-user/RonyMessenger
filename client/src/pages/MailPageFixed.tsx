@@ -641,13 +641,13 @@ export default function MailPageFixed() {
   );
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 text-black dark:bg-gray-900 dark:text-white">
-      {/* Header avec statistiques et contrôles */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
+    <div className="flex flex-col h-screen gentle-fade">
+      {/* Header avec statistiques et contrôles - STYLE MINCE ET FLUIDE */}
+      <div className="fluid-container mx-2 mb-2 p-4 border-b border-white/10">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Mail className="h-6 w-6 text-blue-600" />
+            <h1 className="text-lg font-light flex items-center gap-2 tracking-wide">
+              <Mail className="h-5 w-5 text-blue-500/70" />
               Courrier
             </h1>
             {connectionStatus}
