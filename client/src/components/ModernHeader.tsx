@@ -103,9 +103,14 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
       });
       
       if (response.ok) {
-        // Invalider le cache pour rafraîchir
+        const result = await response.json();
+        console.log(`✅ ${result.markedCount} notifications marquées comme lues`);
+        
+        // Invalider le cache ET forcer un refetch immédiat
         await queryClient.invalidateQueries({ queryKey: ['/api/notifications/all'] });
-        console.log('✅ Notifications marquées comme lues');
+        await queryClient.refetchQueries({ queryKey: ['/api/notifications/all'] });
+        
+        console.log('✅ Cache des notifications rafraîchi');
       } else {
         console.error('Erreur réponse:', response.status);
       }

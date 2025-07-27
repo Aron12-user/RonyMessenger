@@ -1462,7 +1462,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[NOTIF] Marquer toutes les notifications comme lues pour utilisateur ${userId}`);
       
       // ✅ Marquer toutes les notifications comme lues avec comptage réel
-      const markedCount = storage.markAllNotificationsAsRead(userId);
+      const markedCount = await storage.markAllNotificationsAsRead(userId);
       
       console.log(`[NOTIF] ✅ ${markedCount} notifications marquées comme lues pour utilisateur ${userId}`);
       res.json({ 
@@ -1495,15 +1495,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         recentSharedFiles.forEach(file => {
-          notifications.push({
-            id: `courrier-${file.id}`,
-            type: 'courrier',
-            title: '📧 Nouveau courrier',
-            message: `Fichier partagé: ${file.filename || file.name}`,
-            timestamp: file.createdAt || file.sharedAt || new Date().toISOString(),
-            read: false,
-            data: file
-          });
+          const notificationId = `courrier-${file.id}`;
+          const isRead = storage.isNotificationRead(userId, notificationId);
+          
+          // N'ajouter que les notifications NON LUES
+          if (!isRead) {
+            notifications.push({
+              id: notificationId,
+              type: 'courrier',
+              title: '📧 Nouveau courrier',
+              message: `Fichier partagé: ${file.filename || file.name}`,
+              timestamp: file.createdAt || file.sharedAt || new Date().toISOString(),
+              read: false,
+              data: file,
+              priority: 'normal',
+              actionUrl: '/courrier'
+            });
+          }
         });
       } catch (error) {
         console.log('[NOTIF] Pas de courriers récents:', error.message);
@@ -1523,16 +1531,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         upcomingEvents.forEach(event => {
           const eventStart = new Date(event.startDate);
           const hoursUntil = Math.round((eventStart.getTime() - now.getTime()) / (1000 * 60 * 60));
+          const notificationId = `planning-${event.id}`;
+          const isRead = storage.isNotificationRead(userId, notificationId);
           
-          notifications.push({
-            id: `planning-${event.id}`,
-            type: 'planning',
-            title: '📅 Événement à venir',
-            message: `"${event.title}" dans ${hoursUntil}h`,
-            timestamp: event.startDate,
-            read: false,
-            data: event
-          });
+          // N'ajouter que les notifications NON LUES
+          if (!isRead) {
+            notifications.push({
+              id: notificationId,
+              type: 'planning',
+              title: '📅 Événement à venir',
+              message: `"${event.title}" dans ${hoursUntil}h`,
+              timestamp: event.startDate,
+              read: false,
+              data: event,
+              priority: 'normal',
+              actionUrl: '/planning'
+            });
+          }
         });
       } catch (error) {
         console.log('[NOTIF] Pas d\'événements à venir:', error.message);
@@ -1557,16 +1572,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         activeMeetings.forEach(meeting => {
           const meetingStart = new Date(meeting.startTime);
           const minutesUntil = Math.round((meetingStart.getTime() - Date.now()) / (1000 * 60));
+          const notificationId = `meeting-${meeting.id}`;
+          const isRead = storage.isNotificationRead(userId, notificationId);
           
-          notifications.push({
-            id: `meeting-${meeting.id}`,
-            type: 'meeting',
-            title: '📞 Réunion imminente',
-            message: `"${meeting.title}" dans ${minutesUntil} minutes`,
-            timestamp: meeting.startTime,
-            read: false,
-            data: meeting
-          });
+          // N'ajouter que les notifications NON LUES
+          if (!isRead) {
+            notifications.push({
+              id: notificationId,
+              type: 'meeting',
+              title: '📞 Réunion imminente',
+              message: `"${meeting.title}" dans ${minutesUntil} minutes`,
+              timestamp: meeting.startTime,
+              read: false,
+              data: meeting,
+              priority: 'high',
+              actionUrl: '/meetings'
+            });
+          }
         });
       } catch (error) {
         console.log('[NOTIF] Pas de réunions imminentes:', error.message);
@@ -1586,18 +1608,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Il y a un message non lu (le dernier message n'est pas de l'utilisateur)
             const sender = await storage.getUser(lastMessage.senderId);
             if (sender) {
-              notifications.push({
-                id: `message-${lastMessage.id}`,
-                type: 'message',
-                title: `💬 Message de ${sender.displayName}`,
-                message: lastMessage.content.substring(0, 50) + (lastMessage.content.length > 50 ? '...' : ''),
-                timestamp: lastMessage.createdAt.toISOString(),
-                read: false,
-                data: { conversationId: conversation.id, messageId: lastMessage.id },
-                priority: 'normal',
-                actionUrl: '/messages'
-              });
-              realUnreadCount++;
+              const notificationId = `message-${lastMessage.id}`;
+              const isRead = storage.isNotificationRead(userId, notificationId);
+              
+              // N'ajouter que les messages NON LUS
+              if (!isRead) {
+                notifications.push({
+                  id: notificationId,
+                  type: 'message',
+                  title: `💬 Message de ${sender.displayName}`,
+                  message: lastMessage.content.substring(0, 50) + (lastMessage.content.length > 50 ? '...' : ''),
+                  timestamp: lastMessage.createdAt.toISOString(),
+                  read: false,
+                  data: { conversationId: conversation.id, messageId: lastMessage.id },
+                  priority: 'normal',
+                  actionUrl: '/messages'
+                });
+                realUnreadCount++;
+              }
             }
           }
         }
@@ -1624,18 +1652,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let realUploadsCount = 0;
         recentFiles.forEach(file => {
           if (file.createdAt && new Date(file.createdAt) > oneDayAgo) {
-            notifications.push({
-              id: `upload-${file.id}`,
-              type: 'file_upload',
-              title: '📁 Upload récent',
-              message: `Fichier "${file.name}" uploadé avec succès`,
-              timestamp: file.createdAt.toISOString(),
-              read: false,
-              data: file,
-              priority: 'low',
-              actionUrl: '/cloud'
-            });
-            realUploadsCount++;
+            const notificationId = `upload-${file.id}`;
+            const isRead = storage.isNotificationRead(userId, notificationId);
+            
+            // N'ajouter que les uploads NON LUS
+            if (!isRead) {
+              notifications.push({
+                id: notificationId,
+                type: 'file_upload',
+                title: '📁 Upload récent',
+                message: `Fichier "${file.name}" uploadé avec succès`,
+                timestamp: file.createdAt.toISOString(),
+                read: false,
+                data: file,
+                priority: 'low',
+                actionUrl: '/cloud'
+              });
+              realUploadsCount++;
+            }
           }
         });
         console.log(`[NOTIF] ${realUploadsCount} vrais uploads récents trouvés`);
