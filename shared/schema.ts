@@ -447,3 +447,37 @@ export type InsertEventShare = z.infer<typeof insertEventShareSchema>;
 
 export type InternalMail = typeof internalMails.$inferSelect;
 export type InsertInternalMail = z.infer<typeof insertInternalMailSchema>;
+
+// ✅ TABLE AVANCÉE POUR GESTION COMPLÈTE DES NOTIFICATIONS
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // 'message', 'courrier', 'planning', 'meeting', 'system', 'file_upload', 'contact_request'
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  data: text("data"), // JSON stringified data pour contexte additionnel
+  relatedId: text("related_id"), // ID de l'élément lié (fichier, événement, conversation, etc.)
+  relatedType: text("related_type"), // Type de l'élément lié pour navigation
+  isRead: boolean("is_read").default(false).notNull(),
+  isImportant: boolean("is_important").default(false).notNull(),
+  priority: text("priority").default("normal").notNull(), // low, normal, high, urgent
+  actionUrl: text("action_url"), // URL pour action directe
+  expiresAt: timestamp("expires_at"), // Expiration automatique
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  readAt: timestamp("read_at"),
+  category: text("category"), // Catégorie pour groupement
+}, (table) => {
+  return {
+    userIdIdx: index("notifications_user_id_idx").on(table.userId),
+    typeIdx: index("notifications_type_idx").on(table.type),
+    isReadIdx: index("notifications_is_read_idx").on(table.isRead),
+    createdAtIdx: index("notifications_created_at_idx").on(table.createdAt),
+    priorityIdx: index("notifications_priority_idx").on(table.priority),
+    expiresAtIdx: index("notifications_expires_at_idx").on(table.expiresAt),
+    relatedIdx: index("notifications_related_idx").on(table.relatedId, table.relatedType),
+  }
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true });
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;

@@ -1,7 +1,7 @@
-import { Menu, Bell, HelpCircle } from "lucide-react";
+import { Menu, Bell, HelpCircle, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { 
   DropdownMenu, 
@@ -27,6 +27,7 @@ interface ModernHeaderProps {
 
 export default function ModernHeader({ setIsMobileOpen, currentSection }: ModernHeaderProps) {
   const [showHelp, setShowHelp] = useState(false);
+  const queryClient = useQueryClient();
 
   const getSectionTitle = (section: string) => {
     switch (section) {
@@ -65,12 +66,42 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
   const notifications = notificationsData?.notifications || [];
   const totalNotifications = notificationsData?.unreadCount || 0;
   
-  // Grouper les notifications par type pour l'affichage
+  // Grouper les notifications par type pour l'affichage COMPLET
   const notificationsByType = {
+    message: notifications.filter(n => n.type === 'message'),
     courrier: notifications.filter(n => n.type === 'courrier'),
     planning: notifications.filter(n => n.type === 'planning'),
     meeting: notifications.filter(n => n.type === 'meeting'),
-    message: notifications.filter(n => n.type === 'message')
+    system: notifications.filter(n => n.type === 'system'),
+    contact_request: notifications.filter(n => n.type === 'contact_request'),
+    file_upload: notifications.filter(n => n.type === 'file_upload')
+  };
+
+  // ✅ FONCTIONS POUR MARQUER COMME LU
+  const markAsRead = async (notificationId: string) => {
+    try {
+      await fetch(`/api/notifications/${notificationId}/read`, {
+        method: 'PUT',
+        credentials: 'include'
+      });
+      // Invalider le cache pour rafraîchir
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications/all'] });
+    } catch (error) {
+      console.error('Erreur marquer comme lu:', error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await fetch('/api/notifications/mark-all-read', {
+        method: 'PUT',
+        credentials: 'include'
+      });
+      // Invalider le cache pour rafraîchir
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications/all'] });
+    } catch (error) {
+      console.error('Erreur marquer tout comme lu:', error);
+    }
   };
 
   // ✅ DONNÉES D'AIDE POUR CHAQUE MODULE
@@ -157,94 +188,136 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             
-            {/* ✅ AFFICHAGE DE TOUTES LES NOTIFICATIONS PAR TYPE */}
+            {/* ✅ AFFICHAGE AVANCÉ DE TOUTES LES NOTIFICATIONS PAR TYPE */}
             {notifications.length > 0 ? (
               <>
-                {notificationsByType.message.length > 0 && (
-                  <DropdownMenuItem className="p-3">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full mt-2"></div>
-                      <div>
-                        <p className="font-medium">💬 Nouveaux messages</p>
-                        <p className="text-sm text-muted-foreground">
-                          {notificationsByType.message.length} conversation{notificationsByType.message.length > 1 ? 's' : ''} non lues
-                        </p>
+                {/* En-tête avec bouton "Tout marquer comme lu" */}
+                {totalNotifications > 0 && (
+                  <>
+                    <DropdownMenuItem onClick={markAllAsRead} className="p-3 hover:bg-muted/50 cursor-pointer">
+                      <div className="flex items-center space-x-2 w-full">
+                        <CheckCheck className="h-4 w-4 text-green-500" />
+                        <span className="text-sm font-medium text-green-600">Tout marquer comme lu</span>
                       </div>
-                    </div>
-                  </DropdownMenuItem>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
                 )}
 
-                {notificationsByType.courrier.length > 0 && (
-                  <DropdownMenuItem className="p-3">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                      <div>
-                        <p className="font-medium">📧 Nouveaux courriers</p>
-                        <p className="text-sm text-muted-foreground">
-                          {notificationsByType.courrier.length} fichier{notificationsByType.courrier.length > 1 ? 's' : ''} partagé{notificationsByType.courrier.length > 1 ? 's' : ''}
-                        </p>
+                {/* Résumé par type avec compteurs */}
+                <div className="p-3 bg-muted/20">
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {notificationsByType.message.length > 0 && (
+                      <div className="flex items-center space-x-1">
+                        <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                        <span>💬 {notificationsByType.message.length} messages</span>
                       </div>
-                    </div>
-                  </DropdownMenuItem>
-                )}
-
-                {notificationsByType.planning.length > 0 && (
-                  <DropdownMenuItem className="p-3">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                      <div>
-                        <p className="font-medium">📅 Événements à venir</p>
-                        <p className="text-sm text-muted-foreground">
-                          {notificationsByType.planning.length} événement{notificationsByType.planning.length > 1 ? 's' : ''} prochainement
-                        </p>
+                    )}
+                    {notificationsByType.courrier.length > 0 && (
+                      <div className="flex items-center space-x-1">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>📧 {notificationsByType.courrier.length} courriers</span>
                       </div>
-                    </div>
-                  </DropdownMenuItem>
-                )}
-
-                {notificationsByType.meeting.length > 0 && (
-                  <DropdownMenuItem className="p-3">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
-                      <div>
-                        <p className="font-medium">📞 Réunions imminentes</p>
-                        <p className="text-sm text-muted-foreground">
-                          {notificationsByType.meeting.length} réunion{notificationsByType.meeting.length > 1 ? 's' : ''} dans 30 min
-                        </p>
+                    )}
+                    {notificationsByType.planning.length > 0 && (
+                      <div className="flex items-center space-x-1">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>📅 {notificationsByType.planning.length} événements</span>
                       </div>
-                    </div>
-                  </DropdownMenuItem>
-                )}
+                    )}
+                    {notificationsByType.meeting.length > 0 && (
+                      <div className="flex items-center space-x-1">
+                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                        <span>📞 {notificationsByType.meeting.length} réunions</span>
+                      </div>
+                    )}
+                    {notificationsByType.system.length > 0 && (
+                      <div className="flex items-center space-x-1">
+                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                        <span>🔧 {notificationsByType.system.length} système</span>
+                      </div>
+                    )}
+                    {notificationsByType.contact_request.length > 0 && (
+                      <div className="flex items-center space-x-1">
+                        <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                        <span>👥 {notificationsByType.contact_request.length} contacts</span>
+                      </div>
+                    )}
+                    {notificationsByType.file_upload.length > 0 && (
+                      <div className="flex items-center space-x-1">
+                        <div className="w-2 h-2 bg-cyan-500 rounded-full"></div>
+                        <span>📁 {notificationsByType.file_upload.length} uploads</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 <DropdownMenuSeparator />
                 
-                {/* Afficher les dernières notifications détaillées */}
-                {notifications.slice(0, 3).map((notification, index) => (
-                  <DropdownMenuItem key={notification.id} className="p-3 hover:bg-muted/50">
-                    <div className="flex items-start space-x-3 w-full">
-                      <div className={`w-2 h-2 rounded-full mt-2 ${
-                        notification.type === 'message' ? 'bg-purple-500' :
-                        notification.type === 'courrier' ? 'bg-blue-500' :
-                        notification.type === 'planning' ? 'bg-green-500' :
-                        'bg-orange-500'
-                      }`}></div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{notification.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">{notification.message}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(notification.timestamp).toLocaleTimeString('fr-FR', { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </p>
+                {/* Notifications détaillées avec actions */}
+                <div className="max-h-96 overflow-y-auto">
+                  {notifications.slice(0, 10).map((notification) => (
+                    <DropdownMenuItem 
+                      key={notification.id} 
+                      className="p-3 hover:bg-muted/50 cursor-pointer"
+                      onClick={() => {
+                        markAsRead(notification.id);
+                        // Navigation optionnelle
+                        if (notification.actionUrl) {
+                          window.location.href = notification.actionUrl;
+                        }
+                      }}
+                    >
+                      <div className="flex items-start space-x-3 w-full">
+                        <div className={`w-2 h-2 rounded-full mt-2 ${
+                          notification.type === 'message' ? 'bg-purple-500' :
+                          notification.type === 'courrier' ? 'bg-blue-500' :
+                          notification.type === 'planning' ? 'bg-green-500' :
+                          notification.type === 'meeting' ? 'bg-orange-500' :
+                          notification.type === 'system' ? 'bg-red-500' :
+                          notification.type === 'contact_request' ? 'bg-yellow-500' :
+                          'bg-cyan-500'
+                        }`}></div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className="font-medium text-sm truncate">{notification.title}</p>
+                            {notification.priority === 'high' && (
+                              <span className="text-xs bg-red-100 text-red-600 px-1 rounded">!</span>
+                            )}
+                            {notification.priority === 'urgent' && (
+                              <span className="text-xs bg-red-500 text-white px-1 rounded">!!</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">{notification.message}</p>
+                          <div className="flex items-center justify-between mt-1">
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(notification.timestamp).toLocaleTimeString('fr-FR', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </p>
+                            {!notification.read && (
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    </DropdownMenuItem>
+                  ))}
+                </div>
+
+                {notifications.length > 10 && (
+                  <DropdownMenuItem className="p-3 text-center text-sm text-muted-foreground">
+                    +{notifications.length - 10} autres notifications...
                   </DropdownMenuItem>
-                ))}
+                )}
               </>
             ) : (
               <DropdownMenuItem className="p-3 text-center text-muted-foreground">
-                Aucune notification
+                <div className="flex flex-col items-center space-y-2">
+                  <Bell className="h-8 w-8 text-muted-foreground/50" />
+                  <span>Aucune notification</span>
+                </div>
               </DropdownMenuItem>
             )}
 
