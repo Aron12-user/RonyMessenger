@@ -50,21 +50,28 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
     staleTime: 5 * 60 * 1000,
   });
 
-  // Récupérer les notifications de tous les modules
-  const { data: unreadEmails = 0 } = useQuery<number>({
-    queryKey: ['/api/mail/unread-count'],
+  // ✅ RÉCUPÉRER TOUTES LES NOTIFICATIONS DE L'APPLICATION
+  const { data: notificationsData } = useQuery<{
+    notifications: any[];
+    totalCount: number;
+    unreadCount: number;
+  }>({
+    queryKey: ['/api/notifications/all'],
     enabled: !!user,
     refetchInterval: 5000, // Vérification toutes les 5 secondes
+    staleTime: 0, // Always fetch fresh data
   });
 
-  const { data: upcomingEvents = [] } = useQuery<any[]>({
-    queryKey: ['/api/events/upcoming'],
-    enabled: !!user,
-    refetchInterval: 30000, // Vérification toutes les 30 secondes
-  });
-
-  // Total des notifications non lues
-  const totalNotifications = (unreadEmails || 0) + (upcomingEvents?.length || 0);
+  const notifications = notificationsData?.notifications || [];
+  const totalNotifications = notificationsData?.unreadCount || 0;
+  
+  // Grouper les notifications par type pour l'affichage
+  const notificationsByType = {
+    courrier: notifications.filter(n => n.type === 'courrier'),
+    planning: notifications.filter(n => n.type === 'planning'),
+    meeting: notifications.filter(n => n.type === 'meeting'),
+    message: notifications.filter(n => n.type === 'message')
+  };
 
   // ✅ DONNÉES D'AIDE POUR CHAQUE MODULE
   const helpSections = [
@@ -150,31 +157,94 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             
-            {(unreadEmails || 0) > 0 && (
-              <DropdownMenuItem className="p-3">
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                  <div>
-                    <p className="font-medium">📧 Nouveaux courriers</p>
-                    <p className="text-sm text-muted-foreground">
-                      {unreadEmails} nouveau{(unreadEmails || 0) > 1 ? 'x' : ''} message{(unreadEmails || 0) > 1 ? 's' : ''}
-                    </p>
-                  </div>
-                </div>
-              </DropdownMenuItem>
-            )}
+            {/* ✅ AFFICHAGE DE TOUTES LES NOTIFICATIONS PAR TYPE */}
+            {notifications.length > 0 ? (
+              <>
+                {notificationsByType.message.length > 0 && (
+                  <DropdownMenuItem className="p-3">
+                    <div className="flex items-start space-x-3">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full mt-2"></div>
+                      <div>
+                        <p className="font-medium">💬 Nouveaux messages</p>
+                        <p className="text-sm text-muted-foreground">
+                          {notificationsByType.message.length} conversation{notificationsByType.message.length > 1 ? 's' : ''} non lues
+                        </p>
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                )}
 
-            {(upcomingEvents?.length || 0) > 0 && (
-              <DropdownMenuItem className="p-3">
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                  <div>
-                    <p className="font-medium">📅 Événements à venir</p>
-                    <p className="text-sm text-muted-foreground">
-                      {upcomingEvents?.length} événement{(upcomingEvents?.length || 0) > 1 ? 's' : ''} prochainement
-                    </p>
-                  </div>
-                </div>
+                {notificationsByType.courrier.length > 0 && (
+                  <DropdownMenuItem className="p-3">
+                    <div className="flex items-start space-x-3">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                      <div>
+                        <p className="font-medium">📧 Nouveaux courriers</p>
+                        <p className="text-sm text-muted-foreground">
+                          {notificationsByType.courrier.length} fichier{notificationsByType.courrier.length > 1 ? 's' : ''} partagé{notificationsByType.courrier.length > 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                )}
+
+                {notificationsByType.planning.length > 0 && (
+                  <DropdownMenuItem className="p-3">
+                    <div className="flex items-start space-x-3">
+                      <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                      <div>
+                        <p className="font-medium">📅 Événements à venir</p>
+                        <p className="text-sm text-muted-foreground">
+                          {notificationsByType.planning.length} événement{notificationsByType.planning.length > 1 ? 's' : ''} prochainement
+                        </p>
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                )}
+
+                {notificationsByType.meeting.length > 0 && (
+                  <DropdownMenuItem className="p-3">
+                    <div className="flex items-start space-x-3">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
+                      <div>
+                        <p className="font-medium">📞 Réunions imminentes</p>
+                        <p className="text-sm text-muted-foreground">
+                          {notificationsByType.meeting.length} réunion{notificationsByType.meeting.length > 1 ? 's' : ''} dans 30 min
+                        </p>
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                )}
+
+                <DropdownMenuSeparator />
+                
+                {/* Afficher les dernières notifications détaillées */}
+                {notifications.slice(0, 3).map((notification, index) => (
+                  <DropdownMenuItem key={notification.id} className="p-3 hover:bg-muted/50">
+                    <div className="flex items-start space-x-3 w-full">
+                      <div className={`w-2 h-2 rounded-full mt-2 ${
+                        notification.type === 'message' ? 'bg-purple-500' :
+                        notification.type === 'courrier' ? 'bg-blue-500' :
+                        notification.type === 'planning' ? 'bg-green-500' :
+                        'bg-orange-500'
+                      }`}></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{notification.title}</p>
+                        <p className="text-xs text-muted-foreground truncate">{notification.message}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(notification.timestamp).toLocaleTimeString('fr-FR', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+              </>
+            ) : (
+              <DropdownMenuItem className="p-3 text-center text-muted-foreground">
+                Aucune notification
               </DropdownMenuItem>
             )}
 

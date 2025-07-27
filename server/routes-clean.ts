@@ -1408,7 +1408,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ✅ API POUR SYSTÈME DE NOTIFICATION CENTRALISÉ
+  // ✅ API POUR SYSTÈME DE NOTIFICATION CENTRALISÉ COMPLET
+  app.get("/api/notifications/all", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Non authentifié" });
+      }
+
+      const notifications = [];
+      
+      // 1. NOTIFICATIONS COURRIER - Fichiers partagés récents
+      try {
+        const sharedFiles = await storage.getSharedFiles(userId);
+        const recentSharedFiles = sharedFiles.filter(file => {
+          const shareDate = new Date(file.createdAt || file.sharedAt || Date.now());
+          const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+          return shareDate > threeDaysAgo;
+        });
+        
+        recentSharedFiles.forEach(file => {
+          notifications.push({
+            id: `courrier-${file.id}`,
+            type: 'courrier',
+            title: '📧 Nouveau courrier',
+            message: `Fichier partagé: ${file.filename || file.name}`,
+            timestamp: file.createdAt || file.sharedAt || new Date().toISOString(),
+            read: false,
+            data: file
+          });
+        });
+      } catch (error) {
+        console.log('[NOTIF] Pas de courriers récents:', error.message);
+      }
+
+      // 2. NOTIFICATIONS PLANIFICATION - Événements à venir  
+      try {
+        const allEvents = await storage.getEventsForUser(userId);
+        const now = new Date();
+        const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        
+        const upcomingEvents = allEvents.filter(event => {
+          const eventStart = new Date(event.startDate);
+          return eventStart > now && eventStart <= in24Hours;
+        });
+
+        upcomingEvents.forEach(event => {
+          const eventStart = new Date(event.startDate);
+          const hoursUntil = Math.round((eventStart.getTime() - now.getTime()) / (1000 * 60 * 60));
+          
+          notifications.push({
+            id: `planning-${event.id}`,
+            type: 'planning',
+            title: '📅 Événement à venir',
+            message: `"${event.title}" dans ${hoursUntil}h`,
+            timestamp: event.startDate,
+            read: false,
+            data: event
+          });
+        });
+      } catch (error) {
+        console.log('[NOTIF] Pas d\'événements à venir:', error.message);
+      }
+
+      // 3. NOTIFICATIONS RÉUNIONS ACTIVES - Réunions programmées
+      try {
+        const meetings = await storage.getAllMeetings();
+        const userMeetings = meetings.filter(meeting => 
+          meeting.createdBy === userId || 
+          (meeting.participants && meeting.participants.includes(userId))
+        );
+        
+        const activeMeetings = userMeetings.filter(meeting => {
+          if (meeting.status !== 'scheduled') return false;
+          const meetingStart = new Date(meeting.startTime);
+          const now = new Date();
+          const in30Minutes = new Date(now.getTime() + 30 * 60 * 1000);
+          return meetingStart > now && meetingStart <= in30Minutes;
+        });
+
+        activeMeetings.forEach(meeting => {
+          const meetingStart = new Date(meeting.startTime);
+          const minutesUntil = Math.round((meetingStart.getTime() - Date.now()) / (1000 * 60));
+          
+          notifications.push({
+            id: `meeting-${meeting.id}`,
+            type: 'meeting',
+            title: '📞 Réunion imminente',
+            message: `"${meeting.title}" dans ${minutesUntil} minutes`,
+            timestamp: meeting.startTime,
+            read: false,
+            data: meeting
+          });
+        });
+      } catch (error) {
+        console.log('[NOTIF] Pas de réunions imminentes:', error.message);
+      }
+
+      // 4. NOTIFICATIONS MESSAGERIE - Messages récents non lus
+      try {
+        const conversations = await storage.getConversationsByUserId(userId);
+        conversations.forEach(conversation => {
+          // Simuler messages non lus récents (à améliorer avec vraie logique)
+          if (conversation.lastMessage && conversation.unreadCount > 0) {
+            notifications.push({
+              id: `message-${conversation.id}`,
+              type: 'message',
+              title: '💬 Nouveau message',
+              message: `${conversation.unreadCount} message${conversation.unreadCount > 1 ? 's' : ''} non lu${conversation.unreadCount > 1 ? 's' : ''}`,
+              timestamp: conversation.lastMessage.timestamp || new Date().toISOString(),
+              read: false,
+              data: conversation
+            });
+          }
+        });
+      } catch (error) {
+        console.log('[NOTIF] Pas de nouveaux messages:', error.message);
+      }
+
+      // Trier par timestamp (plus récent en premier)
+      notifications.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      const totalCount = notifications.length;
+      console.log(`[NOTIF] ${totalCount} notifications pour utilisateur ${userId}`);
+      
+      res.json({
+        notifications,
+        totalCount,
+        unreadCount: notifications.filter(n => !n.read).length
+      });
+      
+    } catch (error) {
+      console.error('[NOTIF] Erreur récupération notifications:', error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
   app.get("/api/mail/unread-count", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.id;
@@ -1416,12 +1551,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Non authentifié" });
       }
 
-      // Simuler le nombre de courriers non lus (en attendant l'implémentation complète)
-      const unreadCount = 0; // TODO: Implémenter le comptage réel des courriers non lus
-      res.json(unreadCount);
+      // Récupérer le nombre réel de courriers récents
+      const sharedFiles = await storage.getSharedFiles(userId);
+      const recentCount = sharedFiles.filter(file => {
+        const shareDate = new Date(file.createdAt || file.sharedAt || Date.now());
+        const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+        return shareDate > threeDaysAgo;
+      }).length;
+      
+      console.log(`[NOTIF] ${recentCount} courriers récents pour utilisateur ${userId}`);
+      res.json(recentCount);
     } catch (error) {
       console.error('[NOTIF] Erreur récupération courriers non lus:', error);
-      res.status(500).json({ error: "Erreur serveur" });
+      res.json(0); // Retourner 0 en cas d'erreur
     }
   });
 
