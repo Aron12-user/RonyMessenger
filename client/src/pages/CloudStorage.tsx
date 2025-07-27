@@ -28,9 +28,29 @@ export default function CloudStorage() {
   const [filterType, setFilterType] = useState<'all' | 'documents' | 'images' | 'audio' | 'video'>('all');
   const [isUploading, setIsUploading] = useState(false);
 
+  // Stabilisation de scroll pour éviter les remontées non souhaitées
+  const [scrollPosition, setScrollPosition] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+
+  // Fonction pour maintenir la position de scroll
+  const preserveScrollPosition = () => {
+    if (containerRef.current) {
+      setScrollPosition(containerRef.current.scrollTop);
+    }
+  };
+
+  // Restaurer la position de scroll après des opérations
+  const restoreScrollPosition = () => {
+    setTimeout(() => {
+      if (containerRef.current && scrollPosition > 0) {
+        containerRef.current.scrollTop = scrollPosition;
+      }
+    }, 100);
+  };
 
   // Fonction pour obtenir l'icône d'un fichier (style OneDrive)
   const getFileIcon = (fileType: string, fileName: string) => {
@@ -765,10 +785,14 @@ export default function CloudStorage() {
       
       console.log('[share] Sending internal mail:', mailData);
       
-      // Envoyer le mail interne
-      const response = await apiRequest(`/api/internal-mail/send`, {
+      // Envoyer le mail interne avec fetch direct
+      const response = await fetch('/api/internal-mail/send', {
         method: 'POST',
-        body: mailData
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(mailData)
       });
       
       if (response.ok) {
@@ -781,14 +805,15 @@ export default function CloudStorage() {
         setShareDialog(null);
         setShareFormData({ recipientEmail: '', subject: '', message: '' });
       } else {
-        throw new Error('Erreur lors de l\'envoi');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de l\'envoi');
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('[share] Error sending internal mail:', error);
       toast({
         title: "Erreur d'envoi",
-        description: "Impossible d'envoyer le message. Vérifiez l'adresse du destinataire.",
+        description: error.message || "Impossible d'envoyer le message. Vérifiez l'adresse du destinataire.",
         variant: "destructive"
       });
     }
@@ -1056,8 +1081,12 @@ export default function CloudStorage() {
         )}
       </div>
 
-      {/* Contenu principal */}
-      <div className="flex-1 p-6 overflow-auto">
+      {/* Contenu principal avec stabilisation de scroll */}
+      <div 
+        ref={containerRef}
+        className="flex-1 p-6 overflow-auto scroll-smooth"
+        onScroll={preserveScrollPosition}
+      >
         {/* Loading state optimisé */}
         {(foldersLoading || filesLoading) && (
           <div className="flex items-center justify-center py-12">

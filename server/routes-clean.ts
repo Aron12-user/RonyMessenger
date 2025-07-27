@@ -2189,28 +2189,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Adresse email invalide - doit se terminer par @rony.com' });
       }
       
-      // Rechercher le destinataire par email complet
-      const [recipient] = await db.select()
-        .from(users)
-        .where(eq(users.username, recipientEmail));
+      // Rechercher le destinataire par email complet avec le storage en mémoire
+      const recipient = await storage.getUserByUsername(recipientEmail);
       
       if (!recipient) {
         return res.status(404).json({ error: 'Destinataire non trouvé dans le système Rony' });
       }
       
-      // Créer le mail interne avec les données complètes
-      const [internalMail] = await db.insert(internalMails)
-        .values({
-          fromUserId: req.user!.id,
-          toUserId: recipient.id,
-          subject: subject.trim(),
-          content: content.trim(),
-          attachmentType: attachmentType || null,
-          attachmentId: attachmentId || null,
-          attachmentName: attachmentName || null,
-          attachmentSize: attachmentSize || null
-        })
-        .returning();
+      console.log('[internal-mail] Destinataire trouvé:', recipient.username);
+      
+      // Créer le mail interne avec le storage en mémoire
+      const internalMail = await storage.createInternalMail({
+        fromUserId: req.user!.id,
+        toUserId: recipient.id,
+        subject: subject.trim(),
+        content: content.trim(),
+        attachmentType: attachmentType || null,
+        attachmentId: attachmentId || null,
+        attachmentName: attachmentName || null,
+        attachmentSize: attachmentSize || null,
+        isRead: false,
+        isStarred: false,
+        isDeleted: false,
+        sentAt: new Date()
+      });
       
       console.log('[internal-mail] Mail créé avec succès:', {
         id: internalMail.id,
@@ -2221,21 +2223,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Envoyer une notification WebSocket au destinataire connecté
-      wss.clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN && (client as any).userId === recipient.id) {
-          client.send(JSON.stringify({
-            type: 'new_internal_mail',
-            data: {
-              id: internalMail.id,
-              from: req.user!.displayName || req.user!.username,
-              subject: internalMail.subject,
-              hasAttachment: !!attachmentType,
-              sentAt: internalMail.sentAt
-            }
-          }));
-          console.log('[internal-mail] Notification WebSocket envoyée au destinataire');
-        }
-      });
+      if ((global as any).wss && (global as any).wss.clients) {
+        (global as any).wss.clients.forEach((client: any) => {
+          if (client.readyState === WebSocket.OPEN && client.userId === recipient.id) {
+            client.send(JSON.stringify({
+              type: 'new_internal_mail',
+              data: {
+                id: internalMail.id,
+                from: req.user!.displayName || req.user!.username,
+                subject: internalMail.subject,
+                hasAttachment: !!attachmentType,
+                sentAt: internalMail.sentAt
+              }
+            }));
+            console.log('[internal-mail] Notification WebSocket envoyée au destinataire');
+          }
+        });
+      }
       
       res.json({ 
         success: true, 
@@ -2254,30 +2258,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('[internal-mail] Récupération inbox pour utilisateur:', req.user!.id);
       
-      const mails = await db.select({
-        id: internalMails.id,
-        subject: internalMails.subject,
-        content: internalMails.content,
-        attachmentType: internalMails.attachmentType,
-        attachmentId: internalMails.attachmentId,
-        attachmentName: internalMails.attachmentName,
-        attachmentSize: internalMails.attachmentSize,
-        isRead: internalMails.isRead,
-        isStarred: internalMails.isStarred,
-        sentAt: internalMails.sentAt,
-        fromUser: {
-          id: users.id,
-          username: users.username,
-          displayName: users.displayName
-        }
-      })
-      .from(internalMails)
-      .innerJoin(users, eq(internalMails.fromUserId, users.id))
-      .where(and(
-        eq(internalMails.toUserId, req.user!.id),
-        eq(internalMails.isDeleted, false)
-      ))
-      .orderBy(desc(internalMails.sentAt));
+      // Utiliser le storage en mémoire pour récupérer les mails
+      const mails = await storage.getInternalMailsForUser(req.user!.id);
       
       console.log('[internal-mail] Messages trouvés:', mails.length);
       res.json(mails);
@@ -2293,15 +2275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const mailId = parseInt(req.params.id);
       
-      await db.update(internalMails)
-        .set({ 
-          isRead: true, 
-          readAt: new Date() 
-        })
-        .where(and(
-          eq(internalMails.id, mailId),
-          eq(internalMails.toUserId, req.user!.id)
-        ));
+      await storage.markInternalMailAsRead(mailId, req.user!.id);
       
       res.json({ success: true });
       
