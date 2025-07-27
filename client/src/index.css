@@ -97,6 +97,71 @@
   .thin-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(0, 0, 0, 0.2);
   }
+
+  /* ✅ THÈMES D'APPARENCE - TROIS MODES */
+  
+  /* Mode Clair (par défaut) */
+  .theme-light {
+    --color-bg: #ffffff;
+    --color-surface: rgba(255, 255, 255, 0.9);
+    --color-text: #1f2937;
+    --color-border: rgba(0, 0, 0, 0.1);
+    --color-accent: #3b82f6;
+    --color-muted: #f3f4f6;
+  }
+  
+  /* Mode Sombre */
+  .theme-dark {
+    --color-bg: #111827;
+    --color-surface: rgba(17, 24, 39, 0.9);
+    --color-text: #f9fafb;
+    --color-border: rgba(255, 255, 255, 0.1);
+    --color-accent: #60a5fa;
+    --color-muted: #374151;
+  }
+  
+  /* Mode Grille Ciel */
+  .theme-sky {
+    --color-bg: linear-gradient(135deg, #e0f2fe 0%, #b3e5fc 50%, #81d4fa 100%);
+    --color-surface: rgba(224, 242, 254, 0.8);
+    --color-text: #0277bd;
+    --color-border: rgba(2, 119, 189, 0.2);
+    --color-accent: #0288d1;
+    --color-muted: #e1f5fe;
+  }
+  
+  /* Application des thèmes */
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Thème sombre - classes spécifiques */
+  .theme-dark .soft-card {
+    @apply bg-gray-800/70 border-gray-700/30;
+  }
+  
+  .theme-dark .soft-button {
+    @apply bg-gray-800/60 hover:bg-gray-700/80 border-gray-700/30 text-gray-100;
+  }
+  
+  .theme-dark .fluid-container {
+    @apply bg-gradient-to-br from-gray-800/30 to-gray-900/20 border-gray-700/30;
+  }
+  
+  /* Thème grille ciel - classes spécifiques */
+  .theme-sky .soft-card {
+    @apply bg-blue-50/80 border-sky-200/40;
+  }
+  
+  .theme-sky .soft-button {
+    @apply bg-sky-100/70 hover:bg-sky-200/80 border-sky-200/40 text-sky-800;
+  }
+  
+  .theme-sky .fluid-container {
+    @apply bg-gradient-to-br from-sky-100/40 to-blue-100/30 border-sky-200/40;
+  }
 }
 
 /* CSS RADICAL ANTI-BORDS NOIRS - APPLICATION GLOBALE */

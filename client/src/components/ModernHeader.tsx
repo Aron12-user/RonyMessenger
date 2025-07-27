@@ -1,8 +1,8 @@
-import { Menu, Bell, HelpCircle, CheckCheck } from "lucide-react";
+import { Menu, Bell, HelpCircle, CheckCheck, Sun, Moon, Cloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -28,7 +28,20 @@ interface ModernHeaderProps {
 export default function ModernHeader({ setIsMobileOpen, currentSection }: ModernHeaderProps) {
   const [showHelp, setShowHelp] = useState(false);
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('rony-theme') || 'light';
+    }
+    return 'light';
+  });
   const queryClient = useQueryClient();
+
+  // ✅ INITIALISATION DES THÈMES AU CHARGEMENT
+  useEffect(() => {
+    // Application du thème stocké au chargement
+    const savedTheme = localStorage.getItem('rony-theme') || 'light';
+    applyTheme(savedTheme);
+  }, []);
 
   const getSectionTitle = (section: string) => {
     switch (section) {
@@ -66,6 +79,47 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
 
   const notifications = notificationsData?.notifications || [];
   const totalNotifications = notificationsData?.unreadCount || 0;
+
+  // ✅ SYSTÈME DE THÈME AVEC TROIS MODES
+  const applyTheme = (theme: string) => {
+    const body = document.body;
+    const html = document.documentElement;
+    
+    // Supprimer toutes les classes de thème
+    body.classList.remove('theme-light', 'theme-dark', 'theme-sky');
+    html.classList.remove('theme-light', 'theme-dark', 'theme-sky');
+    
+    // Appliquer le nouveau thème
+    body.classList.add(`theme-${theme}`);
+    html.classList.add(`theme-${theme}`);
+    
+    // Sauvegarder le thème
+    localStorage.setItem('rony-theme', theme);
+    setCurrentTheme(theme);
+  };
+
+  const cycleTheme = () => {
+    const themes = ['light', 'dark', 'sky'];
+    const currentIndex = themes.indexOf(currentTheme);
+    const nextIndex = (currentIndex + 1) % themes.length;
+    applyTheme(themes[nextIndex]);
+  };
+
+  const getThemeIcon = () => {
+    switch (currentTheme) {
+      case 'dark': return <Moon className="h-4 w-4" />;
+      case 'sky': return <Cloud className="h-4 w-4" />;
+      default: return <Sun className="h-4 w-4" />;
+    }
+  };
+
+  const getThemeLabel = () => {
+    switch (currentTheme) {
+      case 'dark': return 'Mode Sombre';
+      case 'sky': return 'Mode Grille Ciel';
+      default: return 'Mode Clair';
+    }
+  };
   
   // Grouper les notifications par type pour l'affichage COMPLET
   const notificationsByType = {
@@ -180,6 +234,17 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
       </div>
 
       <div className="flex items-center space-x-3">
+        {/* ✅ SYSTÈME DE THÈME D'APPARENCE */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="relative p-2 hover:bg-white/10 transition-colors"
+          onClick={cycleTheme}
+          title={getThemeLabel()}
+        >
+          {getThemeIcon()}
+        </Button>
+
         {/* ✅ SYSTÈME DE NOTIFICATION CENTRALISÉ */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
