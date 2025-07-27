@@ -145,14 +145,24 @@ export default function PlanningPage() {
       if (!res.ok) throw new Error('Erreur lors de la création');
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/events'] });
       setShowNewEventForm(false);
       resetForm();
-      toast({
-        title: 'Événement créé',
-        description: 'Votre événement a été créé avec succès',
-      });
+      
+      // ✅ NOTIFICATION PARTAGE AUTOMATIQUE
+      const participantCount = formData.participants ? formData.participants.split(',').filter(p => p.trim()).length : 0;
+      if (participantCount > 0) {
+        toast({
+          title: '✅ Événement créé et partagé',
+          description: `Événement créé avec succès et automatiquement partagé avec ${participantCount} participant${participantCount > 1 ? 's' : ''}`,
+        });
+      } else {
+        toast({
+          title: 'Événement créé',
+          description: 'Votre événement a été créé avec succès',
+        });
+      }
     },
     onError: (error: any) => {
       toast({
@@ -344,6 +354,34 @@ export default function PlanningPage() {
     const interval = setInterval(checkUpcomingEvents, 30000);
     return () => clearInterval(interval);
   }, [checkUpcomingEvents]);
+
+  // ✅ SYSTÈME DE RÉCEPTION AUTOMATIQUE D'ÉVÉNEMENTS PARTAGÉS
+  useEffect(() => {
+    if (!user) return;
+    
+    let previousEventCount = events.length;
+    
+    // Vérifier régulièrement s'il y a de nouveaux événements partagés
+    const checkForSharedEvents = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ['/api/events'] });
+      
+      // Si le nombre d'événements a augmenté, c'est probablement un partage
+      if (events.length > previousEventCount) {
+        const newEventsCount = events.length - previousEventCount;
+        toast({
+          title: '📅 Nouvel événement reçu',
+          description: `${newEventsCount} nouvel${newEventsCount > 1 ? 's' : ''} événement${newEventsCount > 1 ? 's' : ''} partagé${newEventsCount > 1 ? 's' : ''} avec vous`,
+          duration: 6000,
+        });
+        
+        console.log(`[PLANNING] ${newEventsCount} nouveaux événements détectés (partage automatique)`);
+      }
+      
+      previousEventCount = events.length;
+    }, 3000); // Vérification toutes les 3 secondes pour réactivité
+    
+    return () => clearInterval(checkForSharedEvents);
+  }, [user, events.length, queryClient, toast]);
 
   // Demander permission notifications
   useEffect(() => {

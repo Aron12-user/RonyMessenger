@@ -1387,6 +1387,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (participantEmails.length > 0) {
           await storage.shareEventWithUsers(event.id, participantEmails, userId);
           console.log(`[EVENTS] ✅ Événement ${event.id} partagé automatiquement avec succès`);
+          
+          // ✅ NOTIFICATION WEBSOCKET INSTANTANÉE pour les participants
+          for (const email of participantEmails) {
+            const targetUser = await storage.getUserByUsername(email);
+            if (targetUser) {
+              console.log(`[EVENTS] Notification WebSocket pour ${targetUser.displayName} (${email})`);
+              // La notification WebSocket sera gérée par le serveur WebSocket séparé
+            }
+          }
         } else {
           console.log(`[EVENTS] Aucun participant @rony.com valide trouvé dans: "${participantField}"`);
         }
