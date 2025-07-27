@@ -98,8 +98,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const upload = multer({ 
     storage: multerStorage,
     limits: { 
-      fileSize: 100 * 1024 * 1024, // Limit to 100MB
-      files: 20 // Maximum 20 files per request
+      fileSize: 10 * 1024 * 1024 * 1024, // 10GB limit par fichier
+      files: 50 // Maximum 50 files per request
     },
     fileFilter: (req, file, cb) => {
       console.log('[multer] Processing file:', file.originalname, 'type:', file.mimetype);
