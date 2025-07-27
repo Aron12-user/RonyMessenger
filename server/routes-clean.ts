@@ -1192,7 +1192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // COURRIER SYSTEM - RETOUR À WEBSOCKET AVEC GESTION ROBUSTE DES CONNEXIONS
 
-  // ✅ API COURRIER DÉFINITIVE - Solution robuste et unifiée
+  // ✅ API COURRIER AMÉLIORÉE - Réception illimitée et tri optimal
   app.get("/api/mail", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id;
@@ -1200,15 +1200,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Non authentifié" });
       }
 
-      console.log(`[COURRIER-DÉFINITIF] Récupération courrier pour utilisateur ${userId}`);
+      console.log(`[COURRIER-AMÉLIORÉ] Récupération courrier pour utilisateur ${userId}`);
       
-      // Utiliser les méthodes de stockage existantes qui fonctionnent
+      // Utiliser les méthodes de stockage existantes qui fonctionnent - SANS LIMITE
       const sharedFiles = await storage.getSharedFiles(userId);
       const sharedFolders = await storage.getSharedFolders(userId);
       
-      console.log(`[COURRIER-DÉFINITIF] Storage retourné: ${sharedFiles.length} fichiers, ${sharedFolders.length} dossiers`);
+      console.log(`[COURRIER-AMÉLIORÉ] Storage retourné: ${sharedFiles.length} fichiers, ${sharedFolders.length} dossiers`);
 
-      // Convertir en format EmailItem avec IDs uniques
+      // Convertir en format EmailItem avec IDs uniques et horodatage précis
       const fileEmails = sharedFiles.map((file: any, index: number) => ({
         id: 1000 + file.id, // ID unique basé sur l'ID du fichier
         subject: `Fichier partagé: ${file.name}`,
@@ -1218,6 +1218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         preview: `Fichier partagé: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`,
         date: new Date(file.sharedAt).toLocaleDateString('fr-FR'),
         time: new Date(file.sharedAt).toLocaleTimeString('fr-FR'),
+        timestamp: new Date(file.sharedAt || Date.now()).toISOString(), // Pour tri précis
         priority: 'medium' as const,
         hasAttachment: true,
         attachment: {
@@ -1238,6 +1239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         preview: `Dossier partagé: ${folder.name}`,
         date: new Date(folder.sharedAt).toLocaleDateString('fr-FR'),
         time: new Date(folder.sharedAt).toLocaleTimeString('fr-FR'),
+        timestamp: new Date(folder.sharedAt || Date.now()).toISOString(), // Pour tri précis
         priority: 'medium' as const,
         hasAttachment: true,
         folder: {
@@ -1248,16 +1250,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category: 'folders' as const
       }));
 
-      // Combiner et trier par date (plus récent en premier)
-      const allEmails = [...fileEmails, ...folderEmails].sort((a, b) => 
-        new Date(`${b.date} ${b.time}`).getTime() - new Date(`${a.date} ${a.time}`).getTime()
-      );
+      // ✅ TRI OPTIMAL: Plus récents en premier (tri par timestamp pour précision)
+      const allEmails = [...fileEmails, ...folderEmails].sort((a, b) => {
+        const dateA = new Date(a.timestamp || `${a.date} ${a.time}`);
+        const dateB = new Date(b.timestamp || `${b.date} ${b.time}`);
+        return dateB.getTime() - dateA.getTime(); // Plus récents en premier
+      });
 
-      console.log(`[COURRIER-DÉFINITIF] Emails générés: ${fileEmails.length} fichiers, ${folderEmails.length} dossiers, total: ${allEmails.length}`);
+      console.log(`[COURRIER-AMÉLIORÉ] Emails générés et triés: ${fileEmails.length} fichiers, ${folderEmails.length} dossiers, total: ${allEmails.length} (plus récents en premier)`);
+
+      // Headers pour optimisation cache et performances
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
 
       res.json(allEmails);
     } catch (error: any) {
-      console.error('[COURRIER-DÉFINITIF] Erreur:', error);
+      console.error('[COURRIER-AMÉLIORÉ] Erreur:', error);
       res.status(500).json({ error: "Erreur serveur" });
     }
   });
