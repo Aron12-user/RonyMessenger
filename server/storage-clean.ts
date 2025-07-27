@@ -1,4 +1,4 @@
-import { User, InsertUser, Conversation, InsertConversation, Message, InsertMessage, File, InsertFile, Contact, InsertContact, Folder, InsertFolder, FileSharing, InsertFileSharing, Event, InsertEvent, EventParticipant, InsertEventParticipant, ConversationGroup, InsertConversationGroup, GroupMember, InsertGroupMember } from "@shared/schema";
+import { User, InsertUser, Conversation, InsertConversation, Message, InsertMessage, File, InsertFile, Contact, InsertContact, Folder, InsertFolder, FileSharing, InsertFileSharing, Event, InsertEvent, EventParticipant, InsertEventParticipant, ConversationGroup, InsertConversationGroup, GroupMember, InsertGroupMember, InternalMail, InsertInternalMail } from "@shared/schema";
 import { PaginatedResult, PaginationOptions } from "./pg-storage";
 
 // Interface complète et fonctionnelle pour le storage
@@ -87,6 +87,11 @@ export interface IStorageComplete {
   getGroupMembers(groupId: number): Promise<GroupMember[]>;
   removeGroupMember(groupId: number, userId: number): Promise<void>;
   updateGroupMemberRole(groupId: number, userId: number, role: string): Promise<void>;
+
+  // Internal Mail methods - SYSTÈME DE COURRIER INTERNE
+  createInternalMail(mail: InsertInternalMail): Promise<InternalMail>;
+  getInternalMailsForUser(userId: number): Promise<InternalMail[]>;
+  markInternalMailAsRead(mailId: number, userId: number): Promise<void>;
 }
 
 export class CompleteMemStorage implements IStorageComplete {
@@ -103,6 +108,7 @@ export class CompleteMemStorage implements IStorageComplete {
   private reactions: Map<number, any> = new Map();
   private conversationGroups: Map<number, ConversationGroup> = new Map();
   private groupMembers: Map<number, GroupMember> = new Map();
+  private internalMails: Map<number, InternalMail> = new Map();
 
   // Compteurs pour les IDs
   private userId = 1;
@@ -117,6 +123,7 @@ export class CompleteMemStorage implements IStorageComplete {
   private groupMemberId = 1;
   private eventId = 1;
   private eventParticipantId = 1;
+  private internalMailId = 1;
 
   // User methods
   async getUser(id: number): Promise<User | undefined> {
@@ -816,6 +823,65 @@ export class CompleteMemStorage implements IStorageComplete {
         this.groupMembers.set(id, updatedMember);
         break;
       }
+    }
+  }
+
+  // ===============================
+  // INTERNAL MAIL METHODS - SYSTÈME DE COURRIER INTERNE
+  // ===============================
+
+  async createInternalMail(mailData: InsertInternalMail): Promise<InternalMail> {
+    const id = this.internalMailId++;
+    const mail: InternalMail = {
+      ...mailData,
+      id,
+      sentAt: mailData.sentAt || new Date(),
+      isRead: mailData.isRead || false,
+      isStarred: mailData.isStarred || false,
+      isDeleted: mailData.isDeleted || false
+    };
+    
+    this.internalMails.set(id, mail);
+    console.log('[Storage] Created internal mail:', {
+      id: mail.id,
+      from: mailData.fromUserId,
+      to: mailData.toUserId,
+      subject: mail.subject
+    });
+    
+    return mail;
+  }
+
+  async getInternalMailsForUser(userId: number): Promise<InternalMail[]> {
+    const mails = Array.from(this.internalMails.values())
+      .filter(mail => mail.toUserId === userId && !mail.isDeleted)
+      .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
+
+    // Enrichir avec les informations de l'expéditeur
+    const enrichedMails = await Promise.all(
+      mails.map(async (mail) => {
+        const fromUser = await this.getUser(mail.fromUserId);
+        return {
+          ...mail,
+          fromUser: fromUser ? {
+            id: fromUser.id,
+            username: fromUser.username,
+            displayName: fromUser.displayName
+          } : null
+        };
+      })
+    );
+
+    console.log('[Storage] Retrieved internal mails for user:', userId, 'count:', mails.length);
+    return enrichedMails;
+  }
+
+  async markInternalMailAsRead(mailId: number, userId: number): Promise<void> {
+    const mail = this.internalMails.get(mailId);
+    if (mail && mail.toUserId === userId) {
+      const updatedMail = { ...mail, isRead: true, readAt: new Date() };
+      this.internalMails.set(mailId, updatedMail);
+      console.log('[Storage] Marked mail as read:', mailId);
     }
   }
 }
