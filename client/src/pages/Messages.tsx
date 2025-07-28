@@ -157,7 +157,7 @@ export default function Messages() {
   }
 
   return (
-    <div className="flex h-full bg-white dark:bg-gray-900">
+    <div className="flex h-full bg-white dark:bg-gray-900" data-theme-target="content">
       {/* Sidebar - Conversations */}
       <div className="w-80 border-r border-gray-200 dark:border-gray-700 flex flex-col">
         {/* Header */}

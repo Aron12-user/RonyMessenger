@@ -124,6 +124,7 @@ Rony is a comprehensive communication platform that combines messaging, video co
 - **APPLICATION CIBLÉE**: Thèmes appliqués UNIQUEMENT au header et pages de contenu
   - **Header thématique**: `data-theme-target="header"` pour le header ModernHeader
   - **Contenu thématique**: `data-theme-target="content"` pour les zones de contenu principal
+  - **Pages incluses**: Cloud Storage, Courrier, Planification, Messagerie et toutes les pages de fonctionnalités
   - **Sidebar préservée**: La barre verticale de menu reste intacte sans thème appliqué
   - **Classes spéciales**: `.soft-card`, `.soft-button`, `.fluid-container` adaptées à chaque thème
   - **Transitions fluides**: Animation douce lors du changement de thème (0.4s cubic-bezier)
