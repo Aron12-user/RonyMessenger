@@ -209,36 +209,37 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
   return (
     <div 
       data-theme-target="header"
-      className="flex items-center justify-between p-4 border-b backdrop-blur-xl transition-all duration-300 ease-out"
+      className="flex items-center justify-between px-6 py-2 border-b backdrop-blur-xl transition-all duration-300 ease-out mx-4 mt-2 rounded-lg shadow-sm"
       style={{ 
         background: 'var(--color-surface)',
         borderColor: 'var(--color-border)',
         backdropFilter: 'blur(20px)',
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06)',
+        height: '48px',
       }}
     >
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-3">
         {/* Mobile menu button */}
         <Button
           variant="ghost"
           size="sm"
-          className="md:hidden p-2 hover:bg-white/10"
+          className="md:hidden p-1.5 hover:bg-white/10 h-8 w-8"
           onClick={() => setIsMobileOpen(true)}
         >
-          <Menu className="w-5 h-5" style={{ color: 'var(--color-text)' }} />
+          <Menu className="w-4 h-4" style={{ color: 'var(--color-text)' }} />
         </Button>
 
-        <h2 className="text-xl font-light tracking-wide transition-all duration-300" style={{ color: 'var(--color-text)' }}>
+        <h2 className="text-lg font-light tracking-wide transition-all duration-300" style={{ color: 'var(--color-text)' }}>
           {getSectionTitle(currentSection)}
         </h2>
       </div>
 
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-2">
         {/* ✅ SYSTÈME DE THÈME D'APPARENCE */}
         <Button
           variant="ghost"
           size="sm"
-          className="relative p-2 hover:bg-white/10 transition-colors"
+          className="relative p-1.5 hover:bg-white/10 transition-colors h-8 w-8"
           onClick={cycleTheme}
           title={getThemeLabel()}
         >
@@ -251,13 +252,13 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
             <Button
               variant="ghost"
               size="sm"
-              className="relative p-2 hover:bg-white/10 transition-colors"
+              className="relative p-1.5 hover:bg-white/10 transition-colors h-8 w-8"
             >
-              <Bell className="w-5 h-5" style={{ color: 'var(--color-text)' }} />
+              <Bell className="w-4 h-4" style={{ color: 'var(--color-text)' }} />
               {totalNotifications > 0 && (
                 <Badge 
                   variant="destructive" 
-                  className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                  className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full p-0 flex items-center justify-center text-xs"
                 >
                   {totalNotifications > 99 ? '99+' : totalNotifications}
                 </Badge>
@@ -423,9 +424,10 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
             <Button
               variant="ghost"
               size="sm"
-              className="p-2 hover:bg-white/10 transition-colors"
+              className="p-1.5 hover:bg-white/10 transition-colors h-8 w-8"
+              title="Guide d'utilisation"
             >
-              <HelpCircle className="w-5 h-5" style={{ color: 'var(--color-text)' }} />
+              <HelpCircle className="w-4 h-4" style={{ color: 'var(--color-text)' }} />
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[80vh]">
