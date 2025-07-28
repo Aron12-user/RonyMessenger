@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from '@/lib/translations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -21,6 +22,7 @@ import folderBlueIcon from '@assets/icons8-dossier-mac-48_1750386762042.png';
 import folderArchiveIcon from '@assets/icons8-dossier-mac-94_1750386744627.png';
 
 export default function CloudStorage() {
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [currentFolderName, setCurrentFolderName] = useState('');

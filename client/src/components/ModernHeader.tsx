@@ -1,4 +1,5 @@
 import { Menu, Bell, HelpCircle, CheckCheck, Sun, Moon, Cloud, Globe } from "lucide-react";
+import { useLanguage } from "@/hooks/useLanguage";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -34,18 +35,7 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
     }
     return 'light';
   });
-  const [currentLanguage, setCurrentLanguage] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const savedLang = localStorage.getItem('rony-language');
-      if (savedLang) return savedLang;
-      
-      // Détection automatique de la langue de l'appareil
-      const deviceLang = navigator.language || navigator.languages?.[0] || 'en';
-      const langCode = deviceLang.split('-')[0].toLowerCase();
-      return langCode;
-    }
-    return 'en';
-  });
+  const { currentLanguage, changeLanguage } = useLanguage();
   const queryClient = useQueryClient();
 
   // ✅ INITIALISATION DES THÈMES ET LANGUES AU CHARGEMENT
@@ -54,13 +44,7 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
     const savedTheme = localStorage.getItem('rony-theme') || 'light';
     applyTheme(savedTheme);
     
-    // Application de la langue stockée ou détection automatique
-    const savedLang = localStorage.getItem('rony-language');
-    if (!savedLang) {
-      const deviceLang = navigator.language || navigator.languages?.[0] || 'en';
-      const langCode = deviceLang.split('-')[0].toLowerCase();
-      applyLanguage(langCode);
-    }
+    // La langue est maintenant gérée par le hook useLanguage
   }, []);
 
   // ✅ LANGUES OFFICIELLES DU MONDE COMPLÈTES
@@ -250,11 +234,7 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
 
   // ✅ SYSTÈME DE GESTION DES LANGUES
   const applyLanguage = (langCode: string) => {
-    localStorage.setItem('rony-language', langCode);
-    setCurrentLanguage(langCode);
-    
-    // Mise à jour de l'attribut lang du document
-    document.documentElement.lang = langCode;
+    changeLanguage(langCode);
   };
 
   const getCurrentLanguageInfo = () => {
