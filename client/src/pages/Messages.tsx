@@ -43,13 +43,13 @@ export default function Messages() {
   // Fetch conversations
   const { data: conversations = [], isLoading: conversationsLoading } = useQuery<Conversation[]>({
     queryKey: [API_ENDPOINTS.CONVERSATIONS],
-    queryFn: getQueryFn(API_ENDPOINTS.CONVERSATIONS),
+    queryFn: () => fetch(API_ENDPOINTS.CONVERSATIONS, { credentials: 'include' }).then(res => res.json()),
   });
 
   // Fetch all users
   const { data: usersResponse } = useQuery<{data: User[]}>({
     queryKey: [API_ENDPOINTS.USERS],
-    queryFn: getQueryFn(API_ENDPOINTS.USERS),
+    queryFn: () => fetch(API_ENDPOINTS.USERS, { credentials: 'include' }).then(res => res.json()),
   });
 
   const users = usersResponse?.data || [];
@@ -69,13 +69,13 @@ export default function Messages() {
   // Fetch typing indicators for active conversation
   const { data: typingData } = useQuery({
     queryKey: ['/api/conversations', activeConversationId, 'typing'],
-    queryFn: getQueryFn(`/api/conversations/${activeConversationId}/typing`),
+    queryFn: () => fetch(`/api/conversations/${activeConversationId}/typing`, { credentials: 'include' }).then(res => res.json()),
     enabled: !!activeConversationId,
     refetchInterval: 1000, // Poll every second
   });
 
   useEffect(() => {
-    if (typingData) {
+    if (typingData && Array.isArray(typingData)) {
       setTypingUsers(typingData.filter((user: User) => user.id !== currentUser?.id));
     }
   }, [typingData, currentUser?.id]);
@@ -85,9 +85,9 @@ export default function Messages() {
     mutationFn: async (participantId: number) => {
       return apiRequest("POST", API_ENDPOINTS.CONVERSATIONS, { participantId });
     },
-    onSuccess: (conversation) => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.CONVERSATIONS] });
-      setActiveConversationId(conversation.id);
+      setActiveConversationId(data.id);
       setShowNewConversation(false);
       setSelectedUser('');
       toast({
@@ -157,13 +157,13 @@ export default function Messages() {
   }
 
   return (
-    <div className="flex h-full bg-white dark:bg-gray-900" data-theme-target="content">
+    <div className="flex h-full soft-card" data-theme-target="content">
       {/* Sidebar - Conversations */}
-      <div className="w-80 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+      <div className="w-80 border-r soft-border flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-b soft-border">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+            <h1 className="text-xl font-light text-theme-text">
               Messages
             </h1>
             
@@ -171,7 +171,7 @@ export default function Messages() {
               {/* New conversation dialog */}
               <Dialog open={showNewConversation} onOpenChange={setShowNewConversation}>
                 <DialogTrigger asChild>
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 soft-button">
                     <Plus className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
@@ -231,16 +231,16 @@ export default function Messages() {
             </div>
           ) : filteredConversations.length === 0 ? (
             <div className="p-8 text-center">
-              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="h-8 w-8 text-gray-400" />
+              <div className="w-16 h-16 soft-card rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="h-8 w-8 text-theme-text-muted" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+              <h3 className="text-lg font-light text-theme-text mb-2">
                 Aucune conversation
               </h3>
-              <p className="text-gray-500 dark:text-gray-400 mb-4">
+              <p className="text-theme-text-muted mb-4">
                 Commencez une nouvelle conversation
               </p>
-              <Button onClick={() => setShowNewConversation(true)}>
+              <Button onClick={() => setShowNewConversation(true)} className="soft-button">
                 <Plus className="h-4 w-4 mr-2" />
                 Nouvelle conversation
               </Button>
@@ -261,7 +261,7 @@ export default function Messages() {
         {activeConversationId && activeUser ? (
           <>
             {/* Chat header */}
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className="p-4 border-b soft-border soft-card">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="relative">
@@ -276,29 +276,29 @@ export default function Messages() {
                   </div>
                   
                   <div>
-                    <h2 className="font-semibold text-gray-900 dark:text-gray-100">
+                    <h2 className="font-light text-theme-text">
                       {activeUser.displayName || activeUser.username}
                     </h2>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-theme-text-muted">
                       {onlineUsers.has(activeUser.id) ? 'En ligne' : 'Hors ligne'}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 soft-button">
                     <Phone className="h-4 w-4" />
                   </Button>
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 soft-button">
                     <Video className="h-4 w-4" />
                   </Button>
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 soft-button">
                     <Info className="h-4 w-4" />
                   </Button>
                   
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 soft-button">
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
