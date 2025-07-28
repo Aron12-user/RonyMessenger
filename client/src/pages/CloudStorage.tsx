@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTranslation } from '@/lib/translations';
+import { useGlobalTranslation } from '@/lib/globalTranslations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -22,7 +22,7 @@ import folderBlueIcon from '@assets/icons8-dossier-mac-48_1750386762042.png';
 import folderArchiveIcon from '@assets/icons8-dossier-mac-94_1750386744627.png';
 
 export default function CloudStorage() {
-  const { t } = useTranslation();
+  const { t } = useGlobalTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [currentFolderName, setCurrentFolderName] = useState('');
@@ -995,7 +995,7 @@ export default function CloudStorage() {
       {/* Header avec barre de recherche et actions - STYLE MINCE ET FLUIDE */}
       <div className="border-b border-white/10 p-4 fluid-container mx-2 mb-2">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-lg font-light text-gray-700 tracking-wide">Cloud Storage</h1>
+          <h1 className="text-lg font-light text-gray-700 tracking-wide">{t('cloudStorage')}</h1>
           
           {/* Dropdown unifié Actions Cloud avec toutes les fonctions */}
           <DropdownMenu>
@@ -1005,7 +1005,7 @@ export default function CloudStorage() {
                 disabled={isUploading || isSyncing}
               >
                 <Cloud className="mr-2 h-4 w-4" />
-                Actions Cloud
+{t('actionsCloud')}
                 <ChevronDown className="ml-2 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -1022,7 +1022,7 @@ export default function CloudStorage() {
               >
                 <Upload className="mr-3 h-4 w-4 text-blue-600" />
                 <div className="flex flex-col">
-                  <span className="font-medium">Upload Fichiers</span>
+                  <span className="font-medium">{t('uploadFiles')}</span>
                   <span className="text-xs text-gray-500">Jusqu'à 10 Go par fichier</span>
                 </div>
               </DropdownMenuItem>
@@ -1053,7 +1053,7 @@ export default function CloudStorage() {
               >
                 <FolderPlus className="mr-3 h-4 w-4 text-purple-600" />
                 <div className="flex flex-col">
-                  <span className="font-medium">Nouveau Dossier</span>
+                  <span className="font-medium">{t('createFolder')}</span>
                   <span className="text-xs text-gray-500">Créer un dossier vide</span>
                 </div>
               </DropdownMenuItem>

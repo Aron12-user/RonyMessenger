@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTranslation } from '@/lib/translations';
+import { useGlobalTranslation } from '@/lib/globalTranslations';
 import { useState, useEffect } from 'react';
 import React from 'react';
 import { Button } from '@/components/ui/button';
@@ -64,7 +64,7 @@ interface EmailItem {
 }
 
 export default function MailPageFixed() {
-  const { t } = useTranslation();
+  const { t } = useGlobalTranslation();
   const [emails, setEmails] = useState<EmailItem[]>([]);
   const [deletedEmails, setDeletedEmails] = useState<Set<number>>(new Set());
   const [archivedEmails, setArchivedEmails] = useState<Set<number>>(new Set());
