@@ -249,7 +249,7 @@ export default function Meetings() {
   };
 
   return (
-    <div className="flex-1 overflow-hidden">
+    <div className="flex-1 overflow-hidden" data-theme-target="content">
       <div className="h-full flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b bg-white dark:bg-gray-900">

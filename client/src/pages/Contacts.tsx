@@ -307,7 +307,7 @@ export default function Contacts() {
   };
 
   return (
-    <section className="flex-1 p-1 flex flex-col">
+    <section className="flex-1 p-1 flex flex-col" data-theme-target="content">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-2 flex-1">
         <div className="max-w-4xl mx-auto">
           <div className="flex justify-between items-center mb-6">
