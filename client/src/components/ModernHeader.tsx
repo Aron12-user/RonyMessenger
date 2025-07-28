@@ -1,4 +1,4 @@
-import { Menu, Bell, HelpCircle, CheckCheck, Sun, Moon, Cloud } from "lucide-react";
+import { Menu, Bell, HelpCircle, CheckCheck, Sun, Moon, Cloud, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -34,29 +34,147 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
     }
     return 'light';
   });
+  const [currentLanguage, setCurrentLanguage] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedLang = localStorage.getItem('rony-language');
+      if (savedLang) return savedLang;
+      
+      // Détection automatique de la langue de l'appareil
+      const deviceLang = navigator.language || navigator.languages?.[0] || 'en';
+      const langCode = deviceLang.split('-')[0].toLowerCase();
+      return langCode;
+    }
+    return 'en';
+  });
   const queryClient = useQueryClient();
 
-  // ✅ INITIALISATION DES THÈMES AU CHARGEMENT
+  // ✅ INITIALISATION DES THÈMES ET LANGUES AU CHARGEMENT
   useEffect(() => {
     // Application du thème stocké au chargement
     const savedTheme = localStorage.getItem('rony-theme') || 'light';
     applyTheme(savedTheme);
+    
+    // Application de la langue stockée ou détection automatique
+    const savedLang = localStorage.getItem('rony-language');
+    if (!savedLang) {
+      const deviceLang = navigator.language || navigator.languages?.[0] || 'en';
+      const langCode = deviceLang.split('-')[0].toLowerCase();
+      applyLanguage(langCode);
+    }
   }, []);
 
+  // ✅ LANGUES OFFICIELLES DU MONDE COMPLÈTES
+  const worldLanguages = [
+    { code: 'af', name: 'Afrikaans', flag: '🇿🇦' },
+    { code: 'ar', name: 'العربية', flag: '🇸🇦' },
+    { code: 'az', name: 'Azərbaycan', flag: '🇦🇿' },
+    { code: 'be', name: 'Беларуская', flag: '🇧🇾' },
+    { code: 'bg', name: 'Български', flag: '🇧🇬' },
+    { code: 'bn', name: 'বাংলা', flag: '🇧🇩' },
+    { code: 'bs', name: 'Bosanski', flag: '🇧🇦' },
+    { code: 'ca', name: 'Català', flag: '🇪🇸' },
+    { code: 'cs', name: 'Čeština', flag: '🇨🇿' },
+    { code: 'da', name: 'Dansk', flag: '🇩🇰' },
+    { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
+    { code: 'el', name: 'Ελληνικά', flag: '🇬🇷' },
+    { code: 'en', name: 'English', flag: '🇺🇸' },
+    { code: 'es', name: 'Español', flag: '🇪🇸' },
+    { code: 'et', name: 'Eesti', flag: '🇪🇪' },
+    { code: 'fa', name: 'فارسی', flag: '🇮🇷' },
+    { code: 'fi', name: 'Suomi', flag: '🇫🇮' },
+    { code: 'fr', name: 'Français', flag: '🇫🇷' },
+    { code: 'he', name: 'עברית', flag: '🇮🇱' },
+    { code: 'hi', name: 'हिन्दी', flag: '🇮🇳' },
+    { code: 'hr', name: 'Hrvatski', flag: '🇭🇷' },
+    { code: 'hu', name: 'Magyar', flag: '🇭🇺' },
+    { code: 'id', name: 'Bahasa Indonesia', flag: '🇮🇩' },
+    { code: 'is', name: 'Íslenska', flag: '🇮🇸' },
+    { code: 'it', name: 'Italiano', flag: '🇮🇹' },
+    { code: 'ja', name: '日本語', flag: '🇯🇵' },
+    { code: 'ka', name: 'ქართული', flag: '🇬🇪' },
+    { code: 'kk', name: 'Қазақша', flag: '🇰🇿' },
+    { code: 'ko', name: '한국어', flag: '🇰🇷' },
+    { code: 'lt', name: 'Lietuvių', flag: '🇱🇹' },
+    { code: 'lv', name: 'Latviešu', flag: '🇱🇻' },
+    { code: 'mk', name: 'Македонски', flag: '🇲🇰' },
+    { code: 'ms', name: 'Bahasa Melayu', flag: '🇲🇾' },
+    { code: 'mt', name: 'Malti', flag: '🇲🇹' },
+    { code: 'nl', name: 'Nederlands', flag: '🇳🇱' },
+    { code: 'no', name: 'Norsk', flag: '🇳🇴' },
+    { code: 'pl', name: 'Polski', flag: '🇵🇱' },
+    { code: 'pt', name: 'Português', flag: '🇵🇹' },
+    { code: 'ro', name: 'Română', flag: '🇷🇴' },
+    { code: 'ru', name: 'Русский', flag: '🇷🇺' },
+    { code: 'sk', name: 'Slovenčina', flag: '🇸🇰' },
+    { code: 'sl', name: 'Slovenščina', flag: '🇸🇮' },
+    { code: 'sq', name: 'Shqip', flag: '🇦🇱' },
+    { code: 'sr', name: 'Српски', flag: '🇷🇸' },
+    { code: 'sv', name: 'Svenska', flag: '🇸🇪' },
+    { code: 'sw', name: 'Kiswahili', flag: '🇰🇪' },
+    { code: 'th', name: 'ไทย', flag: '🇹🇭' },
+    { code: 'tr', name: 'Türkçe', flag: '🇹🇷' },
+    { code: 'uk', name: 'Українська', flag: '🇺🇦' },
+    { code: 'ur', name: 'اردو', flag: '🇵🇰' },
+    { code: 'vi', name: 'Tiếng Việt', flag: '🇻🇳' },
+    { code: 'zh', name: '中文', flag: '🇨🇳' }
+  ];
+
   const getSectionTitle = (section: string) => {
-    switch (section) {
-      case "messages": return "Conversations";
-      case "assistant": return "Assistant IA";
-      case "calls": return "Appels";
-      case "meetings": return "Réunions";
-      case "files": return "Fichiers";
-      case "contacts": return "Contacts";
-      case "settings": return "Paramètres";
-      case "planning": return "Planification";
-      case "cloud": return "Cloud";
-      case "courrier": return "Courrier";
-      default: return "Conversations";
-    }
+    const translations = {
+      en: {
+        messages: "Conversations", assistant: "AI Assistant", calls: "Calls", 
+        meetings: "Meetings", files: "Files", contacts: "Contacts", 
+        settings: "Settings", planning: "Planning", cloud: "Cloud", courrier: "Mail"
+      },
+      fr: {
+        messages: "Conversations", assistant: "Assistant IA", calls: "Appels",
+        meetings: "Réunions", files: "Fichiers", contacts: "Contacts",
+        settings: "Paramètres", planning: "Planification", cloud: "Cloud", courrier: "Courrier"
+      },
+      es: {
+        messages: "Conversaciones", assistant: "Asistente IA", calls: "Llamadas",
+        meetings: "Reuniones", files: "Archivos", contacts: "Contactos",
+        settings: "Configuración", planning: "Planificación", cloud: "Nube", courrier: "Correo"
+      },
+      de: {
+        messages: "Gespräche", assistant: "KI-Assistent", calls: "Anrufe",
+        meetings: "Besprechungen", files: "Dateien", contacts: "Kontakte",
+        settings: "Einstellungen", planning: "Planung", cloud: "Cloud", courrier: "Post"
+      },
+      it: {
+        messages: "Conversazioni", assistant: "Assistente IA", calls: "Chiamate",
+        meetings: "Riunioni", files: "File", contacts: "Contatti",
+        settings: "Impostazioni", planning: "Pianificazione", cloud: "Cloud", courrier: "Posta"
+      },
+      pt: {
+        messages: "Conversas", assistant: "Assistente IA", calls: "Chamadas",
+        meetings: "Reuniões", files: "Arquivos", contacts: "Contatos",
+        settings: "Configurações", planning: "Planejamento", cloud: "Nuvem", courrier: "Correio"
+      },
+      ru: {
+        messages: "Беседы", assistant: "ИИ Помощник", calls: "Звонки",
+        meetings: "Встречи", files: "Файлы", contacts: "Контакты",
+        settings: "Настройки", planning: "Планирование", cloud: "Облако", courrier: "Почта"
+      },
+      zh: {
+        messages: "对话", assistant: "AI助手", calls: "通话",
+        meetings: "会议", files: "文件", contacts: "联系人",
+        settings: "设置", planning: "规划", cloud: "云端", courrier: "邮件"
+      },
+      ja: {
+        messages: "会話", assistant: "AIアシスタント", calls: "通話",
+        meetings: "会議", files: "ファイル", contacts: "連絡先",
+        settings: "設定", planning: "計画", cloud: "クラウド", courrier: "メール"
+      },
+      ar: {
+        messages: "المحادثات", assistant: "مساعد الذكي", calls: "المكالمات",
+        meetings: "الاجتماعات", files: "الملفات", contacts: "جهات الاتصال",
+        settings: "الإعدادات", planning: "التخطيط", cloud: "السحابة", courrier: "البريد"
+      }
+    };
+
+    const langTranslations = translations[currentLanguage as keyof typeof translations] || translations.fr;
+    return langTranslations[section as keyof typeof langTranslations] || langTranslations.messages;
   };
 
   // ✅ SYSTÈME DE NOTIFICATION CENTRALISÉ
@@ -113,11 +231,34 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
   };
 
   const getThemeLabel = () => {
-    switch (currentTheme) {
-      case 'dark': return 'Mode Sombre';
-      case 'sky': return 'Mode Grille Ciel';
-      default: return 'Mode Clair';
-    }
+    const translations = {
+      en: { dark: 'Dark Mode', sky: 'Sky Grid Mode', light: 'Light Mode' },
+      fr: { dark: 'Mode Sombre', sky: 'Mode Grille Ciel', light: 'Mode Clair' },
+      es: { dark: 'Modo Oscuro', sky: 'Modo Cielo', light: 'Modo Claro' },
+      de: { dark: 'Dunkler Modus', sky: 'Himmel Modus', light: 'Heller Modus' },
+      it: { dark: 'Modalità Scura', sky: 'Modalità Cielo', light: 'Modalità Chiara' },
+      pt: { dark: 'Modo Escuro', sky: 'Modo Céu', light: 'Modo Claro' },
+      ru: { dark: 'Темный режим', sky: 'Небесный режим', light: 'Светлый режим' },
+      zh: { dark: '深色模式', sky: '天空模式', light: '浅色模式' },
+      ja: { dark: 'ダークモード', sky: 'スカイモード', light: 'ライトモード' },
+      ar: { dark: 'الوضع المظلم', sky: 'وضع السماء', light: 'الوضع الفاتح' }
+    };
+    
+    const langTranslations = translations[currentLanguage as keyof typeof translations] || translations.fr;
+    return langTranslations[currentTheme as keyof typeof langTranslations] || langTranslations.light;
+  };
+
+  // ✅ SYSTÈME DE GESTION DES LANGUES
+  const applyLanguage = (langCode: string) => {
+    localStorage.setItem('rony-language', langCode);
+    setCurrentLanguage(langCode);
+    
+    // Mise à jour de l'attribut lang du document
+    document.documentElement.lang = langCode;
+  };
+
+  const getCurrentLanguageInfo = () => {
+    return worldLanguages.find(lang => lang.code === currentLanguage) || worldLanguages.find(lang => lang.code === 'fr');
   };
   
   // Grouper les notifications par type pour l'affichage COMPLET
@@ -235,6 +376,53 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
       </div>
 
       <div className="flex items-center space-x-2">
+        {/* ✅ SYSTÈME DE SÉLECTION DE LANGUE */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="relative p-1.5 hover:bg-white/10 transition-colors h-8 w-8"
+              title={`Langue: ${getCurrentLanguageInfo()?.name}`}
+            >
+              <Globe className="w-4 h-4" style={{ color: 'var(--color-text)' }} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent 
+            align="end" 
+            className="w-64 max-h-80 overflow-y-auto"
+            side="bottom"
+            sideOffset={4}
+          >
+            <DropdownMenuLabel className="font-semibold text-center">
+              🌍 {getCurrentLanguageInfo()?.flag} {getCurrentLanguageInfo()?.name}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            
+            <div className="grid grid-cols-1 gap-0.5 max-h-60 overflow-y-auto">
+              {worldLanguages.map((language) => (
+                <DropdownMenuItem
+                  key={language.code}
+                  onClick={() => applyLanguage(language.code)}
+                  className={`p-2 cursor-pointer hover:bg-muted/50 transition-colors ${
+                    currentLanguage === language.code ? 'bg-muted font-medium' : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg">{language.flag}</span>
+                      <span className="text-sm">{language.name}</span>
+                    </div>
+                    {currentLanguage === language.code && (
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    )}
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {/* ✅ SYSTÈME DE THÈME D'APPARENCE */}
         <Button
           variant="ghost"
