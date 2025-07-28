@@ -130,35 +130,41 @@
     --color-muted: #e1f5fe;
   }
   
-  /* Application des thèmes */
-  body {
+  /* Application des thèmes - UNIQUEMENT HEADER ET PAGES PRINCIPALES */
+  .theme-content {
     background: var(--color-bg);
     color: var(--color-text);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
-  /* Thème sombre - classes spécifiques */
+  /* Thème sombre - classes spécifiques UNIQUEMENT pour éléments avec data-theme-target */
+  [data-theme-target] .soft-card,
   .theme-dark .soft-card {
     @apply bg-gray-800/70 border-gray-700/30;
   }
   
+  [data-theme-target] .soft-button,
   .theme-dark .soft-button {
     @apply bg-gray-800/60 hover:bg-gray-700/80 border-gray-700/30 text-gray-100;
   }
   
+  [data-theme-target] .fluid-container,
   .theme-dark .fluid-container {
     @apply bg-gradient-to-br from-gray-800/30 to-gray-900/20 border-gray-700/30;
   }
   
-  /* Thème grille ciel - classes spécifiques */
+  /* Thème grille ciel - classes spécifiques UNIQUEMENT pour éléments avec data-theme-target */
+  [data-theme-target] .soft-card,
   .theme-sky .soft-card {
     @apply bg-blue-50/80 border-sky-200/40;
   }
   
+  [data-theme-target] .soft-button,
   .theme-sky .soft-button {
     @apply bg-sky-100/70 hover:bg-sky-200/80 border-sky-200/40 text-sky-800;
   }
   
+  [data-theme-target] .fluid-container,
   .theme-sky .fluid-container {
     @apply bg-gradient-to-br from-sky-100/40 to-blue-100/30 border-sky-200/40;
   }
