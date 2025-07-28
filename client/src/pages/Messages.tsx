@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "@/lib/translations";
+import { useGlobalTranslation } from "@/lib/globalTranslations";
 import { useAuth } from "@/hooks/useAuth";
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { API_ENDPOINTS } from "@/lib/constants";
@@ -29,7 +29,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Messages() {
-  const { t } = useTranslation();
+  const { t } = useGlobalTranslation();
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
 
   const [showNewConversation, setShowNewConversation] = useState(false);

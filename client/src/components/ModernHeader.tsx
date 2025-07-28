@@ -1,5 +1,5 @@
 import { Menu, Bell, HelpCircle, CheckCheck, Sun, Moon, Cloud, Globe } from "lucide-react";
-import { useLanguage } from "@/hooks/useLanguage";
+import { useGlobalTranslation, setCurrentLanguage } from "@/lib/globalTranslations";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -35,7 +35,7 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
     }
     return 'light';
   });
-  const { currentLanguage, changeLanguage } = useLanguage();
+  const { t, currentLanguage, setLanguage } = useGlobalTranslation();
   const queryClient = useQueryClient();
 
   // ✅ INITIALISATION DES THÈMES ET LANGUES AU CHARGEMENT
@@ -234,7 +234,7 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
 
   // ✅ SYSTÈME DE GESTION DES LANGUES
   const applyLanguage = (langCode: string) => {
-    changeLanguage(langCode);
+    setLanguage(langCode);
   };
 
   const getCurrentLanguageInfo = () => {

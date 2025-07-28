@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useTranslation } from "@/lib/translations";
+import { useGlobalTranslation } from "@/lib/globalTranslations";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,7 +56,7 @@ interface ActiveRoom {
 }
 
 export default function Meetings() {
-  const { t } = useTranslation();
+  const { t } = useGlobalTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
