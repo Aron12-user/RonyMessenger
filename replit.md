@@ -121,10 +121,12 @@ Rony is a comprehensive communication platform that combines messaging, video co
   - **Mode Clair**: Interface blanche et grise classique (par défaut)
   - **Mode Sombre**: Interface sombre avec arrière-plans gris foncés et texte blanc
   - **Mode Grille Ciel**: Dégradé bleu ciel avec teintes douces et aspect nuageux
-- **ADAPTATION AUTOMATIQUE**: Tous les composants s'adaptent automatiquement au thème sélectionné
+- **APPLICATION CIBLÉE**: Thèmes appliqués UNIQUEMENT au header et pages de contenu
+  - **Header thématique**: `data-theme-target="header"` pour le header ModernHeader
+  - **Contenu thématique**: `data-theme-target="content"` pour les zones de contenu principal
+  - **Sidebar préservée**: La barre verticale de menu reste intacte sans thème appliqué
   - **Classes spéciales**: `.soft-card`, `.soft-button`, `.fluid-container` adaptées à chaque thème
   - **Transitions fluides**: Animation douce lors du changement de thème (0.4s cubic-bezier)
-  - **Couleurs cohérentes**: Variables CSS pour texte, arrière-plan, bordures et accents
 - **PRÉSERVATION TOTALE**: Toutes les fonctionnalités, logiques et opérations maintenues intactes
 
 ### ✅ DESIGN MINCE ET FLUIDE GLOBAL (27 juillet 2025)

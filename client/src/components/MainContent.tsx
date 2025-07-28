@@ -7,6 +7,7 @@ interface MainContentProps {
 export default function MainContent({ children }: MainContentProps) {
   return (
     <div 
+      data-theme-target="content"
       className="flex-1 flex flex-col overflow-hidden rounded-tl-3xl transition-all duration-500 ease-out"
       style={{
         background: 'var(--color-surface)',

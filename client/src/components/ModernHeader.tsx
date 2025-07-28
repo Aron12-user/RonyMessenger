@@ -80,18 +80,17 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
   const notifications = notificationsData?.notifications || [];
   const totalNotifications = notificationsData?.unreadCount || 0;
 
-  // ✅ SYSTÈME DE THÈME AVEC TROIS MODES
+  // ✅ SYSTÈME DE THÈME AVEC TROIS MODES - HEADER ET PAGES UNIQUEMENT
   const applyTheme = (theme: string) => {
-    const body = document.body;
-    const html = document.documentElement;
+    // Cibler uniquement les éléments de contenu principal (pas la sidebar)
+    const headerElements = document.querySelectorAll('[data-theme-target="header"]');
+    const contentElements = document.querySelectorAll('[data-theme-target="content"]');
     
-    // Supprimer toutes les classes de thème
-    body.classList.remove('theme-light', 'theme-dark', 'theme-sky');
-    html.classList.remove('theme-light', 'theme-dark', 'theme-sky');
-    
-    // Appliquer le nouveau thème
-    body.classList.add(`theme-${theme}`);
-    html.classList.add(`theme-${theme}`);
+    // Supprimer toutes les classes de thème des éléments ciblés
+    [...headerElements, ...contentElements].forEach(element => {
+      element.classList.remove('theme-light', 'theme-dark', 'theme-sky');
+      element.classList.add(`theme-${theme}`);
+    });
     
     // Sauvegarder le thème
     localStorage.setItem('rony-theme', theme);
@@ -209,6 +208,7 @@ export default function ModernHeader({ setIsMobileOpen, currentSection }: Modern
 
   return (
     <div 
+      data-theme-target="header"
       className="flex items-center justify-between p-4 border-b backdrop-blur-xl transition-all duration-300 ease-out"
       style={{ 
         background: 'var(--color-surface)',

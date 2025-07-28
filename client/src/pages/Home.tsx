@@ -83,7 +83,7 @@ export default function Home({ isDarkMode, setIsDarkMode }: HomeProps) {
       />
       
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col" data-theme-target="content">
         <ModernHeader 
           setIsMobileOpen={setIsMobileOpen}
           currentSection={currentSection}
