@@ -174,7 +174,7 @@ export default function AIAssistant() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-screen max-h-screen overflow-hidden">
+    <div className="flex-1 flex flex-col h-screen max-h-screen overflow-hidden" data-theme-target="content">
       {/* Header */}
       <div 
         className="p-6 border-b"
