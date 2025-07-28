@@ -67,4 +67,3 @@ tests/
 __tests__/
 
 # Large assets not needed in production
-attached_assets/
