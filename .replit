@@ -12,7 +12,7 @@ run = ["npm", "run", "start"]
 
 [[ports]]
 localPort = 8080
-externalPort = 8080
+externalPort = 80
 
 [workflows]
 runButton = "Dev"
