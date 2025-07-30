@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import authBackgroundImage from '@assets/5968949_1750430126500.jpg';
 
 export default function AuthPage() {
   const [loginUsername, setLoginUsername] = useState('');
@@ -61,13 +60,17 @@ export default function AuthPage() {
   };
   
   return (
-    <div 
-      className="min-h-screen flex flex-col md:flex-row"
+    <div
       style={{
-        backgroundImage: `url(${authBackgroundImage})`,
+        backgroundImage: 'url(/assets/5968949_1750430126500.jpg)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
+        backgroundRepeat: 'no-repeat',
+        height: '100vh',
+        width: '100vw', // vw = 100% largeur écran
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
       }}
     >
       {/* Colonne d'authentification */}
