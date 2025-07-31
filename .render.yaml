@@ -1,0 +1,17 @@
+ervices:
+- type: web
+  name: ronymessenger-backend
+  env: node
+  plan: free
+  branch: Replit-agent
+  buildCommand: npm install
+  startCommand: npm run dev
+  envVars:
+    - key: NODE_ENV
+      value: production
+    - key: PORT
+      value: 5000  # change si tu utilises un autre port
+    - key: DATABASE_URL
+      sync: false   # Ajoute-le manuellement plus tard dans Render
+    - key: JWT_SECRET
+      sync: false
