@@ -62,4 +62,4 @@ ENV NODE_ENV=production
 ENV PORT=8080
 
 # Commande de démarrage
-CMD ["node", "dist/server/index.js"]
+CMD ["node", "dist/index.js"]
