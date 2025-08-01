@@ -88,7 +88,6 @@
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^11.1.0",
     "vaul": "^1.1.0",
-    "vite": "^5.4.19",
     "webrtc-adapter": "^9.0.1",
     "wouter": "^3.3.5",
     "ws": "^8.18.3",
@@ -115,7 +114,8 @@
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
     "tsx": "^4.19.1",
-    "typescript": "5.6.3"
+    "typescript": "5.6.3",
+    "vite": "^7.0.6"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
