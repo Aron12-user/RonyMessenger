@@ -10,7 +10,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { toast } from '@/hooks/use-toast';
 
 // Importation des icônes de fichiers
-import wordIcon from '@assets/icons8-ms-word-50_1750542408634.png';
+const wordIcon = "/attached_assets/icons8-ms-word-50_1750542408634.png";
 import excelIcon from '@assets/icons8-microsoft-excel-2019-50_1750542395351.png';  
 import powerpointIcon from '@assets/icons8-ms-powerpoint-50_1750542416904.png';
 import csvIcon from '@assets/icons8-fichier-csv-50_1750542435006.png';
