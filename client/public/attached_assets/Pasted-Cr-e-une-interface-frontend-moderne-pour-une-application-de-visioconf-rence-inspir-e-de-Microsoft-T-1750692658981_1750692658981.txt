@@ -1,0 +1,34 @@
+Crée une interface frontend moderne pour une application de visioconférence, inspirée de Microsoft Teams ou Jitsi. L’interface doit être responsive, accessible, bien organisée et contenir les fonctionnalités avancées suivantes :
+
+1. Utilise **React** avec **Tailwind CSS** pour le design.
+2. Structure claire avec composants React pour chaque partie :
+   - Barre latérale gauche avec navigation (Accueil, Réunions, Chat, Fichiers, Paramètres)
+   - Zone principale d’appel vidéo en plein écran
+   - Liste des participants à droite
+   - Miniatures vidéos flottantes pour les participants
+   - Bandeau supérieur avec titre de la réunion, minuteur et bouton de fin d’appel
+3. Inclure des fonctionnalités interactives :
+   - 🎥 Activation/désactivation de la caméra
+   - 🎤 Activation/désactivation du micro
+   - 📤 Partage d’écran
+   - 💬 Chat en direct (bulle de messages à droite ou fenêtre flottante)
+   - 🛠 Bouton pour les paramètres audio/vidéo
+   - 🖥️ Affichage en grille des vidéos des participants
+   - 📋 Invitation d’utilisateurs via code ou lien
+   - 🔐 Interface de salle protégée par mot de passe ou lien d’accès unique
+   - 📁 Bouton pour envoyer un fichier (simulé)
+4. Style :
+   - Interface sombre par défaut (mode clair optionnel)
+   - Polices lisibles, boutons arrondis, animations fluides
+   - Utilisation d’icônes modernes (Lucide, Heroicons ou FontAwesome)
+   - Notifications en haut à droite (ex : "Participant X a rejoint la réunion")
+5. Intégration de WebSocket (socket.io) pour mise à jour en temps réel de l’état des participants
+6. Intégration de la webcam et du micro via `navigator.mediaDevices.getUserMedia()`
+7. Interface responsive : fonctionnelle sur mobile, tablette, desktop
+8. Composants réutilisables dans `/components`, style centralisé dans `/styles`
+9. Option bonus : ajoute une animation de chargement avant d’entrer en réunion.
+
+Fournis :
+- Le dossier complet `/src` avec `App.js`, `index.js`, `components/`, `styles/`
+- Un fichier `README.md` avec instructions d’installation
+
