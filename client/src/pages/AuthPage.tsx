@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import authBackgroundImage from '@assets/5968949_1750430126500.jpg';
+import authBackgroundImage from '/attached_assets/5968949_1750430126500.jpg';
 
 export default function AuthPage() {
   const [loginUsername, setLoginUsername] = useState('');
