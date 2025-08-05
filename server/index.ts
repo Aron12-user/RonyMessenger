@@ -1,8 +1,10 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes-clean";
 import { setupMessagingRoutes } from "./routes-messaging";
-import { setupVite, serveStatic, log } from "./vite";
-// WebRTC server removed
+// ❌ Supprimé : import { setupVite, serveStatic, log } from "./vite";
+import { log } from "./vite";
+// ✅ log séparé si besoin
+
 import session from 'express-session';
 import MemoryStore from 'memorystore';
 import { WebSocketServer } from 'ws';
@@ -12,19 +14,18 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Configuration de session adaptée à l'environnement
 const MemStore = MemoryStore(session);
 const isProduction = process.env.NODE_ENV === 'production';
 
 app.use(session({
   store: new MemStore({
-    checkPeriod: 86400000 // prune expired entries every 24h
+    checkPeriod: 86400000
   }),
   secret: process.env.SESSION_SECRET || 'rony_session_secret_key_2025',
   resave: false,
   saveUninitialized: false,
   name: isProduction ? productionConfig.session.name : 'rony.session',
-  cookie: { 
+  cookie: {
     secure: isProduction ? productionConfig.session.secure : false,
     httpOnly: productionConfig.session.httpOnly,
     maxAge: isProduction ? productionConfig.session.maxAge : 7 * 24 * 60 * 60 * 1000,
@@ -32,7 +33,6 @@ app.use(session({
   }
 }));
 
-// Logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
   const { method, url: path } = req;
@@ -67,11 +67,10 @@ app.use('/uploads', express.static('uploads'));
 
 (async () => {
   try {
-    // Validation de la configuration en production
     if (process.env.NODE_ENV === 'production') {
       validateConfig();
     }
-    
+
     log("Application démarrée avec stockage en mémoire", "system");
   } catch (error) {
     console.error("Erreur lors du démarrage:", error);
@@ -81,27 +80,22 @@ app.use('/uploads', express.static('uploads'));
   const server = await registerRoutes(app);
   setupMessagingRoutes(app);
   console.log("Routes configured successfully");
-  
-  // WebSocket configuré dans routes-clean.ts pour éviter les doublons
 
-  // WebRTC server removed
-
-  if (app.get("env") === "development") {
+  // ✅ Import dynamique de Vite seulement en développement
+  if (process.env.NODE_ENV === "development") {
+    const { setupVite } = await import("./vite.js");
     await setupVite(app, server);
   } else {
-    serveStatic(app);
+    const { serveStatic } = await import("./vite.js");
+    await serveStatic(app);
   }
 
-  // Gestion d'erreur globale
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     console.error("Erreur serveur:", err);
-    if (res.headersSent) {
-      return;
-    }
-    
-    res.status(500).json({ 
+    if (res.headersSent) return;
+    res.status(500).json({
       error: "Erreur interne du serveur",
-      message: err.message 
+      message: err.message
     });
   });
 
