@@ -145,7 +145,6 @@ export class CompleteMemStorage implements IStorageComplete {
   private reactionId = 1;
   private groupId = 1;
   private groupMemberId = 1;
-  private eventId = 1;
   private eventParticipantId = 1;
   private eventShareId = 1;
 
